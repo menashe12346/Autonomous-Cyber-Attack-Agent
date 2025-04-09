@@ -1,15 +1,17 @@
 import json
 import re
 
-def extract_json(text: str) -> dict:
+def extract_json(text: str):
     """
-    מחלץ את ה־JSON התקין מתוך טקסט חופשי (כמו פלט של מודל).
-    מניח שה־JSON מתחיל ב־{ ונגמר ב־}.
+    מחלץ את מבנה ה-JSON התקני האחרון מתוך טקסט (ללא שימוש ב-?R).
     """
-    try:
-        match = re.search(r"{.*}", text, re.DOTALL)
-        if not match:
-            raise ValueError("❌ JSON block not found in model output.")
-        return json.loads(match.group())
-    except Exception as e:
-        raise ValueError(f"❌ Failed to extract valid JSON:\n{text}\n\nError: {e}")
+    # נחפש בלוקים שיכולים להיות JSON (מהתווים { ... })
+    json_like_blocks = re.findall(r"{[\s\S]*?}", text)
+
+    for block in reversed(json_like_blocks):  # נתחיל מהסוף
+        try:
+            return json.loads(block)
+        except json.JSONDecodeError:
+            continue
+
+    raise ValueError(f"❌ Failed to extract valid JSON from:\n{text}")

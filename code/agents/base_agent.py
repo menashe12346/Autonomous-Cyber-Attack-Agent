@@ -45,8 +45,13 @@ class BaseAgent(ABC):
         result = self.perform_action(action)
         print("\033[1;32m" + str(result) + "\033[0m")
 
-        cleaned_output = self.clean_output(clean_output_prompt(result))
+        # רק אם הפלט כולל יותר מ־300 מילים – לבצע ניקוי
+        if len(result.split()) > 300:
+            cleaned_output = self.clean_output(clean_output_prompt(result))
+        else:
+            cleaned_output = result
         print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
+
         parsed_info = self.parse_output(cleaned_output)
         print(f"parsed_info - {parsed_info}")
         self.blackboard_api.overwrite_blackboard(parsed_info)
