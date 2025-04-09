@@ -28,12 +28,12 @@ https://huggingface.co/NousResearch/Nous-Hermes-2-Mistral-7B-DPO-GGUF/resolve/ma
 # 🛠️ 3. CLONE AND BUILD LLAMA.CPP
 # ─────────────────────────────────────────────
 
-git clone https://github.com/ggerganov/llama.cpp.git
-cd llama.cpp
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release -j$(nproc)
+git clone https://github.com/ggerganov/llama.cpp.git  
+cd llama.cpp  
+mkdir build  
+cd build  
+cmake ..  
+cmake --build . --config Release -j$(nproc)  
 
 # ─────────────────────────────────────────────
 # ✅ 4. RUN THE MODEL WITH A TEST PROMPT
