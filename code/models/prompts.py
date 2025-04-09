@@ -120,3 +120,46 @@ def clean_output(raw_output: str) -> str:
         if any(re.search(p, line, re.IGNORECASE) for p in keep_patterns):
             cleaned_lines.append(line.strip())
     return '\n'.join(cleaned_lines)
+
+// import re
+import json
+
+def extract_json_from_output(raw_output: str) -> dict:
+    # Default structure
+    result = {
+        "target": {
+            "ip": "",
+            "os": "Unknown",
+            "services": []
+        },
+        "web_directories_status": {
+            "404": {"": ""},
+            "200": {"": ""},
+            "403": {"": ""},
+            "401": {"": ""},
+            "503": {"": ""}
+        }
+    }
+
+    # Extract IP address (first one found)
+    ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', raw_output)
+    if ip_match:
+        result["target"]["ip"] = ip_match.group()
+
+    # Extract services (e.g. 80/tcp open http)
+    service_lines = re.findall(r'(\d+)/(\w+)\s+open\s+([\w\-]+)', raw_output, re.IGNORECASE)
+    for port, protocol, service in service_lines:
+        result["target"]["services"].append({
+            "port": int(port),
+            "protocol": protocol.lower(),
+            "service": service.lower()
+        })
+
+    # Extract common web directory status codes
+    for code in ["200", "401", "403", "404", "503"]:
+        matches = re.findall(rf'\b{code}\b\s+(/[^\s]*)', raw_output)
+        for path in matches:
+            result["web_directories_status"][code][path.strip('/')] = f"{code} found"
+
+    return result
+
