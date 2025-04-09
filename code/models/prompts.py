@@ -103,3 +103,20 @@ Here is the raw output:
 
 Return ONLY the cleaned output. No explanations, no formatting.
 """
+  // import re
+
+def clean_output(raw_output: str) -> str:
+    lines = raw_output.splitlines()
+    keep_patterns = [
+        r'\b\d{1,3}(?:\.\d{1,3}){3}(?:/\d{1,2})?\b',      # IP or CIDR
+        r'\b\d+/(tcp|udp)\s+open\b',                      # open ports
+        r'Server:\s+.*',                                  # server header
+        r'(Apache|nginx|IIS|PHP|OpenSSH|PostgreSQL|MySQL).*',  # common services
+        r'NetName|NetHandle|NetType|CIDR|RegDate|Updated'
+    ]
+    
+    cleaned_lines = []
+    for line in lines:
+        if any(re.search(p, line, re.IGNORECASE) for p in keep_patterns):
+            cleaned_lines.append(line.strip())
+    return '\n'.join(cleaned_lines)
