@@ -13,7 +13,7 @@ from agents.recon_agent import ReconAgent
 from models.LoadModel import LoadModel
 
 def main():
-    NUM_EPISODES = 10
+    NUM_EPISODES = 30
     MAX_STEPS_PER_EPISODE = 5
     LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
     MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"

@@ -69,7 +69,8 @@ class ReconAgent(BaseAgent):
             return False
 
         # אם כלום מאלה לא קרה – לא צריך להריץ
-        return False
+        #return False
+        return True # for debug
 
     def get_reward(self, prev_state, action, next_state) -> float:
         """

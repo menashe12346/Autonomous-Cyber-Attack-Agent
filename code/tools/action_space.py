@@ -16,17 +16,11 @@ COMMAND_TEMPLATES = {
     "curl_headers": [
         "curl -I http://{ip}"
     ],
-    "curl_robots": [
-        "curl http://{ip}/robots.txt"
-    ],
     "curl_index": [
         "curl http://{ip}/"
     ],
     "wget_index": [
         "wget http://{ip} -O -"
-    ],
-    "httpx": [
-        "httpx -u http://{ip}"
     ],
     "dns_lookup": [
         "nslookup {ip}"
@@ -37,9 +31,6 @@ COMMAND_TEMPLATES = {
     "traceroute": [
         "traceroute {ip}"
     ],
-    "banner_grabbing": [
-        "nc -vz {ip} 80"
-    ],
     "web_tech": [
         "whatweb http://{ip}"
     ],
@@ -47,7 +38,7 @@ COMMAND_TEMPLATES = {
         "dirb http://{ip}"
     ],
     "gobuster_scan": [
-        "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/common.txt"
+        "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
     ]
 }
 

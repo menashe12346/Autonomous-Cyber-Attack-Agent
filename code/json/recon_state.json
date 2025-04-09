@@ -38,5 +38,14 @@
             "distribution": "ubuntu",
             "release_version": "5.10"
         }
+    },
+    "network_context": {
+    "ip_class": "",
+    "rfc": "",
+    "net_name": "",
+    "net_type": "",
+    "scope": "",
+    "organization": "",
+    "country": ""
     }
 }

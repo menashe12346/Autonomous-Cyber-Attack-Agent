@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import random
 import subprocess
-from models.prompts import PROMPT_1, PROMPT_2
+from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt
 
 class BaseAgent(ABC):
     def __init__(self, name, action_space, blackboard_api, replay_buffer, policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
@@ -46,8 +46,10 @@ class BaseAgent(ABC):
         result = self.perform_action(action)
         print("\033[1;32m" + str(result) + "\033[0m")
 
-        parsed_info = self.parse_output(result)
-        print(parsed_info)
+        cleaned_output = self.clean_output(clean_output_prompt(result))
+        print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
+        parsed_info = self.parse_output(cleaned_output)
+        print(f"parsed_info - {parsed_info}")
         self.blackboard_api.overwrite_blackboard(parsed_info)
 
         raw_next_state = self.get_state_raw()
@@ -139,6 +141,10 @@ class BaseAgent(ABC):
         """
 
         return self.model.run_prompts([PROMPT_1, PROMPT_2(command_output)])
+
+    def clean_output(self, command_output: str) -> dict:
+        return self.model.run_prompt(clean_output_prompt(command_output))
+
 
     @abstractmethod
     def get_reward(self, prev_state, action, next_state) -> float:
