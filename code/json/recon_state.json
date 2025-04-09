@@ -1,0 +1,42 @@
+{
+    "target": {
+        "ip": "",
+        "os": "Unknown",
+        "host_up": true,
+        "services": [
+            {"port": "", "protocol": "", "service": ""}
+        ]
+    },
+    "web_directories_status": {
+        "404": {
+            "": ""
+        },
+        "200": {
+            "": ""
+        },
+        "403": {
+            "": ""
+        },
+        "401": {
+            "": ""
+        },
+        "503": {
+            "": ""
+        }
+    },
+    "server_details": {
+        "server_type": "Apache",
+        "version": "2.2.8",
+        "os": "Ubuntu",
+        "supported_protocols": ["DAV", "HTTP/1.1"]
+    },
+    "backend_technology": {
+        "language": "PHP",
+        "version": "5.2.4",
+        "package_version": {
+            "package_version": "2",
+            "distribution": "ubuntu",
+            "release_version": "5.10"
+        }
+    }
+}
