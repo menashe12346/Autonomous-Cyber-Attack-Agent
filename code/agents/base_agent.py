@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import random
 import subprocess
 from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt
-hello menashe
 class BaseAgent(ABC):
     def __init__(self, name, action_space, blackboard_api, replay_buffer, policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
         self.name = name
