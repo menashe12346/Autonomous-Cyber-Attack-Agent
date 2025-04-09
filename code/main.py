@@ -15,8 +15,8 @@ from models.LoadModel import LoadModel
 def main():
     NUM_EPISODES = 30
     MAX_STEPS_PER_EPISODE = 5
-    LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
-    MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+    LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run" # change to your path
+    MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf" # change to your path
     model = LoadModel(LLAMA_RUN, MODEL_PATH)
     TARGET_IP = "192.168.56.101"
 

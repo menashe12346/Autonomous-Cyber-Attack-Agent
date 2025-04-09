@@ -1,43 +1,43 @@
-# ╔════════════════════════════════════════════════════╗
-# ║        🚀 SETUP & RUN LLAMA.CPP WITH NOUS-HERMES  ║
-# ╚════════════════════════════════════════════════════╝
+# ╔══════════════════════════════════════════════════════════╗
+# ║       🚀 Setup & Run llama.cpp with Nous-Hermes          ║
+# ╚══════════════════════════════════════════════════════════╝
 
-# ─────────────────────────────────────────────
-# 📦 1. INSTALL DEPENDENCIES (CHOOSE YOUR OS)
-# ─────────────────────────────────────────────
+# ────── 1. Install Dependencies (Choose your OS) ──────
 
-# 👉 For Arch Linux:
+# 👉 Arch Linux:
 sudo pacman -Syu --needed base-devel cmake git python-pip
 
-# 👉 For Ubuntu/Debian:
+# 👉 Ubuntu / Debian:
 sudo apt update && sudo apt install -y build-essential cmake git python3-pip
 pip install huggingface_hub
 
-# ─────────────────────────────────────────────
-# 📥 2. DOWNLOAD THE MODEL (.GGUF FORMAT)
-# ─────────────────────────────────────────────
 
-# (Optional) Login to HuggingFace if the model is gated:
-huggingface-cli login   # ← Paste your token when prompted
+# ────── 2. Clone the Project Repository ──────
 
-# 📄 Download the model file:
+git clone https://github.com/menashe12346/cyber_ai.git
+
+
+# ────── 3. Download the Model (.gguf format) ──────
+
+# Optional: Login to HuggingFace (if required)
+huggingface-cli login  # ← Paste your token when asked
+
+# Download model file into current directory:
 wget -P ./ \
 https://huggingface.co/NousResearch/Nous-Hermes-2-Mistral-7B-DPO-GGUF/resolve/main/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf
 
-# ─────────────────────────────────────────────
-# 🛠️ 3. CLONE AND BUILD LLAMA.CPP
-# ─────────────────────────────────────────────
 
-git clone https://github.com/ggerganov/llama.cpp.git  
-cd llama.cpp  
-mkdir build  
-cd build  
-cmake ..  
-cmake --build . --config Release -j$(nproc)  
+# ────── 4. Clone & Build llama.cpp ──────
 
-# ─────────────────────────────────────────────
-# ✅ 4. RUN THE MODEL WITH A TEST PROMPT
-# ─────────────────────────────────────────────
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release -j$(nproc)
 
-# Replace <model_path> if needed:
+
+# ────── 5. Run the Model with a Prompt ──────
+
+# Run with basic test input (adjust path if needed):
 ./bin/llama-run ../Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf "Hello! What is 2 + 2?"
