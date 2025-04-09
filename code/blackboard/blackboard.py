@@ -15,6 +15,7 @@ def initialize_blackboard():
             "403": { "": "" },
             "401": { "": "" },
             "503": { "": "" }
-        }
+        },
+        "actions_history": {}
     }
 

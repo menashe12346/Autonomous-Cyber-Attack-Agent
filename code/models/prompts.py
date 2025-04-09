@@ -60,6 +60,7 @@ def PROMPT_2(command_output: str) -> str:
     🧪 Before returning your answer:
     - Compare it to the original structure character by character
     - Return ONLY the JSON — no explanation, no formatting, no comments
+    - Important: Only return a single valid JSON matching the above structure. Do not include explanations or multiple outputs.
     """
 
 def clean_output_prompt(raw_output: str) -> str:

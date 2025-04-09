@@ -81,52 +81,65 @@ class ReconAgent(BaseAgent):
         """
         reward = 0.0
 
+        def _services_to_set(services):
+            return set(
+                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
+                for s in services if isinstance(s, dict)
+            )
+
         try:
-            # חילוץ ה-state המלאים מהאובייקט המקודד
-            prev_hash = hashlib.sha256(json.dumps(prev_state.tolist(), sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-            next_hash = hashlib.sha256(json.dumps(next_state.tolist(), sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            # חילוץ hash מזהה ל־encoded state
+            prev_hash = hashlib.sha256(json.dumps(prev_state.tolist(), sort_keys=True).encode()).hexdigest()
+            next_hash = hashlib.sha256(json.dumps(next_state.tolist(), sort_keys=True).encode()).hexdigest()
 
             prev_dict = self.state_encoder.encoded_to_state.get(prev_hash, {})
             next_dict = self.state_encoder.encoded_to_state.get(next_hash, {})
 
-            # היסטוריית פקודות
             actions_history = prev_dict.get("actions_history", [])
 
-            # בדיקה אם הפקודה כבר בוצעה
+            # ✴️ חזרתיות
             if action in actions_history:
-                reward -= 0.5  # ענישה קלה על חזרתיות
+                reward -= 0.5  # ענישה על חזרתיות
             else:
-                reward += 0.2  # בונוס קל על חקירה
+                reward += 0.2  # תגמול קל על חקירה חדשה
 
-            # בדיקת שיפור במידע (services, ports)
-            prev_services = set(prev_dict.get("target", {}).get("services", []))
-            next_services = set(next_dict.get("target", {}).get("services", []))
+            # ✴️ שירותים חדשים
+            prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
+            next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
             new_services = next_services - prev_services
             reward += 1.0 * len(new_services)
 
+            # ✴️ פורטים פתוחים (אם קיימים)
             prev_ports = set(prev_dict.get("target", {}).get("open_ports", []))
             next_ports = set(next_dict.get("target", {}).get("open_ports", []))
             new_ports = next_ports - prev_ports
             reward += 0.5 * len(new_ports)
 
-            # תגמול אם shell חדש נפתח
+            # ✴️ פתיחת shell חדש
             prev_shell = prev_dict.get("runtime_behavior", {}).get("shell_opened", {})
             next_shell = next_dict.get("runtime_behavior", {}).get("shell_opened", {})
 
             if not prev_shell.get("shell_type") and next_shell.get("shell_type"):
-                reward += 5.0
+                reward += 5.0  # בונוס גדול על shell
 
-            # תגמול נוסף לפי שדרוג רמת גישה
+            # ✴️ שדרוג רמת גישה
             levels = {"": 0, "user": 1, "root": 2}
             prev_level = prev_shell.get("shell_access_level", "")
             next_level = next_shell.get("shell_access_level", "")
             if levels.get(next_level, 0) > levels.get(prev_level, 0):
                 reward += 3.0
 
-            # אם לא נוספו שירותים, פורטים או shell חדש – והפקודה בוצעה בעבר ⇒ נעניש קלות
+            # ✴️ ענישה אם אין שינוי והפקודה חזרה על עצמה
             if not new_services and not new_ports and not next_shell.get("shell_type"):
                 if action in actions_history:
                     reward -= 1.0  # ענישה על בזבוז פעולה
+
+            # 🔍 DEBUG
+            print(f"[Reward Debug] Action: {action}")
+            print(f"[Reward Debug] New services: {len(new_services)}")
+            print(f"[Reward Debug] New ports: {len(new_ports)}")
+            print(f"[Reward Debug] Shell opened: {next_shell.get('shell_type')}")
+            print(f"[Reward Debug] Total reward: {reward:.4f}")
 
             return reward
 

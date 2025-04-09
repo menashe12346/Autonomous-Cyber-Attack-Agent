@@ -14,12 +14,39 @@ class StateEncoder:
     def encode(self, state: dict, actions_history: list) -> torch.Tensor:
         """
         ממיר את מילון ה־state + היסטוריית פקודות לווקטור Torch עקבי.
-        כל פעולה מקודדת לפי אינדקס בפעולות האפשריות (action_space).
+        בנוסף, שומר תמיד את מבנה ברירת המחדל של המצב כולו.
         """
         # יצירת hash לזיהוי מצב
         state_str = json.dumps(state, sort_keys=True, separators=(',', ':'))
         state_hash = hashlib.sha256(state_str.encode()).hexdigest()
-        self.encoded_to_state[state_hash] = state
+
+        # יצירת state מלא עם שדות ברירת מחדל שתמיד יהיו
+        full_state = {
+            "target": {
+                "ip": "",
+                "os": "Unknown",
+                "services": [
+                    {"port": "", "protocol": "", "service": ""},
+                    {"port": "", "protocol": "", "service": ""},
+                    {"port": "", "protocol": "", "service": ""}
+                ]
+            },
+            "web_directories_status": {
+                "404": { "": "" },
+                "200": { "": "" },
+                "403": { "": "" },
+                "401": { "": "" },
+                "503": { "": "" }
+            },
+            "actions_history": actions_history.copy()
+        }
+
+        # עדכון עם מידע מה־state הנוכחי (אם קיים)
+        full_state["target"].update(state.get("target", {}))
+        full_state["web_directories_status"].update(state.get("web_directories_status", {}))
+
+        # שמירה לפי hash
+        self.encoded_to_state[state_hash] = full_state
 
         # שלב 1: קידוד ה־state עצמו
         flat_state = self._flatten_state(state)

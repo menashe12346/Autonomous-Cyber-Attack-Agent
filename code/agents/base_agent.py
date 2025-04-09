@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 import random
 import subprocess
 from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt
+import json
+from utils.utils import remove_comments_and_empty_lines, extract_final_json
+
 class BaseAgent(ABC):
     def __init__(self, name, action_space, blackboard_api, replay_buffer, policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
         self.name = name
@@ -30,7 +33,9 @@ class BaseAgent(ABC):
         הלולאה הראשית של הסוכן – מייצגת ניסיון פעולה ולמידה אחת.
         """
         raw_state = self.get_state_raw()  # שליפת מצב גולמי
-        state = self.state_encoder.encode(raw_state, self.actions_history)  # קידוד עם היסטוריה
+        raw_state_with_history = dict(raw_state)
+        raw_state_with_history["actions_history"] = self.actions_history.copy()
+        state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
         self.last_state = state
 
         action = self.choose_action(state)
@@ -42,22 +47,39 @@ class BaseAgent(ABC):
         print(f"    Current state: {str(state)[:8]}...")  # מקצר את ההדפסה
         print(f"    Chosen action: {action}")
 
-        result = self.perform_action(action)
+        result = remove_comments_and_empty_lines(self.perform_action(action))
         print("\033[1;32m" + str(result) + "\033[0m")
 
         # רק אם הפלט כולל יותר מ־300 מילים – לבצע ניקוי
-        if len(result.split()) > 300:
-            cleaned_output = self.clean_output(clean_output_prompt(result))
+        if len(result.split()) > 200:
+            try:
+                cleaned_output = self.clean_output(clean_output_prompt(result))
+            except Exception as e:
+                print(f"[!] Failed to clean output: {e}")
+                cleaned_output = result
         else:
             cleaned_output = result
         print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
 
-        parsed_info = self.parse_output(cleaned_output)
+        parsed_info_raw = self.parse_output(cleaned_output)
+        parsed_info = extract_final_json(parsed_info_raw)
         print(f"parsed_info - {parsed_info}")
-        self.blackboard_api.overwrite_blackboard(parsed_info)
+        # חילוץ מחרוזת ה-JSON מתוך הרשימה
+        parsed_json_str = next((p for p in parsed_info if p.strip().startswith("{")), None)
+
+        if parsed_json_str:
+            try:
+                parsed_json = json.loads(parsed_json_str)
+                self.blackboard_api.overwrite_blackboard(parsed_json)
+            except json.JSONDecodeError as e:
+                print(f"[!] Failed to decode JSON from model output: {e}")
+        else:
+            print("[!] No valid JSON found in parsed_info")
 
         raw_next_state = self.get_state_raw()
-        next_state = self.state_encoder.encode(raw_next_state, self.actions_history)  # קידוד עם ההיסטוריה המעודכנת
+        raw_next_state_with_history = dict(raw_next_state)
+        raw_next_state_with_history["actions_history"] = self.actions_history.copy()
+        next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
         reward = self.get_reward(state, action, next_state)
 
         # בניית קלט למודל לצורך עדכון ולוג

@@ -7,9 +7,6 @@ COMMAND_TEMPLATES = {
     "nmap_fast": [
         "nmap -F {ip}"
     ],
-    "nmap_os": [
-        "nmap -O {ip}"
-    ],
     "nmap_services": [
         "nmap {ip}"
     ],
@@ -33,9 +30,6 @@ COMMAND_TEMPLATES = {
     ],
     "web_tech": [
         "whatweb http://{ip}"
-    ],
-    "dirb_scan": [
-        "dirb http://{ip}"
     ],
     "gobuster_scan": [
         "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"

@@ -10,27 +10,9 @@ class BlackboardAPI:
 
     def get_state_for_agent(self, agent_name: str) -> dict:
         """
-        מחלץ את המידע הרלוונטי לסוכן מסוים מתוך ה־Blackboard.
-        מותאם כרגע ל־ReconAgent בלבד.
+        מחזיר את כל ה־Blackboard כפי שהוא, ללא סינון לפי סוג הסוכן.
         """
-        if agent_name == "ReconAgent":
-            return {
-                "open_ports": self.blackboard["target"].get("open_ports", []),
-                "services": self.blackboard["target"].get("services", []),
-                "previous_actions": [
-                    log["action"]
-                    for log in self.blackboard.get("actions_log", [])
-                    if log.get("agent") == "ReconAgent"
-                ],
-                "errors": [
-                    err["error"]
-                    for err in self.blackboard.get("errors", [])
-                    if err.get("agent") == "ReconAgent"
-                ]
-            }
-        else:
-            # ברירת מחדל לסוכנים שלא הוגדרו במפורש
-            return copy.deepcopy(self.blackboard)
+        return copy.deepcopy(self.blackboard)
 
     def update_runtime_behavior(self, info_dict: dict):
         """
