@@ -1,0 +1,1742 @@
+<</mnt/linux-data/project/code/get_code.py>>
+import os, tiktoken
+
+def count_tokens(text):
+    enc = tiktoken.get_encoding("cl100k_base")  # מתאים ל-GPT-4o
+    return len(enc.encode(text, disallowed_special=()))
+
+def print_all_python_files(start_dir, output_file):
+    skip_dirs = {
+        "llama.cpp",
+        "nous-hermes",
+        "__pycache__",
+        "models--google--flan-t5-xl"
+    }
+
+    output = ''
+    for root, dirs, files in os.walk(start_dir):
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+
+        for file in files:
+            if file.endswith(".py"):
+                path = os.path.join(root, file)
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        snippet = f"<<{path}>>\n{content}\n"
+                        output += snippet
+                        print(snippet)
+                except Exception as e:
+                    print(f"[ERROR] Failed to read {path}: {e}")
+
+    with open(output_file, 'w', encoding='utf-8') as out_f:
+        out_f.write(output)
+
+    print(f"\n[Total Tokens (GPT-4o): {count_tokens(output)}]")
+    print(f"[Saved to: {output_file}]")
+
+# הפעלת הסקריפט
+print_all_python_files(
+    "/mnt/linux-data/project/code",
+    "/mnt/linux-data/project/code/code.txt"
+)
+
+<</mnt/linux-data/project/code/main.py>>
+import torch
+from blackboard.blackboard import initialize_blackboard
+from blackboard.api import BlackboardAPI
+from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
+from agents.agent_manager import AgentManager
+from orchestrator.scenario_orchestrator import ScenarioOrchestrator
+from models.policy_model import PolicyModel
+from models.trainer import RLModelTrainer
+from encoders.state_encoder import StateEncoder
+from encoders.action_encoder import ActionEncoder
+from tools.action_space import get_commands_for_agent
+from agents.recon_agent import ReconAgent
+from models.LoadModel import LoadModel
+
+def main():
+    NUM_EPISODES = 30
+    MAX_STEPS_PER_EPISODE = 5
+    LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run" # change to your path
+    MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf" # change to your path
+    model = LoadModel(LLAMA_RUN, MODEL_PATH)
+    TARGET_IP = "192.168.56.101"
+
+    # אתחול Replay Buffer משותף לכל הפרקים
+    replay_buffer = PrioritizedReplayBuffer(max_size=20000)
+
+    # אתחול Action Space קבוע מראש (לפי IP קבוע)
+    action_space = get_commands_for_agent("recon", TARGET_IP)
+    action_encoder = ActionEncoder(action_space)
+    state_encoder = StateEncoder(action_space=action_space)
+
+    # אתחול Policy Model
+    state_size = 128
+    action_size = len(action_space)
+    policy_model = PolicyModel(state_size=state_size, action_size=action_size)
+
+    # מעבר ל־GPU אם זמין
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    policy_model.to(device)
+
+    # אתחול מאמן RL
+    trainer = RLModelTrainer(policy_model, replay_buffer, device=device, learning_rate=1e-3, gamma=0.99)
+
+    command_cache = {}
+
+    all_actions = []  # רשימת כל הפעולות של כל האפיזודות
+
+    # הרצת מספר פרקים (סימולציות)
+    for episode in range(NUM_EPISODES):
+        print(f"\n========== EPISODE {episode + 1} ==========")
+
+        # אתחול מחדש של ה־Blackboard לפרק נפרד
+        blackboard_dict = initialize_blackboard()
+        blackboard_dict["target"]["ip"] = TARGET_IP
+        bb_api = BlackboardAPI(blackboard_dict)
+
+        # יצירת הסוכן מחדש (state פנימי חדש בכל פעם)
+        recon_agent = ReconAgent(
+            blackboard_api=bb_api,
+            policy_model=policy_model,
+            replay_buffer=replay_buffer,
+            state_encoder=state_encoder,
+            action_encoder=action_encoder,
+            command_cache = command_cache,
+            model = model
+        )
+
+        agents = [recon_agent]
+        agent_manager = AgentManager(bb_api)
+        agent_manager.register_agents(agents)
+
+        orchestrator = ScenarioOrchestrator(
+            blackboard=bb_api,
+            agent_manager=agent_manager,
+            max_steps=MAX_STEPS_PER_EPISODE,
+            scenario_name=f"AttackEpisode_{episode + 1}",
+            target=TARGET_IP
+        )
+
+        orchestrator.run_scenario_loop()
+
+        all_actions.append({
+            "episode": episode + 1,
+            "actions": recon_agent.actions_history.copy()
+        })
+
+        # שלב אימון קצר אחרי כל פרק (אפשר גם כל כמה פרקים)
+        for _ in range(10):  # למשל 10 איטרציות אימון
+            loss = trainer.train_batch(batch_size=32)
+            if loss is not None:
+                print(f"[Episode {episode + 1}] Training loss: {loss:.4f}")
+    
+    print("\n========== SUMMARY OF ALL EPISODES ==========")
+    for episode_info in all_actions:
+        print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
+
+
+    # שמירה סופית של המודל
+    trainer.save_model("models/saved_models/policy_model.pth")
+    print("✅ Final trained model saved.")
+
+if __name__ == "__main__":
+    main()
+
+<</mnt/linux-data/project/code/replay_buffer/replay_buffer.py>>
+###### Not using it now ######
+
+import random
+
+class ReplayBuffer:
+    def __init__(self, max_size=10000):
+        self.buffer = []
+        self.max_size = max_size
+
+    def add_experience(self, state, action, reward, next_state):
+        """
+        מוסיף ניסיון חדש למאגר הזיכרון.
+        """
+        experience = {
+            "state": state,
+            "action": action,
+            "reward": reward,
+            "next_state": next_state
+        }
+        if len(self.buffer) >= self.max_size:
+            self.buffer.pop(0)  # FIFO – מוחק את הראשון
+        self.buffer.append(experience)
+
+    def sample_batch(self, batch_size):
+        """
+        מחזיר תת־קבוצה אקראית מהמאגר ללמידה.
+        """
+        return random.sample(self.buffer, min(batch_size, len(self.buffer)))
+
+    def get_recent(self, n=5):
+        """
+        מחזיר את n הניסיונות האחרונים.
+        """
+        return self.buffer[-n:]
+
+    def clear(self):
+        """
+        מאפס את הזיכרון לחלוטין.
+        """
+        self.buffer.clear()
+
+    def size(self):
+        return len(self.buffer)
+
+<</mnt/linux-data/project/code/replay_buffer/Prioritized_Replay_Buffer.py>>
+import random
+import numpy as np
+import torch
+
+class PrioritizedReplayBuffer:
+    def __init__(self, max_size=100000, alpha=0.6, beta=0.4):
+        self.max_size = max_size
+        self.alpha = alpha  # alpha קובע את עוצמת ה-priorities
+        self.beta = beta    # beta קובע עד כמה נעדיף חוויות עם priorites גבוהים
+        self.buffer = []
+        self.priorities = []
+
+    def add_experience(self, state, action, reward, next_state, done):
+        """
+        מוסיף ניסיון חדש למאגר עם priority.
+        """
+        priority = max(self.priorities) if self.buffer else 1.0  # אתחול priority
+        experience = {
+            "state": state,
+            "action": action,
+            "reward": reward,
+            "next_state": next_state,
+            "done": done
+        }
+
+        if len(self.buffer) >= self.max_size:
+            self.buffer.pop(0)
+            self.priorities.pop(0)
+
+        self.buffer.append(experience)
+        self.priorities.append(priority)
+
+    def sample_batch(self, batch_size):
+        """
+        מחזיר דגימה אקראית של חוויות מהמאגר לפי עדיפות.
+        """
+        priorities = np.array(self.priorities)
+        scaled_priorities = priorities ** self.alpha
+        probabilities = scaled_priorities / np.sum(scaled_priorities)
+
+        indices = np.random.choice(len(self.buffer), size=batch_size, p=probabilities)
+        batch = [self.buffer[i] for i in indices]
+        weights = (len(self.buffer) * probabilities[indices]) ** -self.beta
+        weights /= weights.max()
+
+        states = torch.stack([ex['state'] for ex in batch])
+        actions = torch.tensor([ex['action'] for ex in batch])
+        rewards = torch.tensor([ex['reward'] for ex in batch])
+        next_states = torch.stack([ex['next_state'] for ex in batch])
+        dones = torch.tensor([ex['done'] for ex in batch])
+
+        return states, actions, rewards, next_states, dones, weights, indices
+
+    def update_priorities(self, indices, priorities):
+        """
+        מעדכן את ה-priorities של חוויות מסוימות לפי חוויות מאוחרות.
+        """
+        for idx, priority in zip(indices, priorities):
+            self.priorities[idx] = priority
+
+    def size(self):
+        return len(self.buffer)
+
+    def clear(self):
+        self.buffer.clear()
+        self.priorities.clear()
+
+<</mnt/linux-data/project/code/agents/base_agent.py>>
+from abc import ABC, abstractmethod
+import random
+import subprocess
+from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
+import json
+import re
+from utils.utils import remove_comments_and_empty_lines, extract_json_block
+from Cache.llm_cache import LLMCache
+
+class BaseAgent(ABC):
+    def __init__(self, name, action_space, blackboard_api, replay_buffer, policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
+        self.name = name
+        self.action_space = action_space
+        self.blackboard_api = blackboard_api
+        self.replay_buffer = replay_buffer
+        self.policy_model = policy_model
+        self.state_encoder = state_encoder
+        self.action_encoder = action_encoder
+        self.last_state = None
+        self.last_action = None
+        self.epsilon = epsilon
+        self.actions_history = [] 
+        self.command_cache = command_cache  # פקודות שהורצו והתוצאה נשמרה
+        self.model = model
+        self.llm_cache = LLMCache()
+
+    @abstractmethod
+    def should_run(self) -> bool:
+        """
+        בודקת אם הסוכן צריך לפעול כעת לפי מצב המערכת, ניסיונות קודמים, והגדרות.
+        """
+        pass
+
+    def run(self):
+        """
+        הלולאה הראשית של הסוכן – מייצגת ניסיון פעולה ולמידה אחת.
+        """
+        raw_state = self.get_state_raw()  # שליפת מצב גולמי
+        raw_state_with_history = dict(raw_state)
+        raw_state_with_history["actions_history"] = self.actions_history.copy()
+        state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
+        self.last_state = state
+
+        print(f"last state: {raw_state_with_history}")
+
+        action = self.choose_action(state)
+        self.last_action = action
+
+        self.actions_history.append(action)  # הוספת פעולה להיסטוריה
+
+        print(f"\n[+] Agent: {self.name}")
+        print(f"    Current state: {str(state)[:8]}...")  # מקצר את ההדפסה
+        print(f"    Chosen action: {action}")
+
+        result = remove_comments_and_empty_lines(self.perform_action(action))
+        print("\033[1;32m" + str(result) + "\033[0m")
+
+        # רק אם הפלט כולל יותר מ־300 מילים – לבצע ניקוי
+        if len(result.split()) > 300:
+            try:
+                cleaned_output = self.clean_output(clean_output_prompt(result))
+            except Exception as e:
+                print(f"[!] Failed to clean output: {e}")
+                cleaned_output = result
+        else:
+            cleaned_output = result
+        print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
+
+        parsed_info = self.parse_output(cleaned_output)
+        print(f"parsed_info - {parsed_info}")
+        self.blackboard_api.overwrite_blackboard(parsed_info)
+
+        raw_next_state = self.get_state_raw()
+        raw_next_state_with_history = dict(raw_next_state)
+        raw_next_state_with_history["actions_history"] = self.actions_history.copy()
+        next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
+        reward = self.get_reward(state, action, next_state)
+
+        print(f"new state: {dict(self.state_encoder.decode(next_state))}")
+
+        # בניית קלט למודל לצורך עדכון ולוג
+        experience = {
+            "state": state,
+            "action": self.action_space.index(action),
+            "reward": reward,
+            "next_state": next_state
+        }
+
+        # עדכון מודל וחישוב q_pred + loss
+        q_pred, loss = self.policy_model.update(experience)
+
+        print(f"    Predicted Q-value: {q_pred:.4f}")
+        print(f"    Actual reward:     {reward:.4f}")
+        print(f"    Loss:              {loss:.6f}")
+
+        # הוספת חוויה למאגר
+        self.replay_buffer.add_experience(state, self.action_space.index(action), reward, next_state, False)
+
+        self.blackboard_api.append_action_log({
+            "agent": self.name,
+            "action": action,
+            "result": result,
+        })
+
+
+    def get_state_raw(self):
+        """
+        מחלץ את מצב ה־blackboard_api כפי שהוא, לצורך קידוד עם היסטוריה.
+        """
+        return self.blackboard_api.get_state_for_agent(self.name)
+
+    def get_state(self):
+        """
+        מחלץ את מצב ה-blackboard_api ומקודד אותו לוקטור קלט למודל.
+        """
+        return self.state_encoder.encode(self.get_state_raw(), self.actions_history)
+
+    def choose_action(self, state_vector):
+        """
+        בוחרת פעולה לפי אסטרטגיית ε-greedy:
+        - בהסתברות ε: פעולה אקראית (exploration)
+        - בהסתברות 1-ε: הפעולה הכי טובה לפי policy_model (exploitation)
+        """
+        if random.random() < self.epsilon:
+            # פעולה אקראית (חקירה)
+            action_index = random.randint(0, len(self.action_space) - 1)
+            self.decay_epsilon()
+        else:
+            # הפעולה הכי טובה לפי המודל
+            action_index = self.policy_model.predict_best_action(state_vector)
+
+        return self.action_space[action_index]
+    
+    def decay_epsilon(self, decay_rate=0.995, min_epsilon=0.01):
+        self.epsilon = max(self.epsilon * decay_rate, min_epsilon)
+
+    def perform_action(self, action: str) -> str:
+        """
+        ברירת מחדל להפעלת פעולה ע"י פקודת טרמינל על כתובת IP של הקורבן.
+        מיועד לסוכנים שמשתמשים בפקודות מבוססות IP.
+        """
+
+        ip = self.blackboard_api.blackboard.get("target", {}).get("ip", "127.0.0.1")
+        command = action.format(ip=ip)
+
+        if action in self.command_cache:
+            print(f"[Cache] Returning cached result for action: {action}")
+            return self.command_cache[action]
+
+        try:
+            output = subprocess.check_output(command.split(), timeout=10).decode()
+        except Exception as e:
+            self.blackboard_api.add_error(self.name, action, str(e))
+            output = ""
+
+        self.command_cache[action] = output
+
+        return output
+
+    def parse_output(self, command_output: str) -> dict:
+        """
+        מפעיל את מודול הפענוח ומחזיר תובנות ל־blackboard_api.
+        כולל שימוש חכם במטמון לפי מצב ופעולה.
+        """
+
+        # מצב עם היסטוריה (לצורך ייחודיות בזיהוי state-action)
+        raw_state = self.get_state_raw()
+        raw_state["actions_history"] = self.actions_history.copy()
+
+        # ניסיון לשלוף מהמטמון
+        cached = self.llm_cache.get(raw_state, self.last_action)
+        if cached:
+            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
+            return cached
+
+        # הפעלת prompt מותאם לסוג הפלט
+        prompt_for_cleaning = PROMPT_FOR_A_PROMPT(command_output)
+        inner_prompt = self.model.run_prompt(prompt_for_cleaning)
+        final_prompt = PROMPT_2(command_output, inner_prompt)
+
+        # שליחת כל הפרומפטים למודל
+        full_response = self.model.run_prompts([PROMPT_1, final_prompt])
+        print(f"full_response - {full_response}")
+
+        # חילוץ JSON תקני מהפלט
+        parsed = extract_json_block(full_response)
+
+        # שמירה למטמון
+        if parsed:
+            self.llm_cache.set(raw_state, self.last_action, parsed)
+
+        return parsed
+
+    def clean_output(self, command_output: str) -> dict:
+        return self.model.run_prompt(clean_output_prompt(command_output))
+
+    @abstractmethod
+    def get_reward(self, prev_state, action, next_state) -> float:
+        """
+        מחשב את ערך התגמול שהפעולה השיגה, לפי השינוי במצב.
+        """
+        # (יישום חיצוני – reward_calculator)
+        raise NotImplementedError
+
+    def update_policy(self, state, action, reward, next_state):
+        """
+        שולח את הנתונים ל-Replay Buffer והמודל מתעדכן בהתאם.
+        """
+        self.policy_model.update({
+            "state": state,
+            "action": self.action_space.index(action),
+            "reward": reward,
+            "next_state": next_state
+        })
+
+<</mnt/linux-data/project/code/agents/recon_agent.py>>
+from agents.base_agent import BaseAgent
+from tools.action_space import get_commands_for_agent
+import hashlib
+import json
+
+class ReconAgent(BaseAgent):
+    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model):
+        ip = blackboard_api.blackboard["target"]["ip"]  # שליפת IP מהמטרה
+        super().__init__(
+            name="ReconAgent",
+            blackboard_api=blackboard_api,
+            action_space=get_commands_for_agent("recon", ip),
+            policy_model=policy_model,
+            replay_buffer=replay_buffer,
+            state_encoder=state_encoder,
+            action_encoder=action_encoder,
+            command_cache=command_cache,
+            model=model
+        )
+
+    def should_run(self):
+        """
+        מחליט אם הסוכן צריך לפעול לפי כלל המידע שב־Blackboard,
+        כולל שירותים, פורטים, שגיאות, shell פתוח, זיהוי ע״י הגנות ועוד.
+        """
+        bb = self.blackboard_api.blackboard
+        target = bb.get("target", {})
+        runtime = bb.get("runtime_behavior", {})
+        actions_log = bb.get("actions_log", [])
+        errors = bb.get("errors", [])
+        impact = bb.get("attack_impact", {})
+
+        services = target.get("services", [])
+        open_ports = target.get("open_ports", [])
+
+        # 1. אין שירותים ואין פורטים כלל => חובה להריץ
+        if not services and not open_ports:
+            return True
+
+        # 2. אם יש פחות מ־2 שירותים ופורטים => כנראה הסריקה חלקית
+        if len(services) < 2 and len(open_ports) < 2:
+            return True
+
+        # 3. אם הייתה שגיאה בסריקה קודמת מהסוכן הזה
+        for err in errors:
+            if err.get("agent") == self.name:
+                return True
+
+        # 4. אם עברו יותר מ־5 דקות מאז הפעם האחרונה שהסוכן פעל
+        last_time = None
+        for log in reversed(actions_log):
+            if log.get("agent") == self.name:
+                last_time = log.get("timestamp")
+                break
+        if last_time is None:
+            return True  # הסוכן טרם פעל
+
+        import time
+        if time.time() - last_time > 300:
+            return True
+
+        # 5. אם כבר יש shell פתוח ⇒ אולי מיותר לסרוק
+        shell = runtime.get("shell_opened", {})
+        if shell.get("shell_type") and shell.get("shell_access_level"):
+            return False
+
+        # 6. אם הסוכן נחשף – אולי לא נרצה לסרוק שוב כרגע
+        if impact.get("detected_by_defenses", False):
+            return False
+
+        # אם כלום מאלה לא קרה – לא צריך להריץ
+        #return False
+        return True # for debug
+
+    def get_reward(self, prev_state, action, next_state) -> float:
+        """
+        מחשב תגמול לפי:
+        - שינוי במידע (שירותים, פורטים, shell)
+        - שימוש חוזר או חדשני בפעולה
+        - יעילות הפעולה
+        """
+        reward = 0.0
+
+        def _services_to_set(services):
+            return set(
+                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
+                for s in services if isinstance(s, dict)
+            )
+
+        try:
+            # חילוץ hash מזהה ל־encoded state
+            prev_hash = hashlib.sha256(json.dumps(prev_state.tolist(), sort_keys=True).encode()).hexdigest()
+            next_hash = hashlib.sha256(json.dumps(next_state.tolist(), sort_keys=True).encode()).hexdigest()
+
+            prev_dict = self.state_encoder.encoded_to_state.get(prev_hash, {})
+            next_dict = self.state_encoder.encoded_to_state.get(next_hash, {})
+
+            actions_history = prev_dict.get("actions_history", [])
+
+            # ✴️ חזרתיות
+            if action in actions_history:
+                reward -= 0.5  # ענישה על חזרתיות
+            else:
+                reward += 0.2  # תגמול קל על חקירה חדשה
+
+            # ✴️ שירותים חדשים
+            prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
+            next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
+            new_services = next_services - prev_services
+            reward += 1.0 * len(new_services)
+
+            # ✴️ פורטים פתוחים (אם קיימים)
+            prev_ports = set(prev_dict.get("target", {}).get("open_ports", []))
+            next_ports = set(next_dict.get("target", {}).get("open_ports", []))
+            new_ports = next_ports - prev_ports
+            reward += 0.5 * len(new_ports)
+
+            # ✴️ פתיחת shell חדש
+            prev_shell = prev_dict.get("runtime_behavior", {}).get("shell_opened", {})
+            next_shell = next_dict.get("runtime_behavior", {}).get("shell_opened", {})
+
+            if not prev_shell.get("shell_type") and next_shell.get("shell_type"):
+                reward += 5.0  # בונוס גדול על shell
+
+            # ✴️ שדרוג רמת גישה
+            levels = {"": 0, "user": 1, "root": 2}
+            prev_level = prev_shell.get("shell_access_level", "")
+            next_level = next_shell.get("shell_access_level", "")
+            if levels.get(next_level, 0) > levels.get(prev_level, 0):
+                reward += 3.0
+
+            # ✴️ ענישה אם אין שינוי והפקודה חזרה על עצמה
+            if not new_services and not new_ports and not next_shell.get("shell_type"):
+                if action in actions_history:
+                    reward -= 1.0  # ענישה על בזבוז פעולה
+
+            # 🔍 DEBUG
+            print(f"[Reward Debug] Action: {action}")
+            print(f"[Reward Debug] New services: {len(new_services)}")
+            print(f"[Reward Debug] New ports: {len(new_ports)}")
+            print(f"[Reward Debug] Shell opened: {next_shell.get('shell_type')}")
+            print(f"[Reward Debug] Total reward: {reward:.4f}")
+
+            return reward
+
+        except Exception as e:
+            print(f"[!] Reward computation failed: {e}")
+            return 0.0
+
+<</mnt/linux-data/project/code/agents/agent_manager.py>>
+class AgentManager:
+    def __init__(self, blackboard_api):
+        self.agents = []
+        self.blackboard = blackboard_api
+        self.current_index = 0
+        self.execution_log = []
+        self.actions_history = []  # רשימה שתשמור את כל הפעולות שבוצעו במערכת
+
+    def register_agents(self, agent_list):
+        """
+        מקבל רשימת סוכנים ומריץ תהליך רישום.
+        """
+        self.agents = agent_list
+        self.current_index = 0
+        self.execution_log.clear()
+
+    def run_all(self):
+        """
+        מריץ את כל הסוכנים ש־should_run שלהם מחזיר True.
+        """
+        for agent in self.agents:
+            if agent.should_run():
+                agent.run()
+                self.execution_log.append(agent.name)
+                self.actions_history.append(agent.last_action)
+
+    def run_step(self):
+        """
+        מריץ את הסוכן הבא בתור אם הוא מוכן לפעולה.
+        """
+        if not self.agents:
+            return
+
+        agent = self.agents[self.current_index]
+        self.current_index = (self.current_index + 1) % len(self.agents)
+
+        if agent.should_run():
+            agent.run()
+            self.execution_log.append(agent.name)
+            self.actions_history.append(agent.last_action)
+
+    def has_pending_actions(self):
+        """
+        בודק אם יש סוכנים שעדיין עשויים לפעול.
+        """
+        return any(agent.should_run() for agent in self.agents)
+
+    def log_summary(self):
+        """
+        מציג את רשימת הסוכנים שפעלו עד כה.
+        """
+        print("Agents executed in this round:")
+        for name in self.execution_log:
+            print(f"✅ {name}")
+            print(self.actions_history)
+
+<</mnt/linux-data/project/code/Cache/llm_cache.py>>
+import hashlib
+import json
+import os
+import pickle
+
+class LLMCache:
+    def __init__(self, cache_file="llm_cache.pkl"):
+        self.cache_file = cache_file
+        self.cache = self._load_cache()
+
+    def _load_cache(self):
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, "rb") as f:
+                return pickle.load(f)
+        return {}
+
+    def _save_cache(self):
+        with open(self.cache_file, "wb") as f:
+            pickle.dump(self.cache, f)
+
+    def _hash(self, state, action):
+        data = {
+            "state": state,
+            "action": action
+        }
+        state_action_str = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(state_action_str.encode()).hexdigest()
+
+    def get(self, state, action):
+        key = self._hash(state, action)
+        return self.cache.get(key)
+
+    def set(self, state, action, value):
+        key = self._hash(state, action)
+        self.cache[key] = value
+        self._save_cache()
+<</mnt/linux-data/project/code/tools/action_space.py>>
+from typing import List
+
+COMMAND_TEMPLATES = {
+    "ping": [
+        "ping -c 1 {ip}"
+    ],
+    "nmap_fast": [
+        #"nmap -F {ip}"
+    ],
+    "nmap_services": [
+        "nmap {ip}"
+    ],
+    "curl_headers": [
+        "curl -I http://{ip}"
+    ],
+    "curl_index": [
+        "curl http://{ip}/"
+    ],
+    "wget_index": [
+        "wget http://{ip} -O -"
+    ],
+    "traceroute": [
+        "traceroute {ip}"
+    ],
+    "web_tech": [
+        "whatweb http://{ip}"
+    ],
+    "gobuster_scan": [
+        "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+    ]
+}
+
+TOOLS = list(COMMAND_TEMPLATES.keys())
+
+def build_action_space(ip: str) -> List[str]:
+    """
+    בונה את כל הפקודות האפשריות עם כתובת ה-IP שניתנה.
+    """
+    actions = []
+    for tool, templates in COMMAND_TEMPLATES.items():
+        for cmd in templates:
+            actions.append(cmd.format(ip=ip))
+    return actions
+
+def get_commands_for_agent(agent_type: str, ip: str) -> List[str]:
+    """
+    מחזיר רשימת פקודות בהתאם לסוג הסוכן.
+    
+    כרגע, כל סוג הסוכן משתמש בפונקציה build_action_space,
+    אך בעתיד ניתן להרחיב ולסנן פקודות לפי agent_type.
+    """
+    # דוגמה: אם הסוכן Recon, נשתמש בכל הפקודות המהירות
+    if agent_type.lower() == "recon":
+        return build_action_space(ip)
+    # אפשר להוסיף תנאים נוספים עבור סוגי סוכנים אחרים (access, exec וכו')
+    return build_action_space(ip)
+
+if __name__ == "__main__":
+    target_ip = "192.168.56.101"
+    cmds = get_commands_for_agent("recon", target_ip)
+    for cmd in cmds:
+        print(cmd)
+
+<</mnt/linux-data/project/code/orchestrator/scenario_orchestrator.py>>
+class ScenarioOrchestrator:
+    def __init__(self, blackboard, agent_manager, target, max_steps=20, scenario_name="DefaultScenario", stop_conditions=None):
+        self.blackboard = blackboard
+        self.agent_manager = agent_manager
+        self.max_steps = max_steps
+        self.current_step = 0
+        self.scenario_name = scenario_name
+        self.stop_conditions = stop_conditions or []
+        self.active = False
+        self.target=target
+
+    def start(self):
+        """
+        מאתחל את התרחיש: איפוס מדדים, לוגים, איתחול Blackboard ו־AgentManager.
+        """
+        self.current_step = 0
+        self.active = True
+        self.blackboard.blackboard["target"] = {
+            "ip": self.target,
+            "os": "Unknown",
+            "services": [
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""}
+            ]
+        }
+        self.blackboard.blackboard["web_directories_status"] = {
+            "404": { "": "" },
+            "200": { "": "" },
+            "403": { "": "" },
+            "401": { "": "" },
+            "503": { "": "" }
+        }
+
+        """
+        self.blackboard.blackboard["attack_id"] = self.scenario_name
+        self.blackboard.blackboard["actions_log"] = []
+        self.blackboard.blackboard["reward_log"] = []
+        self.blackboard.blackboard["errors"] = []
+        self.blackboard.blackboard["timestamps"]["first_packet"] = None
+        self.blackboard.blackboard["timestamps"]["last_packet"] = None
+        self.blackboard.blackboard["runtime_behavior"] = {
+            "shell_opened": {
+                "shell_type": "",
+                "session_type": "",
+                "shell_access_level": "",
+                "authentication_method": "",
+                "shell_session": { "commands_run": [] }
+            }
+        }
+        """
+        print(f"[+] Starting scenario: {self.scenario_name}")
+
+    def should_continue(self):
+        """
+        בודק האם יש להמשיך את התרחיש או להפסיק אותו לפי תנאים שהוגדרו.
+        """
+        if not self.active:
+            return False
+        if self.current_step >= self.max_steps:
+            print("[!] Max steps reached.")
+            return False
+        for condition in self.stop_conditions:
+            if condition(self.blackboard.blackboard):
+                print("[!] Stop condition met.")
+                return False
+        return True
+
+    def step(self):
+        """
+        מבצע צעד אחד של הסימולציה ע"י הפעלת AgentManager.
+        """
+        print(f"[>] Running step {self.current_step}...")
+        self.agent_manager.run_step()
+        self.current_step += 1
+
+    def end(self):
+        """
+        סוגר את התרחיש ומסמן את הסימולציה כלא פעילה.
+        """
+        self.active = False
+        #self.blackboard.blackboard["timestamps"]["last_packet"] = self.current_step
+        print(f"[+] Scenario '{self.scenario_name}' ended after {self.current_step} steps.")
+
+    def run_scenario_loop(self):
+        """
+        מפעיל את כל התרחיש בלולאה עד לסיום.
+        """
+        self.start()
+        while self.should_continue():
+            self.step()
+        self.end()
+
+<</mnt/linux-data/project/code/models/policy_model.py>>
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class PolicyModel(nn.Module):
+    def __init__(self, state_size, action_size, hidden_sizes=[128, 64], learning_rate=1e-3, gamma=0.99):
+        super(PolicyModel, self).__init__()
+        self.fc1 = nn.Linear(state_size, hidden_sizes[0])
+        self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.output = nn.Linear(hidden_sizes[1], action_size)
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        self.loss_fn = nn.MSELoss()
+        self.gamma = gamma  # discount factor
+
+    def forward(self, state_vector):
+        """
+        מקבל state_vector ומחזיר Q-values לכל פעולה.
+        """
+        if not isinstance(state_vector, torch.Tensor):
+            state_vector = torch.tensor(state_vector, dtype=torch.float32)
+
+        if state_vector.ndim == 1:
+            state_vector = state_vector.unsqueeze(0)  # הוספת מימד Batch
+
+        x = F.relu(self.fc1(state_vector))
+        x = F.relu(self.fc2(x))
+        return self.output(x)  # No softmax – Q-values ממשיים
+
+    def predict_best_action(self, state_vector):
+        """
+        מחזיר את אינדקס הפעולה עם Q-value הגבוה ביותר.
+        """
+        with torch.no_grad():
+            q_values = self.forward(state_vector)
+            return torch.argmax(q_values).item()
+
+    def update(self, experience):
+        """
+        מעדכן את הרשת על בסיס ניסיון בודד (state, action, reward, next_state).
+        """
+        state = experience["state"].clone().detach().unsqueeze(0)
+        action = torch.tensor([experience["action"]], dtype=torch.long)
+        reward = torch.tensor([experience["reward"]], dtype=torch.float32)
+        next_state = experience["next_state"].clone().detach().unsqueeze(0)
+
+        # חישוב Q(s, a)
+        q_values = self.forward(state)
+        q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)  # שומר על [batch]
+
+        # חישוב max_a' Q(next_state, a')
+        next_q_values = self.forward(next_state)
+        max_next_q_value = next_q_values.max(1)[0].detach()
+
+        # TD Target
+        td_target = reward + self.gamma * max_next_q_value
+        td_target = td_target.view(-1)
+
+        # Loss = MSE(Q, TD_target)
+        loss = self.loss_fn(q_value, td_target)
+
+        # שלב האימון
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return q_value.item(), loss.item()
+
+    def save(self, path):
+        torch.save(self.state_dict(), path)
+
+    def load(self, path):
+        self.load_state_dict(torch.load(path))
+        self.eval()
+
+<</mnt/linux-data/project/code/models/LoadModel.py>>
+import subprocess
+import os
+
+class LoadModel:
+    def __init__(self, llama_path, model_path, tokens=2000, threads=4):
+        self.llama_path = llama_path
+        self.model_path = model_path
+        self.tokens = str(tokens)
+        self.threads = str(threads)
+
+        if not os.path.isfile(self.llama_path):
+            raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
+        if not self.model_path.startswith("file://"):
+            raise ValueError("model_path must start with 'file://'")
+
+        print("✅ LoadModel initialized successfully.")
+    
+    def run_prompt(self, prompt):
+        cmd = [
+            self.llama_path,
+            self.model_path,
+            prompt,
+            "-n", self.tokens,
+            "-t", self.threads
+        ]
+        try:
+            output = subprocess.check_output(cmd, text=True)
+            return output.strip()
+        except subprocess.CalledProcessError as e:
+            print("❌ llama-run failed:")
+            print(e.output)
+            return None
+
+
+    def run_prompts(self, prompts):
+        responses = []
+        context = ""
+        for prompt in prompts:
+            full_prompt = context + "\n" + prompt if context else prompt
+            cmd = [
+                self.llama_path,
+                self.model_path,
+                full_prompt,
+                "-n", self.tokens,
+                "-t", self.threads
+            ]
+            try:
+                output = subprocess.check_output(cmd, text=True)
+                responses.append(output)
+                context += f"\n{prompt}\n{output.strip()}"
+            except subprocess.CalledProcessError as e:
+                print("❌ llama-run failed:")
+                print(e.output)
+                responses.append(None)
+        return responses
+
+<</mnt/linux-data/project/code/models/run.py>>
+from LoadModel import LoadModel
+from prompts import PROMPT_FOR_A_PROMPT
+
+# הגדרת הנתיבים
+LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
+MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+
+# יצירת מופע של המחלקה והפעלת הרצף
+model = LoadModel(LLAMA_RUN, MODEL_PATH)
+command_output = """
+<html><head><title>Metasploitable2 - Linux</title></head><body>
+<pre>
+
+                _                  _       _ _        _     _      ____  
+ _ __ ___   ___| |_ __ _ ___ _ __ | | ___ (_) |_ __ _| |__ | | ___|___ \ 
+| '_ ` _ \ / _ \ __/ _` / __| '_ \| |/ _ \| | __/ _` | '_ \| |/ _ \ __) |
+| | | | | |  __/ || (_| \__ \ |_) | | (_) | | || (_| | |_) | |  __// __/ 
+|_| |_| |_|\___|\__\__,_|___/ .__/|_|\___/|_|\__\__,_|_.__/|_|\___|_____|
+                            |_|                                          
+
+
+Warning: Never expose this VM to an untrusted network!
+
+Contact: msfdev[at]metasploit.com
+
+Login with msfadmin/msfadmin to get started
+
+
+</pre>
+<ul>
+<li><a href="/twiki/">TWiki</a></li>
+<li><a href="/phpMyAdmin/">phpMyAdmin</a></li>
+<li><a href="/mutillidae/">Mutillidae</a></li>
+<li><a href="/dvwa/">DVWA</a></li>
+<li><a href="/dav/">WebDAV</a></li>
+</ul>
+</body>
+</html>
+"""
+response = model.run_prompt(PROMPT_FOR_A_PROMPT(command_output))
+
+print(response)
+
+<</mnt/linux-data/project/code/models/trainer.py>>
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import random
+import copy  # בתחילת הקובץ
+
+class RLModelTrainer:
+    def __init__(self, policy_model, replay_buffer, device='cpu', learning_rate=1e-3, gamma=0.99):
+        """
+        מאמן את מודל ה־policy (Q-Network) לפי נתונים מה־ReplayBuffer.
+        
+        Parameters:
+        - policy_model: מודל ה־neural network הממפה state_vector → q_values.
+        - replay_buffer: מופע של ReplayBuffer המכיל ניסיונות (state, action, reward, next_state).
+        - device: 'cpu' או 'cuda'.
+        - learning_rate: קצב הלמידה (α).
+        - gamma: discount factor (γ) עבור חישוב TD-target.
+        """
+        self.policy_model = policy_model.to(device)
+        self.replay_buffer = replay_buffer
+        self.device = device
+        self.gamma = gamma
+        self.optimizer = optim.Adam(self.policy_model.parameters(), lr=learning_rate)
+        self.loss_fn = nn.MSELoss()
+        self.training_history = []
+        self.target_model = copy.deepcopy(policy_model).to(device)
+        self.target_model.eval()
+        self.update_target_steps = 100  # כל כמה צעדים לעדכן
+        self.train_step = 0
+
+    def train_batch(self, batch_size):
+        """
+        מדגם batch מה־PrioritizedReplayBuffer ומעדכן את המודל לפי TD-learning (DQN).
+        מחזיר את ערך האיבוד (loss) עבור האימון.
+        """
+        if self.replay_buffer.size() < batch_size:
+            return None  # לא מספיק נתונים לאימון
+
+        # מדגם חוויות בעדיפות (Prioritized Sampling)
+        states, actions, rewards, next_states, dones, weights, indices = self.replay_buffer.sample_batch(batch_size)
+        
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
+        weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
+
+        # חישוב Q-values עבור ה־states הנוכחיים:
+        q_values = self.policy_model.forward(states)
+        current_q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+
+        # חישוב Q-values עבור ה־next_states:
+        next_q_values = self.target_model.forward(next_states)
+        max_next_q_values = next_q_values.max(1)[0]
+        dones = dones.float()
+        td_target = rewards + self.gamma * max_next_q_values * (1 - dones)
+
+        td_target = td_target.detach()
+
+        # חישוב ה־TD error
+        td_errors = torch.abs(current_q_values - td_target)
+
+        # חישוב האיבוד על פי ה-weight של כל חוויה
+        loss = (weights * td_errors).mean()
+
+        # ביצוע backpropagation
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        self.train_step += 1
+        if self.train_step % self.update_target_steps == 0:
+            self.target_model.load_state_dict(self.policy_model.state_dict())
+
+        self.optimizer.step()
+
+        # עדכון ה-priorities
+        self.replay_buffer.update_priorities(indices, td_errors.detach().cpu().numpy())
+
+        return loss.item()
+
+    def evaluate_action(self, state):
+        """
+        מקבל state (וקטור) ומחזיר את Q-values לכל הפעולות האפשריות.
+        """
+        with torch.no_grad():
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
+            q_values = self.policy_model.forward(state_tensor)
+            return q_values.cpu().numpy()
+
+    def save_model(self, path):
+        """
+        שומר את המודל לדיסק.
+        """
+        torch.save(self.policy_model.state_dict(), path)
+
+    def load_model(self, path):
+        """
+        טוען את המודל מהדיסק.
+        """
+        self.policy_model.load_state_dict(torch.load(path, map_location=self.device))
+        self.policy_model.eval()
+
+    def plot_learning_curve(self):
+        """
+        מציג גרף של איבוד האימון לאורך זמן.
+        """
+        import matplotlib.pyplot as plt
+        plt.plot(self.training_history)
+        plt.xlabel("Training Iterations")
+        plt.ylabel("Loss")
+        plt.title("Learning Curve")
+        plt.show()
+
+<</mnt/linux-data/project/code/models/prompts.py>>
+PROMPT_1 = """ You are about to receive a specific JSON structure. You must remember it exactly as-is.
+
+Do not explain, summarize, or transform it in any way.
+Just memorize it internally — you will be asked to use it later.
+
+Here is the structure:
+{
+  "target": {
+    "ip": "",
+    "os": "Unknown",
+    "services": [
+      {"port": "", "protocol": "", "service": ""},
+      {"port": "", "protocol": "", "service": ""},
+      {"port": "", "protocol": "", "service": ""}
+    ]
+  },
+  "web_directories_status": {
+    "404": { "": "" },
+    "200": { "": "" },
+    "403": { "": "" },
+    "401": { "": "" },
+    "503": { "": "" }
+  },
+}
+"""
+
+def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
+  return f"""
+    You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
+
+    🛑 Do NOT:
+    - Change or rename any fields
+    - Add new keys like "network_services", "port_state", or "service_name"
+    - Nest data inside services or add arrays like "web_directories"
+    - Remove or replace any part of the original structure
+    - GUESS or INVENT any values that were not explicitly provided
+    - Capitalize service or protocol names — always use lowercase only
+    - Fill "ip" unless it is clearly the target machine
+    - Use vague messages like "Active" — only real messages are allowed
+
+    ✅ You MUST:
+    - Return a JSON with the following two root-level keys only: "target" and "web_directories_status"
+    - Inside "target", include: "ip" (string), "os" (string), and "services" (array of {{\"port\", \"protocol\", \"service\"}})
+    - Inside "web_directories_status", keep ONLY the keys: "200", "401", "403", "404", "503" — each must be a dictionary mapping directory paths (e.g., "admin/") to messages
+    - You MUST include ALL valid services found in the data.
+    - There is NO limit on how many services can be returned.
+    - Even if the example structure had 3 entries — return as many as needed.
+
+    🚫 If no IP, OS, or web directories were provided, leave them exactly as-is:
+    - "ip": ""
+    - "os": "Unknown"
+    - web_directories_status must include exactly these keys: "200", "401", "403", "404", "503"
+    - If no web directory paths are available for a status, use: {{ "": "" }} as its value
+
+    ❗ Each entry in the "services" array MUST be a JSON object with:
+    - "port": number
+    - "protocol": string (lowercase only)
+    - "service": string (lowercase only)
+
+    Instructions for this spesific command:
+
+    {Custom_prompt}
+
+    Here is the new data:
+
+    {command_output}
+
+    🧪 Before returning your answer:
+    - Compare it to the original structure character by character
+    - Return ONLY ONE JSON — no explanation, no formatting, no comments
+  """
+
+def clean_output_prompt(raw_output: str) -> str:
+    return f"""
+You are given raw output from a network-related command.
+
+🎯 Your task is to extract only the **critical technical reconnaissance data** relevant to identifying, fingerprinting, or mapping a **target system**.
+
+❗ You do **NOT** know which command was used — it could be `whois`, `dig`, `nmap`, `nslookup`, `curl -I`, or any other.
+
+✅ KEEP only the following:
+- IP ranges, CIDRs, hostnames, domain names
+- Open ports and services (e.g., "80/tcp open http")
+- Server headers and fingerprinting info (e.g., Apache, nginx, PHP, IIS, versions)
+- WHOIS identifiers: NetName, NetHandle, NetType, CIDR
+- RFC references and technical timestamps (RegDate, Updated)
+- Technical metadata directly describing network blocks or infrastructure
+
+🛑 REMOVE everything else, including:
+- Organization identity fields: `OrgName`, `OrgId`, `OrgTechName`, `OrgAbuseName`, etc.
+- Geographical location: `City`, `Country`, `PostalCode`, `Address`
+- Abuse or tech contact details: `OrgAbuseEmail`, `OrgTechEmail`, `Phone numbers`
+- Legal disclaimers or registry policy messages (ARIN/RIPE/IANA)
+- Any general comments, public notices, usage suggestions, or boilerplate text
+- Duplicate fields or references (e.g., "Ref:", "Parent:")
+- Empty fields, formatting headers, decorative characters
+
+⚠️ DO NOT:
+- Rephrase anything
+- Add explanations or summaries
+- Invent missing values
+
+Return ONLY the cleaned, relevant technical output that a **penetration tester or AI agent** could use to understand the target system.
+
+---
+
+Here is the raw output:
+---
+{raw_output}
+---
+
+Return ONLY the cleaned output. No explanations, no formatting.
+"""
+
+def PROMPT_FOR_A_PROMPT(raw_output: str) -> str:
+    return f"""
+You are an LLM tasked with analyzing raw output from a reconnaissance command.
+
+Your job is to generate **precise instructions** that guide another LLM on how to extract technical information from this specific output.  
+🛠 The instructions must describe **how to interpret the output**, **what patterns to look for**, and **what information is relevant**.
+
+🎯 Your output must:
+- Identify the type of information present (e.g., IP, OS, ports, services)
+- Specify **how to locate that data** (e.g., line structure, keywords, formats)
+- Describe each relevant field that should be extracted
+- Be tailored **specifically to this output** — not generic
+
+❌ Do **NOT** include:
+- Any example JSON structure
+- Any explanations, summaries, or assumptions
+- Any formatting instructions or extra commentary
+
+📥 Here is the raw output to analyze:
+
+{raw_output}
+
+✏️ Return only a clear and focused list of extraction instructions based on the data in this output.
+"""
+
+<</mnt/linux-data/project/code/blackboard/blackboard.py>>
+def initialize_blackboard():
+    return {
+        "target": {
+            "ip": "",
+            "os": "Unknown",
+            "services": [
+            {"port": "", "protocol": "", "service": ""},
+            {"port": "", "protocol": "", "service": ""},
+            {"port": "", "protocol": "", "service": ""}
+            ]
+        },
+        "web_directories_status": {
+            "404": { "": "" },
+            "200": { "": "" },
+            "403": { "": "" },
+            "401": { "": "" },
+            "503": { "": "" }
+        },
+        "actions_history": {}
+    }
+
+
+<</mnt/linux-data/project/code/blackboard/blackboard_all.py>>
+def initialize_blackboard():
+    return {
+        "attack_id": "",
+        "target": {
+            "ip": "",
+            "os": "",
+            "services": []
+        },
+        "exploit_metadata": {
+            "exploit_id": None,
+            "exploit_title": "",
+            "exploit_language": None,
+            "exploit_type": "",
+            "source": "",
+            "exploit_path": None
+        },
+        "exploit_code_raw": None,
+        "code_static_features": {
+            "functions": [],
+            "syscalls_used": [],
+            "payload_type": "",
+            "encoding_methods": [],
+            "obfuscation_level": "",
+            "external_dependencies": [],
+            "exploit_technique": ""
+        },
+        "connections_summary": {
+            "total_connections": None,
+            "total_packets": None,
+            "protocols": [],
+            "ports_involved": [],
+            "flags_observed": [],
+            "data_transferred_bytes": None,
+            "sessions": []
+        },
+        "payload_analysis": [],
+        "runtime_behavior": {
+            "shell_opened": {
+                "shell_type": "",
+                "session_type": "",
+                "shell_access_level": "",
+                "authentication_method": "",
+                "shell_session": {
+                    "commands_run": []
+                }
+            }
+        },
+        "timestamps": {
+            "first_packet": None,
+            "last_packet": None
+        },
+        "attack_impact": {
+            "success": None,
+            "access_level": "",
+            "shell_opened": None,
+            "shell_type": "",
+            "authentication_required": None,
+            "persistence_achieved": None,
+            "data_exfiltrated": [],
+            "sensitive_info_exposed": [],
+            "log_files_modified": [],
+            "detected_by_defenses": None,
+            "quality_score": None
+        },
+        "actions_log": [],
+        "errors": [],
+        "reward_log": [],
+        "exploits_attempted": [],
+        "explanation_of_attack": "",
+        "exploit_analysis_detailed": []
+    }
+
+
+<</mnt/linux-data/project/code/blackboard/api.py>>
+import time
+import copy
+import json
+import re
+from blackboard.utils import extract_json
+
+class BlackboardAPI:
+    def __init__(self, blackboard_dict: dict):
+        self.blackboard = blackboard_dict
+
+    def get_state_for_agent(self, agent_name: str) -> dict:
+        """
+        מחזיר את כל ה־Blackboard כפי שהוא, ללא סינון לפי סוג הסוכן.
+        """
+        return copy.deepcopy(self.blackboard)
+
+    def update_runtime_behavior(self, info_dict: dict):
+        """
+        מעדכן את תת־המבנה 'runtime_behavior' עם המידע החדש שהתקבל מהפקודה.
+        תומך בהוספת מפתחות חדשים או עדכון חכם של קיימים.
+        """
+        runtime = self.blackboard.setdefault("runtime_behavior", {})
+
+        for key, value in info_dict.items():
+            if isinstance(value, list):
+                # אם זו רשימה, נאחד עם רשימה קיימת תוך הימנעות מכפולים
+                existing = runtime.get(key, [])
+                merged = list(set(existing + value))
+                runtime[key] = merged
+            elif isinstance(value, dict):
+                # אם זה מבנה מקונן – נעשה עדכון רק ברמה אחת
+                existing = runtime.get(key, {})
+                if not isinstance(existing, dict):
+                    existing = {}
+                existing.update(value)
+                runtime[key] = existing
+            else:
+                # ערכים פשוטים – פשוט לעדכן
+                runtime[key] = value
+
+    def append_action_log(self, entry: dict):
+        """
+        מוסיף רשומה ללוג הפעולות.
+        """
+        entry["timestamp"] = time.time()
+        self.blackboard.setdefault("actions_log", []).append(entry)
+
+    def record_reward(self, action: str, reward: float):
+        """
+        שומר את ערך התגמול לפעולה האחרונה שבוצעה.
+        """
+        entry = {
+            "action": action,
+            "reward": reward,
+            "timestamp": time.time()
+        }
+        self.blackboard.setdefault("reward_log", []).append(entry)
+
+    def add_error(self, agent: str, action: str, error: str):
+        """
+        מתעד שגיאה שהתרחשה במהלך הרצת פעולה.
+        """
+        entry = {
+            "agent": agent,
+            "action": action,
+            "error": error,
+            "timestamp": time.time()
+        }
+        self.blackboard.setdefault("errors", []).append(entry)
+
+    def get_last_actions(self, agent: str, n: int = 5):
+        """
+        מחלץ את N הפעולות האחרונות שביצע סוכן מסוים.
+        """
+        return [
+            log for log in reversed(self.blackboard.get("actions_log", []))
+            if log["agent"] == agent
+        ][:n]
+
+    def update_target_services(self, new_services: list):
+        """
+        מוסיף שירותים חדשים ל־target.services אם הם עדיין לא קיימים.
+        """
+        existing = self.blackboard["target"].get("services", [])
+        for service in new_services:
+            if service not in existing:
+                existing.append(service)
+
+    def update_exploit_metadata(self, exploit_data: dict):
+        """
+        מעדכן את המידע על Exploit אחרון שנבחר.
+        """
+        self.blackboard["exploit_metadata"].update(exploit_data)
+
+    def overwrite_blackboard(self, new_state: dict):
+        """
+        מעדכן את ה־blackboard עם new_state,
+        ושומר רק את השדה actions_history מהמצב הקיים.
+        """
+        if not isinstance(new_state, dict):
+            raise ValueError("new_state must be a dictionary")
+
+        # שמירת actions_history בלבד
+        preserved_actions_history = self.blackboard.get("actions_history", {})
+
+        # איפוס מלא
+        self.blackboard.clear()
+
+        # עדכון עם המידע החדש מה־LLM
+        self.blackboard.update(new_state)
+
+        # הוספת היסטוריית הפעולות חזרה
+        self.blackboard["actions_history"] = preserved_actions_history
+
+<</mnt/linux-data/project/code/blackboard/utils.py>>
+import json
+import re
+
+def extract_json(text: str):
+    """
+    מחלץ את מבנה ה-JSON התקני האחרון מתוך טקסט (ללא שימוש ב-?R).
+    """
+    # נחפש בלוקים שיכולים להיות JSON (מהתווים { ... })
+    json_like_blocks = re.findall(r"{[\s\S]*?}", text)
+
+    for block in reversed(json_like_blocks):  # נתחיל מהסוף
+        try:
+            return json.loads(block)
+        except json.JSONDecodeError:
+            continue
+
+    raise ValueError(f"❌ Failed to extract valid JSON from:\n{text}")
+
+<</mnt/linux-data/project/code/utils/utils.py>>
+import json
+import re
+
+def extract_json_block(text_input):
+    """
+    מקבלת טקסט (או רשימה של טקסטים), ומחזירה את בלוק ה־JSON התקני הכי גדול שמצאה כ־dict.
+    """
+    if isinstance(text_input, list):
+        text = "\n".join(text_input)
+    else:
+        text = str(text_input)
+
+    # ניקוי escape codes (כמו \x1b[0m)
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+
+    # חיפוש כל הבלוקים שמתחילים ונגמרים בסוגריים מסולסלים
+    matches = []
+    stack = []
+    start = None
+
+    for i, char in enumerate(text):
+        if char == '{':
+            if not stack:
+                start = i
+            stack.append('{')
+        elif char == '}':
+            if stack:
+                stack.pop()
+                if not stack and start is not None:
+                    candidate = text[start:i+1]
+                    matches.append(candidate)
+
+    # נסה לפרסר כל אחד ולבחור את הכי גדול
+    valid_jsons = []
+    for candidate in matches:
+        try:
+            obj = json.loads(candidate)
+            valid_jsons.append((candidate, obj))
+        except json.JSONDecodeError:
+            continue
+
+    if not valid_jsons:
+        print("❌ No valid JSON found.")
+        return None
+
+    # בחר את המחרוזת הכי ארוכה (כ־string)
+    best_candidate = max(valid_jsons, key=lambda pair: len(pair[0]))
+    return best_candidate[1]  # מחזיר את ה־dict
+
+
+def remove_comments_and_empty_lines(text: str) -> str:
+    """
+    מוחקת את כל השורות שמתחילות ב־# ואת כל השורות הריקות מתוך הטקסט.
+    """
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
+
+
+def main():
+    text_input = [
+        '[I will memorize the provided JSON structure exactly as-is:\n\n{\n  "target": {\n    "ip": "",\n    "os": "Unknown",\n    "services": [\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""}\n    ]\n  },\n  "web_directories_status": {\n    "404": { "": "" },\n    "200": { "": "" },\n    "403": { "": "" },\n    "401": { "": "" },\n    "503": { "": "" }\n  }\n}\x1b[0m\n',
+        '{\n  "target": {\n    "ip": "",\n    "os": "Unknown",\n    "services": [\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""}\n    ]\n  },\n  "web_directories_status": {\n    "404": { "": "" },\n    "200": { "": "" },\n    "403": { "": "" },\n    "401": { "": "" },\n    "503": { "": "" }\n  }\n}\x1b[0m\n]'
+    ]
+
+    result = extract_json_block(text_input)
+    print("✅ Extracted JSON:")
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+<</mnt/linux-data/project/code/encoders/state_encoder.py>>
+import hashlib
+import json
+import torch
+import numbers
+import numpy as np
+
+class StateEncoder:
+    def __init__(self, action_space: list, max_features: int = 128):
+        self.encoded_to_state = {}  # mapping hash → original state
+        self.max_features = max_features  # גודל קבוע לווקטור הקלט
+        self.action_space = action_space  # כל הפקודות האפשריות
+        self.action_to_index = {action: i for i, action in enumerate(action_space)}
+
+    def base100_encode(self, text: str) -> float:
+        """
+        מבצע קידוד מחרוזת לערך עשרוני בטווח [0, 1) לפי בסיס 100.
+        """
+        base = 100
+        code = 0
+        for i, c in enumerate(text[:5]):
+            code += ord(c) * (base ** (4 - i))
+        max_code = (base ** 5) - 1
+        return code / max_code
+
+    def encode(self, state: dict, actions_history: list) -> torch.Tensor:
+        state_str = json.dumps(state, sort_keys=True, separators=(',', ':'))
+        state_hash = hashlib.sha256(state_str.encode()).hexdigest()
+
+        self.encoded_to_state[state_hash] = state
+
+        flat_state = self._flatten_state(state)
+
+        actions_vector = np.zeros(len(self.action_space), dtype=np.float32)
+        for action in actions_history:
+            if action in self.action_to_index:
+                idx = self.action_to_index[action]
+                actions_vector[idx] = 1.0
+
+        for i, val in enumerate(actions_vector):
+            flat_state[f"action_history_idx_{i}"] = val
+
+        sorted_items = sorted(flat_state.items())
+        encoded_values = [self._normalize_value(k, v) for k, v in sorted_items]
+
+        if len(encoded_values) < self.max_features:
+            encoded_values += [0.0] * (self.max_features - len(encoded_values))
+        else:
+            encoded_values = encoded_values[:self.max_features]
+
+        vector = torch.tensor(encoded_values, dtype=torch.float32)
+        print(f"[Encoder] Encoded vector of length {len(encoded_values)} (state + history)")
+        return vector
+
+    def decode(self, state_hash: str) -> dict:
+        return self.encoded_to_state.get(state_hash, {})
+
+    def _flatten_state(self, obj, prefix='') -> dict:
+        """
+        הופך מבנה מקונן (dict/list) למילון שטוח של feature_name → numeric_value.
+        כולל שימוש בקידוד base100 עבור מחרוזות.
+        """
+        items = {}
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                full_key = f"{prefix}.{k}" if prefix else k
+                items.update(self._flatten_state(v, full_key))
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                full_key = f"{prefix}[{i}]"
+                items.update(self._flatten_state(v, full_key))
+        elif isinstance(obj, bool):
+            items[prefix] = 1.0 if obj else 0.0
+        elif isinstance(obj, numbers.Number):
+            items[prefix] = float(obj)
+        elif isinstance(obj, str):
+            items[prefix] = self.base100_encode(obj)
+        else:
+            items[prefix] = 0.0
+        return items
+
+    def _normalize_value(self, key: str, value: float) -> float:
+        """
+        נורמליזציה של כל ערך למקטע [0, 1] לפי סוג המידע במפתח.
+        """
+        if isinstance(value, (int, float)):
+            if "port" in key:
+                return min(value / 65535.0, 1.0)
+            elif "protocol" in key:
+                return min(value / 3.0, 1.0)
+            elif "action_history" in key:
+                return float(value)
+            elif "service" in key:
+                return min(value / 1000000.0, 1.0)
+            elif "web_directories_status" in key:
+                return min(value / 1000000.0, 1.0)
+            elif "os" in key:
+                return min(value / 1000000.0, 1.0)
+            else:
+                return min(value / 1000000.0, 1.0)
+        else:
+            return 0.0
+
+<</mnt/linux-data/project/code/encoders/action_encoder.py>>
+# action_encoder.py
+
+from typing import List
+
+class ActionEncoder:
+    def __init__(self, actions: List[str]):
+        self.action_to_index = {action: i for i, action in enumerate(actions)}
+        self.index_to_action = {i: action for i, action in enumerate(actions)}
+
+    def encode(self, action: str) -> int:
+        """
+        מקבל מחרוזת של פקודה ומחזיר את האינדקס שלה.
+        """
+        return self.action_to_index[action]
+
+    def decode(self, index: int) -> str:
+        """
+        מקבל אינדקס ומחזיר את הפקודה המתאימה.
+        """
+        return self.index_to_action[index]
+

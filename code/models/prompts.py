@@ -1,6 +1,6 @@
 PROMPT_1 = """ You are about to receive a specific JSON structure. You must remember it exactly as-is.
 
- Do not explain, summarize, or transform it in any way.
+Do not explain, summarize, or transform it in any way.
 Just memorize it internally — you will be asked to use it later.
 
 Here is the structure:
@@ -20,11 +20,11 @@ Here is the structure:
     "403": { "": "" },
     "401": { "": "" },
     "503": { "": "" }
-  }
+  },
 }
 """
 
-def PROMPT_2(command_output: str) -> str:
+def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
   return f"""
     You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
 
@@ -42,16 +42,24 @@ def PROMPT_2(command_output: str) -> str:
     - Return a JSON with the following two root-level keys only: "target" and "web_directories_status"
     - Inside "target", include: "ip" (string), "os" (string), and "services" (array of {{\"port\", \"protocol\", \"service\"}})
     - Inside "web_directories_status", keep ONLY the keys: "200", "401", "403", "404", "503" — each must be a dictionary mapping directory paths (e.g., "admin/") to messages
+    - You MUST include ALL valid services found in the data.
+    - There is NO limit on how many services can be returned.
+    - Even if the example structure had 3 entries — return as many as needed.
 
     🚫 If no IP, OS, or web directories were provided, leave them exactly as-is:
     - "ip": ""
     - "os": "Unknown"
-    - web_directories_status must keep: {{"": ""}} for each status code key
+    - web_directories_status must include exactly these keys: "200", "401", "403", "404", "503"
+    - If no web directory paths are available for a status, use: {{ "": "" }} as its value
 
     ❗ Each entry in the "services" array MUST be a JSON object with:
     - "port": number
     - "protocol": string (lowercase only)
     - "service": string (lowercase only)
+
+    Instructions for this spesific command:
+
+    {Custom_prompt}
 
     Here is the new data:
 
@@ -59,9 +67,8 @@ def PROMPT_2(command_output: str) -> str:
 
     🧪 Before returning your answer:
     - Compare it to the original structure character by character
-    - Return ONLY the JSON — no explanation, no formatting, no comments
-    - Important: Only return a single valid JSON matching the above structure. Do not include explanations or multiple outputs.
-    """
+    - Return ONLY ONE JSON — no explanation, no formatting, no comments
+  """
 
 def clean_output_prompt(raw_output: str) -> str:
     return f"""
@@ -105,3 +112,27 @@ Here is the raw output:
 Return ONLY the cleaned output. No explanations, no formatting.
 """
 
+def PROMPT_FOR_A_PROMPT(raw_output: str) -> str:
+    return f"""
+You are an LLM tasked with analyzing raw output from a reconnaissance command.
+
+Your job is to generate **precise instructions** that guide another LLM on how to extract technical information from this specific output.  
+🛠 The instructions must describe **how to interpret the output**, **what patterns to look for**, and **what information is relevant**.
+
+🎯 Your output must:
+- Identify the type of information present (e.g., IP, OS, ports, services)
+- Specify **how to locate that data** (e.g., line structure, keywords, formats)
+- Describe each relevant field that should be extracted
+- Be tailored **specifically to this output** — not generic
+
+❌ Do **NOT** include:
+- Any example JSON structure
+- Any explanations, summaries, or assumptions
+- Any formatting instructions or extra commentary
+
+📥 Here is the raw output to analyze:
+
+{raw_output}
+
+✏️ Return only a clear and focused list of extraction instructions based on the data in this output.
+"""

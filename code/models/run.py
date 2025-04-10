@@ -1,5 +1,5 @@
 from LoadModel import LoadModel
-from prompts import clean_output_prompt
+from prompts import PROMPT_FOR_A_PROMPT
 
 # הגדרת הנתיבים
 LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
@@ -37,6 +37,6 @@ Login with msfadmin/msfadmin to get started
 </body>
 </html>
 """
-response = model.run_prompt(clean_output_prompt(command_output))
+response = model.run_prompt(PROMPT_FOR_A_PROMPT(command_output))
 
 print(response)

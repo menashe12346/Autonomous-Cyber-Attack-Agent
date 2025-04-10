@@ -92,12 +92,22 @@ class BlackboardAPI:
         """
         self.blackboard["exploit_metadata"].update(exploit_data)
 
-    def overwrite_blackboard(self, new_state: list):
-        last_output = new_state[-1]
+    def overwrite_blackboard(self, new_state: dict):
+        """
+        מעדכן את ה־blackboard עם new_state,
+        ושומר רק את השדה actions_history מהמצב הקיים.
+        """
+        if not isinstance(new_state, dict):
+            raise ValueError("new_state must be a dictionary")
 
-        if not isinstance(last_output, str):
-            raise ValueError(f"❌ Model did not return a valid string output:\n{last_output}")
+        # שמירת actions_history בלבד
+        preserved_actions_history = self.blackboard.get("actions_history", {})
 
-        parsed_json = extract_json(last_output)
+        # איפוס מלא
         self.blackboard.clear()
-        self.blackboard.update(parsed_json)
+
+        # עדכון עם המידע החדש מה־LLM
+        self.blackboard.update(new_state)
+
+        # הוספת היסטוריית הפעולות חזרה
+        self.blackboard["actions_history"] = preserved_actions_history

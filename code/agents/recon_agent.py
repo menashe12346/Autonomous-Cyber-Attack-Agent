@@ -88,12 +88,11 @@ class ReconAgent(BaseAgent):
             )
 
         try:
-            # חילוץ hash מזהה ל־encoded state
-            prev_hash = hashlib.sha256(json.dumps(prev_state.tolist(), sort_keys=True).encode()).hexdigest()
-            next_hash = hashlib.sha256(json.dumps(next_state.tolist(), sort_keys=True).encode()).hexdigest()
+            prev_key = str(prev_state.tolist())
+            next_key = str(next_state.tolist())
 
-            prev_dict = self.state_encoder.encoded_to_state.get(prev_hash, {})
-            next_dict = self.state_encoder.encoded_to_state.get(next_hash, {})
+            prev_dict = self.state_encoder.encoded_to_state.get(prev_key, {})
+            next_dict = self.state_encoder.encoded_to_state.get(next_key, {})
 
             actions_history = prev_dict.get("actions_history", [])
 

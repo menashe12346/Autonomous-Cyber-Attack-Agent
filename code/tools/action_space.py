@@ -5,7 +5,7 @@ COMMAND_TEMPLATES = {
         "ping -c 1 {ip}"
     ],
     "nmap_fast": [
-        "nmap -F {ip}"
+        #"nmap -F {ip}"
     ],
     "nmap_services": [
         "nmap {ip}"
@@ -18,12 +18,6 @@ COMMAND_TEMPLATES = {
     ],
     "wget_index": [
         "wget http://{ip} -O -"
-    ],
-    "dns_lookup": [
-        "nslookup {ip}"
-    ],
-    "whois": [
-        "whois {ip}"
     ],
     "traceroute": [
         "traceroute {ip}"

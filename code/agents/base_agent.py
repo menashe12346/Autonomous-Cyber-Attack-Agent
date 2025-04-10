@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 import random
 import subprocess
-from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt
+from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
 import json
-from utils.utils import remove_comments_and_empty_lines, extract_final_json
+import re
+from utils.utils import remove_comments_and_empty_lines, extract_json_block
+from Cache.llm_cache import LLMCache
 
 class BaseAgent(ABC):
     def __init__(self, name, action_space, blackboard_api, replay_buffer, policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
@@ -20,6 +22,7 @@ class BaseAgent(ABC):
         self.actions_history = [] 
         self.command_cache = command_cache  # פקודות שהורצו והתוצאה נשמרה
         self.model = model
+        self.llm_cache = LLMCache()
 
     @abstractmethod
     def should_run(self) -> bool:
@@ -38,6 +41,8 @@ class BaseAgent(ABC):
         state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
         self.last_state = state
 
+        print(f"last state: {raw_state_with_history}")
+
         action = self.choose_action(state)
         self.last_action = action
 
@@ -51,7 +56,7 @@ class BaseAgent(ABC):
         print("\033[1;32m" + str(result) + "\033[0m")
 
         # רק אם הפלט כולל יותר מ־300 מילים – לבצע ניקוי
-        if len(result.split()) > 200:
+        if len(result.split()) > 300:
             try:
                 cleaned_output = self.clean_output(clean_output_prompt(result))
             except Exception as e:
@@ -61,26 +66,17 @@ class BaseAgent(ABC):
             cleaned_output = result
         print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
 
-        parsed_info_raw = self.parse_output(cleaned_output)
-        parsed_info = extract_final_json(parsed_info_raw)
+        parsed_info = self.parse_output(cleaned_output)
         print(f"parsed_info - {parsed_info}")
-        # חילוץ מחרוזת ה-JSON מתוך הרשימה
-        parsed_json_str = next((p for p in parsed_info if p.strip().startswith("{")), None)
-
-        if parsed_json_str:
-            try:
-                parsed_json = json.loads(parsed_json_str)
-                self.blackboard_api.overwrite_blackboard(parsed_json)
-            except json.JSONDecodeError as e:
-                print(f"[!] Failed to decode JSON from model output: {e}")
-        else:
-            print("[!] No valid JSON found in parsed_info")
+        self.blackboard_api.overwrite_blackboard(parsed_info)
 
         raw_next_state = self.get_state_raw()
         raw_next_state_with_history = dict(raw_next_state)
         raw_next_state_with_history["actions_history"] = self.actions_history.copy()
         next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
         reward = self.get_reward(state, action, next_state)
+
+        print(f"new state: {dict(self.state_encoder.decode(next_state))}")
 
         # בניית קלט למודל לצורך עדכון ולוג
         experience = {
@@ -163,14 +159,40 @@ class BaseAgent(ABC):
 
     def parse_output(self, command_output: str) -> dict:
         """
-        מפעיל את מודול הפענוח ומחזיר תובנות לתוך blackboard_api.
+        מפעיל את מודול הפענוח ומחזיר תובנות ל־blackboard_api.
+        כולל שימוש חכם במטמון לפי מצב ופעולה.
         """
 
-        return self.model.run_prompts([PROMPT_1, PROMPT_2(command_output)])
+        # מצב עם היסטוריה (לצורך ייחודיות בזיהוי state-action)
+        raw_state = self.get_state_raw()
+        raw_state["actions_history"] = self.actions_history.copy()
+
+        # ניסיון לשלוף מהמטמון
+        cached = self.llm_cache.get(raw_state, self.last_action)
+        if cached:
+            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
+            return cached
+
+        # הפעלת prompt מותאם לסוג הפלט
+        prompt_for_cleaning = PROMPT_FOR_A_PROMPT(command_output)
+        inner_prompt = self.model.run_prompt(prompt_for_cleaning)
+        final_prompt = PROMPT_2(command_output, inner_prompt)
+
+        # שליחת כל הפרומפטים למודל
+        full_response = self.model.run_prompts([PROMPT_1, final_prompt])
+        print(f"full_response - {full_response}")
+
+        # חילוץ JSON תקני מהפלט
+        parsed = extract_json_block(full_response)
+
+        # שמירה למטמון
+        if parsed:
+            self.llm_cache.set(raw_state, self.last_action, parsed)
+
+        return parsed
 
     def clean_output(self, command_output: str) -> dict:
         return self.model.run_prompt(clean_output_prompt(command_output))
-
 
     @abstractmethod
     def get_reward(self, prev_state, action, next_state) -> float:
