@@ -34,8 +34,9 @@ def extract_json_block(text_input):
     valid_jsons = []
     for candidate in matches:
         try:
-            obj = json.loads(candidate)
-            valid_jsons.append((candidate, obj))
+            fixed_candidate = fix_malformed_json(candidate)
+            obj = json.loads(fixed_candidate)
+            valid_jsons.append((fixed_candidate, obj))
         except json.JSONDecodeError:
             continue
 
@@ -46,6 +47,31 @@ def extract_json_block(text_input):
     # בחר את המחרוזת הכי ארוכה (כ־string)
     best_candidate = max(valid_jsons, key=lambda pair: len(pair[0]))
     return best_candidate[1]  # מחזיר את ה־dict
+
+def fix_malformed_json(text: str) -> str:
+    """
+    מנקה JSON שמכיל פסיקים מיותרים לפני סוגרים או תווים לא חוקיים,
+    ומחזיר מחרוזת JSON תקנית ככל האפשר.
+    """
+    # מסיר תווי ANSI escape (כמו \x1b[0m)
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+
+    # מסיר פסיקים לפני סוגרי dict או list
+    text = re.sub(r',\s*}', '}', text)
+    text = re.sub(r',\s*]', ']', text)
+
+    # מסיר כפילויות של סוגרים מסולסלים
+    text = re.sub(r'}\s*}', '}}', text)
+    text = re.sub(r']\s*]', ']]', text)
+
+    # מוודא שהמחרוזת מתחילה ונגמרת עם סוגר מסולסל
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1:
+        text = text[start:end + 1]
+
+    return text
+
 
 
 def remove_comments_and_empty_lines(text: str) -> str:

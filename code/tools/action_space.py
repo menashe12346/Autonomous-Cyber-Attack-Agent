@@ -2,31 +2,31 @@ from typing import List
 
 COMMAND_TEMPLATES = {
     "ping": [
-        "ping -c 1 {ip}"
+        #"ping -c 1 {ip}"
     ],
     "nmap_fast": [
         #"nmap -F {ip}"
     ],
     "nmap_services": [
-        "nmap {ip}"
+        #"nmap {ip}"
     ],
     "curl_headers": [
-        "curl -I http://{ip}"
+        #"curl -I http://{ip}"
     ],
     "curl_index": [
-        "curl http://{ip}/"
+        #"curl http://{ip}/"
     ],
     "wget_index": [
-        "wget http://{ip} -O -"
+        #"wget http://{ip} -O -"
     ],
     "traceroute": [
-        "traceroute {ip}"
+        #"traceroute {ip}"
     ],
     "web_tech": [
         "whatweb http://{ip}"
     ],
     "gobuster_scan": [
-        "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+        #"gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
     ]
 }
 
