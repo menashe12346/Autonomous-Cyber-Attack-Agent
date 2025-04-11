@@ -22,7 +22,7 @@ class BaseAgent(ABC):
         self.actions_history = [] 
         self.command_cache = command_cache  # פקודות שהורצו והתוצאה נשמרה
         self.model = model
-        self.llm_cache = LLMCache()
+        self.llm_cache = LLMCache(state_encoder=state_encoder)
 
     @abstractmethod
     def should_run(self) -> bool:
@@ -41,7 +41,7 @@ class BaseAgent(ABC):
         state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
         self.last_state = state
 
-        print(f"last state: {raw_state_with_history}")
+        print(f"last state: {json.dumps(raw_state_with_history, indent=2)}")
 
         action = self.choose_action(state)
         self.last_action = action
@@ -76,7 +76,7 @@ class BaseAgent(ABC):
         next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
         reward = self.get_reward(state, action, next_state)
 
-        print(f"new state: {dict(self.state_encoder.decode(next_state))}")
+        print(f"new state: {json.dumps(dict(self.state_encoder.decode(next_state)), indent=2)}")
 
         # בניית קלט למודל לצורך עדכון ולוג
         experience = {
@@ -179,7 +179,7 @@ class BaseAgent(ABC):
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
         # שליחת כל הפרומפטים למודל
-        full_response = self.model.run_prompts([PROMPT_1, final_prompt])
+        full_response = self.model.run_prompts([PROMPT_1(json.dumps(self.get_state_raw(), indent=2)), final_prompt])
         print(f"full_response - {full_response}")
 
         # חילוץ JSON תקני מהפלט

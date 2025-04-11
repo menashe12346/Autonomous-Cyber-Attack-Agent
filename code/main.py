@@ -13,7 +13,7 @@ from agents.recon_agent import ReconAgent
 from models.LoadModel import LoadModel
 
 def main():
-    NUM_EPISODES = 30
+    NUM_EPISODES = 3000
     MAX_STEPS_PER_EPISODE = 5
     LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run" # change to your path
     MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf" # change to your path
@@ -90,9 +90,8 @@ def main():
                 print(f"[Episode {episode + 1}] Training loss: {loss:.4f}")
     
     print("\n========== SUMMARY OF ALL EPISODES ==========")
-    for episode_info in all_actions:
-        print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
-
+    #for episode_info in all_actions:
+        #print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
 
     # שמירה סופית של המודל
     trainer.save_model("models/saved_models/policy_model.pth")

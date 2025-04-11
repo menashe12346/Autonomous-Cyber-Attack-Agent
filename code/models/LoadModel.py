@@ -2,11 +2,12 @@ import subprocess
 import os
 
 class LoadModel:
-    def __init__(self, llama_path, model_path, tokens=2000, threads=4):
+    def __init__(self, llama_path, model_path, tokens=4096, threads=8, n_batch=4096):
         self.llama_path = llama_path
         self.model_path = model_path
         self.tokens = str(tokens)
         self.threads = str(threads)
+        self.n_batch = str(n_batch)
 
         if not os.path.isfile(self.llama_path):
             raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
@@ -21,7 +22,9 @@ class LoadModel:
             self.model_path,
             prompt,
             "-n", self.tokens,
-            "-t", self.threads
+            "-t", self.threads,
+            "--n-batch", self.n_batch,
+            "--ctx-size", "4096",
         ]
         try:
             output = subprocess.check_output(cmd, text=True)
@@ -42,7 +45,9 @@ class LoadModel:
                 self.model_path,
                 full_prompt,
                 "-n", self.tokens,
-                "-t", self.threads
+                "-t", self.threads,
+                "--n-batch", self.n_batch,
+                "--ctx-size", "4096",
             ]
             try:
                 output = subprocess.check_output(cmd, text=True)

@@ -80,6 +80,7 @@ class ReconAgent(BaseAgent):
         - יעילות הפעולה
         """
         reward = 0.0
+        reasons = []  # ⬅️ רשימת הסברים
 
         def _services_to_set(services):
             return set(
@@ -99,20 +100,28 @@ class ReconAgent(BaseAgent):
             # ✴️ חזרתיות
             if action in actions_history:
                 reward -= 0.5  # ענישה על חזרתיות
+                reasons.append("Repeated action -0.5")
             else:
                 reward += 0.2  # תגמול קל על חקירה חדשה
+                reasons.append("New action +0.2")
 
             # ✴️ שירותים חדשים
             prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
             next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
             new_services = next_services - prev_services
             reward += 1.0 * len(new_services)
+            if new_services:
+                reasons.append(f"{len(new_services)} new services discovered +{1.0 * len(new_services):.1f}")
+
 
             # ✴️ פורטים פתוחים (אם קיימים)
             prev_ports = set(prev_dict.get("target", {}).get("open_ports", []))
             next_ports = set(next_dict.get("target", {}).get("open_ports", []))
             new_ports = next_ports - prev_ports
             reward += 0.5 * len(new_ports)
+            if new_ports:
+                reasons.append(f"{len(new_ports)} new open ports +{0.5 * len(new_ports):.1f}")
+
 
             # ✴️ פתיחת shell חדש
             prev_shell = prev_dict.get("runtime_behavior", {}).get("shell_opened", {})
@@ -120,6 +129,7 @@ class ReconAgent(BaseAgent):
 
             if not prev_shell.get("shell_type") and next_shell.get("shell_type"):
                 reward += 5.0  # בונוס גדול על shell
+                reasons.append("New shell opened +5.0")
 
             # ✴️ שדרוג רמת גישה
             levels = {"": 0, "user": 1, "root": 2}
@@ -127,11 +137,13 @@ class ReconAgent(BaseAgent):
             next_level = next_shell.get("shell_access_level", "")
             if levels.get(next_level, 0) > levels.get(prev_level, 0):
                 reward += 3.0
+                reasons.append(f"Privilege escalation from {prev_level} to {next_level} +3.0")
 
             # ✴️ ענישה אם אין שינוי והפקודה חזרה על עצמה
             if not new_services and not new_ports and not next_shell.get("shell_type"):
                 if action in actions_history:
                     reward -= 1.0  # ענישה על בזבוז פעולה
+                    reasons.append("No new discoveries and repeated action -1.0")
 
             # 🔍 DEBUG
             print(f"[Reward Debug] Action: {action}")
@@ -139,6 +151,14 @@ class ReconAgent(BaseAgent):
             print(f"[Reward Debug] New ports: {len(new_ports)}")
             print(f"[Reward Debug] Shell opened: {next_shell.get('shell_type')}")
             print(f"[Reward Debug] Total reward: {reward:.4f}")
+
+            # ✅ Final reward summary report
+            print("\n[🔎 Reward Summary]")
+            print(f"Action: {action}")
+            print("Reasons:")
+            for r in reasons:
+                print(f" - {r}")
+            print(f"➡️ Total reward: {reward:.4f}\n")
 
             return reward
 

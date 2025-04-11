@@ -24,6 +24,16 @@ Here is the structure:
 }
 """
 
+def PROMPT_1(current_state: str) -> str:
+  return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
+
+Do not explain, summarize, or transform it in any way.
+Just memorize it internally — you will be asked to use it later.
+
+Here is the structure:
+{current_state}
+"""
+
 def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
   return f"""
     You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
