@@ -1,7 +1,7 @@
 import os, tiktoken
 
 def count_tokens(text):
-    enc = tiktoken.get_encoding("cl100k_base")  # מתאים ל-GPT-4o
+    enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
     return len(enc.encode(text, disallowed_special=()))
 
 def print_all_python_files(start_dir, output_file):
@@ -34,8 +34,7 @@ def print_all_python_files(start_dir, output_file):
     print(f"\n[Total Tokens (GPT-4o): {count_tokens(output)}]")
     print(f"[Saved to: {output_file}]")
 
-# הפעלת הסקריפט
 print_all_python_files(
     "/mnt/linux-data/project/code",
-    "/mnt/linux-data/project/code/code.txt"
+    "/mnt/linux-data/project/code/get_code/code.txt"
 )

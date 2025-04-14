@@ -1,62 +1,85 @@
-from typing import List
+from typing import List, Dict
 
-COMMAND_TEMPLATES = {
-    "ping": [
-        #"ping -c 1 {ip}"
-    ],
-    "nmap_fast": [
-        #"nmap -F {ip}"
-    ],
-    "nmap_services": [
-        #"nmap {ip}"
-    ],
-    "curl_headers": [
-        #"curl -I http://{ip}"
-    ],
-    "curl_index": [
-        #"curl http://{ip}/"
-    ],
-    "wget_index": [
-        #"wget http://{ip} -O -"
-    ],
-    "traceroute": [
-        #"traceroute {ip}"
-    ],
-    "web_tech": [
-        "whatweb http://{ip}"
-    ],
-    "gobuster_scan": [
-        #"gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
-    ]
+from config import WORDLISTS
+
+# Mapping of tool categories to their command templates
+COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
+    "recon": {
+        "ping": [
+            "ping -c 1 {ip}"
+        ],
+        "nmap": [
+            "nmap -F {ip}",
+            "nmap {ip}"
+        ],
+        "curl": [
+            "curl -I http://{ip}",
+            "curl http://{ip}/"
+        ],
+        "wget": [
+            "wget http://{ip} -O -"
+        ],
+        "traceroute": [
+            "traceroute {ip}"
+        ],
+        "whatweb": [
+            "whatweb http://{ip}"
+        ],
+        "gobuster": [
+            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+        ]
+    },
+
+    # Example future support:
+    # "exploit": {
+    #     "manual_exploit": [
+    #         "python3 /path/to/exploit.py {ip}"
+    #     ]
+    # }
 }
 
-TOOLS = list(COMMAND_TEMPLATES.keys())
 
-def build_action_space(ip: str) -> List[str]:
+def build_action_space(agent_type: str, ip: str) -> List[str]:
     """
-    בונה את כל הפקודות האפשריות עם כתובת ה-IP שניתנה.
+    Builds a list of actions for the given agent type and target IP address.
+
+    Args:
+        agent_type (str): Type of the agent (e.g., "recon", "exploit").
+        ip (str): Target IP address.
+
+    Returns:
+        List[str]: List of formatted commands.
     """
     actions = []
-    for tool, templates in COMMAND_TEMPLATES.items():
+    agent_type = agent_type.lower()
+
+    if agent_type not in COMMAND_TEMPLATES:
+        raise ValueError(f"Unknown agent type: '{agent_type}'")
+
+    for tool, templates in COMMAND_TEMPLATES[agent_type].items():
         for cmd in templates:
             actions.append(cmd.format(ip=ip))
+
     return actions
+
 
 def get_commands_for_agent(agent_type: str, ip: str) -> List[str]:
     """
-    מחזיר רשימת פקודות בהתאם לסוג הסוכן.
-    
-    כרגע, כל סוג הסוכן משתמש בפונקציה build_action_space,
-    אך בעתיד ניתן להרחיב ולסנן פקודות לפי agent_type.
+    Retrieves a list of commands for a specific agent.
+
+    Args:
+        agent_type (str): Agent category ("recon", etc).
+        ip (str): Target IP.
+
+    Returns:
+        List[str]: List of formatted commands.
     """
-    # דוגמה: אם הסוכן Recon, נשתמש בכל הפקודות המהירות
-    if agent_type.lower() == "recon":
-        return build_action_space(ip)
-    # אפשר להוסיף תנאים נוספים עבור סוגי סוכנים אחרים (access, exec וכו')
-    return build_action_space(ip)
+    return build_action_space(agent_type, ip)
+
 
 if __name__ == "__main__":
+    # Debug output of commands for a given IP and agent type
     target_ip = "192.168.56.101"
-    cmds = get_commands_for_agent("recon", target_ip)
-    for cmd in cmds:
+    commands = get_commands_for_agent("recon", target_ip)
+    for cmd in commands:
         print(cmd)

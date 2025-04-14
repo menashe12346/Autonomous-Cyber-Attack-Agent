@@ -7,7 +7,7 @@ Here is the structure:
 {
   "target": {
     "ip": "",
-    "os": "Unknown",
+    "os": "",
     "services": [
       {"port": "", "protocol": "", "service": ""},
       {"port": "", "protocol": "", "service": ""},
@@ -35,50 +35,37 @@ Here is the structure:
 """
 
 def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
-  return f"""
-    You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
+  return f"""You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly. Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only). You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status". Include all real fileds found, with no limit each status key must exist with {{"": ""}} if empty Do not change "ip" — always leave it as-is. Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows"). In "services", add an entry for each service found: "port": numeric (e.g. 22, 80) "protocol": "tcp" or "udp" (lowercase) "service": service name (e.g. http, ssh) — lowercase If missing, leave value as "". In "web_directories_status", for each status (200, 401, 403, 404, 503): Map any discovered paths (like "/admin") to their message (or use "" if no message). All five keys must appear, even if empty. If none found, keep {{ "": "" }}. Do not invent or guess data. Do not rename, add, or remove any fields. Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. All response should be one line. Instructions for this specific command: {Custom_prompt} Here is the new data: {command_output} Before returning your answer: Compare it to the original structure character by character Return ONLY ONE JSON — no explanation, no formatting, no comments"""
 
-    🛑 Do NOT:
-    - Change or rename any fields
-    - Add new keys like "network_services", "port_state", or "service_name"
-    - Nest data inside services or add arrays like "web_directories"
-    - Remove or replace any part of the original structure
-    - GUESS or INVENT any values that were not explicitly provided
-    - Capitalize service or protocol names — always use lowercase only
-    - Fill "ip" unless it is clearly the target machine
-    - Use vague messages like "Active" — only real messages are allowed
-
-    ✅ You MUST:
-    - Return a JSON with the following two root-level keys only: "target" and "web_directories_status"
-    - Inside "target", include: "ip" (string), "os" (string), and "services" (array of {{\"port\", \"protocol\", \"service\"}})
-    - Inside "web_directories_status", keep ONLY the keys: "200", "401", "403", "404", "503" — each must be a dictionary mapping directory paths (e.g., "admin/") to messages
-    - You MUST include ALL valid services found in the data.
-    - There is NO limit on how many services can be returned.
-    - Even if the example structure had 3 entries — return as many as needed.
-
-    🚫 If no IP, OS, or web directories were provided, leave them exactly as-is:
-    - "ip": ""
-    - "os": "Unknown"
-    - web_directories_status must include exactly these keys: "200", "401", "403", "404", "503"
-    - If no web directory paths are available for a status, use: {{ "": "" }} as its value
-
-    ❗ Each entry in the "services" array MUST be a JSON object with:
-    - "port": number
-    - "protocol": string (lowercase only)
-    - "service": string (lowercase only)
-
-    Instructions for this spesific command:
-
-    {Custom_prompt}
-
-    Here is the new data:
-
-    {command_output}
-
-    🧪 Before returning your answer:
-    - Compare it to the original structure character by character
-    - Return ONLY ONE JSON — no explanation, no formatting, no comments
-  """
+"""
+You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
+Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only).
+You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status".
+Include all real fileds found, with no limit
+each status key must exist with {{"": ""}} if empty
+Do not change "ip" — always leave it as-is.
+Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows").
+In "services", add an entry for each service found:
+"port": numeric (e.g. 22, 80)
+"protocol": "tcp" or "udp" (lowercase)
+"service": service name (e.g. http, ssh) — lowercase
+If missing, leave value as "".
+In "web_directories_status", for each status (200, 401, 403, 404, 503):
+Map any discovered paths (like "/admin") to their message (or use "" if no message).
+All five keys must appear, even if empty. If none found, keep {{ "": "" }}.
+Do not invent or guess data.
+Do not rename, add, or remove any fields.
+Return only the completed JSON. No extra text or formatting.
+Return only one-line compact JSON with same structure, no newlines, no indentations.
+All response should be one line.
+Instructions for this specific command:
+{Custom_prompt}
+Here is the new data:
+{command_output}
+Before returning your answer:
+Compare it to the original structure character by character
+Return ONLY ONE JSON — no explanation, no formatting, no comments
+"""
 
 def clean_output_prompt(raw_output: str) -> str:
     return f"""
@@ -144,5 +131,7 @@ Your job is to generate **precise instructions** that guide another LLM on how t
 
 {raw_output}
 
+Very importent - It should be maximux 60 words!!!
+No emojis!!
 ✏️ Return only a clear and focused list of extraction instructions based on the data in this output.
 """

@@ -1,5 +1,26 @@
 class ScenarioOrchestrator:
+    """
+    Manages the execution of a penetration testing scenario.
+
+    This class controls:
+    - Blackboard initialization per scenario
+    - AgentManager coordination
+    - Looping through steps
+    - Stop conditions enforcement
+    """
+
     def __init__(self, blackboard, agent_manager, target, max_steps=20, scenario_name="DefaultScenario", stop_conditions=None):
+        """
+        Initialize the orchestrator with simulation parameters.
+
+        Args:
+            blackboard: BlackboardAPI instance.
+            agent_manager: AgentManager instance.
+            target (str): Target IP address.
+            max_steps (int): Maximum number of steps to execute.
+            scenario_name (str): Human-readable name of the scenario.
+            stop_conditions (list): Optional list of callables taking blackboard dict and returning True if scenario should stop.
+        """
         self.blackboard = blackboard
         self.agent_manager = agent_manager
         self.max_steps = max_steps
@@ -7,23 +28,28 @@ class ScenarioOrchestrator:
         self.scenario_name = scenario_name
         self.stop_conditions = stop_conditions or []
         self.active = False
-        self.target=target
+        self.target = target
 
     def start(self):
         """
-        מאתחל את התרחיש: איפוס מדדים, לוגים, איתחול Blackboard ו־AgentManager.
+        Initialize blackboard values and mark scenario as active.
+        Resets internal step counter and blackboard state.
         """
         self.current_step = 0
         self.active = True
+
+        # Initialize target structure
         self.blackboard.blackboard["target"] = {
             "ip": self.target,
-            "os": "Unknown",
+            "os": "",
             "services": [
                 {"port": "", "protocol": "", "service": ""},
                 {"port": "", "protocol": "", "service": ""},
                 {"port": "", "protocol": "", "service": ""}
             ]
         }
+
+        # Initialize web directory status with all status codes
         self.blackboard.blackboard["web_directories_status"] = {
             "404": { "": "" },
             "200": { "": "" },
@@ -32,43 +58,32 @@ class ScenarioOrchestrator:
             "503": { "": "" }
         }
 
-        """
-        self.blackboard.blackboard["attack_id"] = self.scenario_name
-        self.blackboard.blackboard["actions_log"] = []
-        self.blackboard.blackboard["reward_log"] = []
-        self.blackboard.blackboard["errors"] = []
-        self.blackboard.blackboard["timestamps"]["first_packet"] = None
-        self.blackboard.blackboard["timestamps"]["last_packet"] = None
-        self.blackboard.blackboard["runtime_behavior"] = {
-            "shell_opened": {
-                "shell_type": "",
-                "session_type": "",
-                "shell_access_level": "",
-                "authentication_method": "",
-                "shell_session": { "commands_run": [] }
-            }
-        }
-        """
         print(f"[+] Starting scenario: {self.scenario_name}")
 
     def should_continue(self):
         """
-        בודק האם יש להמשיך את התרחיש או להפסיק אותו לפי תנאים שהוגדרו.
+        Check whether scenario should continue based on conditions.
+
+        Returns:
+            bool: True if scenario should continue, False if it should stop.
         """
         if not self.active:
             return False
+
         if self.current_step >= self.max_steps:
             print("[!] Max steps reached.")
             return False
+
         for condition in self.stop_conditions:
             if condition(self.blackboard.blackboard):
                 print("[!] Stop condition met.")
                 return False
+
         return True
 
     def step(self):
         """
-        מבצע צעד אחד של הסימולציה ע"י הפעלת AgentManager.
+        Execute a single simulation step by running the next eligible agent.
         """
         print(f"[>] Running step {self.current_step}...")
         self.agent_manager.run_step()
@@ -76,15 +91,14 @@ class ScenarioOrchestrator:
 
     def end(self):
         """
-        סוגר את התרחיש ומסמן את הסימולציה כלא פעילה.
+        Mark scenario as ended and print completion message.
         """
         self.active = False
-        #self.blackboard.blackboard["timestamps"]["last_packet"] = self.current_step
         print(f"[+] Scenario '{self.scenario_name}' ended after {self.current_step} steps.")
 
     def run_scenario_loop(self):
         """
-        מפעיל את כל התרחיש בלולאה עד לסיום.
+        Run full scenario loop from start to end.
         """
         self.start()
         while self.should_continue():

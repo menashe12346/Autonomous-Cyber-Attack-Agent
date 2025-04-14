@@ -1,19 +1,27 @@
+# utils/utils.py
+
 import json
 import re
 
 def extract_json_block(text_input):
     """
-    מקבלת טקסט (או רשימה של טקסטים), ומחזירה את בלוק ה־JSON התקני הכי גדול שמצאה כ־dict.
+    Extracts the largest valid JSON block from the given text input (or list of texts).
+    It looks for well-formed curly braces and attempts to parse candidates as JSON.
+    
+    Parameters:
+        text_input (str or List[str]): Raw output possibly containing JSON.
+    
+    Returns:
+        dict or None: The best parsed JSON object, or None if no valid JSON found.
     """
     if isinstance(text_input, list):
         text = "\n".join(text_input)
     else:
         text = str(text_input)
 
-    # ניקוי escape codes (כמו \x1b[0m)
+    # Remove ANSI escape codes (e.g., \x1b[0m)
     text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
-    # חיפוש כל הבלוקים שמתחילים ונגמרים בסוגריים מסולסלים
     matches = []
     stack = []
     start = None
@@ -27,10 +35,9 @@ def extract_json_block(text_input):
             if stack:
                 stack.pop()
                 if not stack and start is not None:
-                    candidate = text[start:i+1]
+                    candidate = text[start:i + 1]
                     matches.append(candidate)
 
-    # נסה לפרסר כל אחד ולבחור את הכי גדול
     valid_jsons = []
     for candidate in matches:
         try:
@@ -44,27 +51,29 @@ def extract_json_block(text_input):
         print("❌ No valid JSON found.")
         return None
 
-    # בחר את המחרוזת הכי ארוכה (כ־string)
     best_candidate = max(valid_jsons, key=lambda pair: len(pair[0]))
-    return best_candidate[1]  # מחזיר את ה־dict
+    return best_candidate[1]
+
 
 def fix_malformed_json(text: str) -> str:
     """
-    מנקה JSON שמכיל פסיקים מיותרים לפני סוגרים או תווים לא חוקיים,
-    ומחזיר מחרוזת JSON תקנית ככל האפשר.
-    """
-    # מסיר תווי ANSI escape (כמו \x1b[0m)
-    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+    Attempts to fix common JSON issues such as:
+    - Trailing commas
+    - ANSI escape codes
+    - Incomplete block trimming
 
-    # מסיר פסיקים לפני סוגרי dict או list
+    Parameters:
+        text (str): Raw JSON-like string.
+
+    Returns:
+        str: Cleaned and fixed JSON string.
+    """
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
     text = re.sub(r',\s*}', '}', text)
     text = re.sub(r',\s*]', ']', text)
-
-    # מסיר כפילויות של סוגרים מסולסלים
     text = re.sub(r'}\s*}', '}}', text)
     text = re.sub(r']\s*]', ']]', text)
 
-    # מוודא שהמחרוזת מתחילה ונגמרת עם סוגר מסולסל
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1:
@@ -73,10 +82,15 @@ def fix_malformed_json(text: str) -> str:
     return text
 
 
-
 def remove_comments_and_empty_lines(text: str) -> str:
     """
-    מוחקת את כל השורות שמתחילות ב־# ואת כל השורות הריקות מתוך הטקסט.
+    Removes comment lines (starting with '#') and empty lines from a multiline string.
+
+    Parameters:
+        text (str): Multiline string.
+
+    Returns:
+        str: Cleaned text.
     """
     cleaned_lines = []
     for line in text.splitlines():
@@ -85,11 +99,18 @@ def remove_comments_and_empty_lines(text: str) -> str:
             cleaned_lines.append(line)
     return "\n".join(cleaned_lines)
 
+def one_line(self, text: str) -> str:
+    """
+    Convert a multi-line string into a clean single line.
+    """
+    return ' '.join(line.strip() for line in text.strip().splitlines() if line).replace('  ', ' ')
 
+
+# Example debug run
 def main():
     text_input = [
-        '[I will memorize the provided JSON structure exactly as-is:\n\n{\n  "target": {\n    "ip": "",\n    "os": "Unknown",\n    "services": [\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""}\n    ]\n  },\n  "web_directories_status": {\n    "404": { "": "" },\n    "200": { "": "" },\n    "403": { "": "" },\n    "401": { "": "" },\n    "503": { "": "" }\n  }\n}\x1b[0m\n',
-        '{\n  "target": {\n    "ip": "",\n    "os": "Unknown",\n    "services": [\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""},\n      {"port": "", "protocol": "", "service": ""}\n    ]\n  },\n  "web_directories_status": {\n    "404": { "": "" },\n    "200": { "": "" },\n    "403": { "": "" },\n    "401": { "": "" },\n    "503": { "": "" }\n  }\n}\x1b[0m\n]'
+        '[Some prompt text\n\n{\n  "target": {\n    "ip": "",\n    "os": "Unknown"\n  }\n}\x1b[0m\n',
+        '{\n  "target": {\n    "ip": "",\n    "os": "Unknown"\n  }\n}\x1b[0m\n'
     ]
 
     result = extract_json_block(text_input)

@@ -1,12 +1,9 @@
-from LoadModel import LoadModel
+from models.llm.llama_interface import LlamaModel
 from prompts import PROMPT_FOR_A_PROMPT
+from config import LLAMA_RUN, MODEL_PATH
 
-# הגדרת הנתיבים
-LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
-MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+model = LlamaModel(LLAMA_RUN, MODEL_PATH)
 
-# יצירת מופע של המחלקה והפעלת הרצף
-model = LoadModel(LLAMA_RUN, MODEL_PATH)
 command_output = """
 <html><head><title>Metasploitable2 - Linux</title></head><body>
 <pre>
@@ -37,6 +34,8 @@ Login with msfadmin/msfadmin to get started
 </body>
 </html>
 """
-response = model.run_prompt(PROMPT_FOR_A_PROMPT(command_output))
+response = model.run([PROMPT_FOR_A_PROMPT(command_output)])
+print(f"1: {response}")
 
-print(response)
+
+

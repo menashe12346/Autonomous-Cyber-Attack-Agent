@@ -1,53 +1,72 @@
 import time
 import copy
-import json
-import re
-from blackboard.utils import extract_json
 
 class BlackboardAPI:
+    """
+    Provides controlled access and updates to a shared blackboard dictionary.
+    This class is used by agents to retrieve and modify the shared state.
+    """
+
     def __init__(self, blackboard_dict: dict):
+        """
+        Initialize the API with an external blackboard dictionary.
+
+        Args:
+            blackboard_dict (dict): A dictionary representing the shared state.
+        """
         self.blackboard = blackboard_dict
 
     def get_state_for_agent(self, agent_name: str) -> dict:
         """
-        מחזיר את כל ה־Blackboard כפי שהוא, ללא סינון לפי סוג הסוכן.
+        Return a deep copy of the current blackboard state for agent use.
+
+        Args:
+            agent_name (str): Name of the agent requesting the state.
+
+        Returns:
+            dict: A deep copy of the current state.
         """
         return copy.deepcopy(self.blackboard)
 
     def update_runtime_behavior(self, info_dict: dict):
         """
-        מעדכן את תת־המבנה 'runtime_behavior' עם המידע החדש שהתקבל מהפקודה.
-        תומך בהוספת מפתחות חדשים או עדכון חכם של קיימים.
+        Update or merge runtime_behavior fields in the blackboard.
+
+        Args:
+            info_dict (dict): Runtime keys and values to update.
         """
         runtime = self.blackboard.setdefault("runtime_behavior", {})
 
         for key, value in info_dict.items():
             if isinstance(value, list):
-                # אם זו רשימה, נאחד עם רשימה קיימת תוך הימנעות מכפולים
                 existing = runtime.get(key, [])
-                merged = list(set(existing + value))
-                runtime[key] = merged
+                runtime[key] = list(set(existing + value))
             elif isinstance(value, dict):
-                # אם זה מבנה מקונן – נעשה עדכון רק ברמה אחת
                 existing = runtime.get(key, {})
                 if not isinstance(existing, dict):
                     existing = {}
                 existing.update(value)
                 runtime[key] = existing
             else:
-                # ערכים פשוטים – פשוט לעדכן
                 runtime[key] = value
 
     def append_action_log(self, entry: dict):
         """
-        מוסיף רשומה ללוג הפעולות.
+        Append an action entry to the action log with a timestamp.
+
+        Args:
+            entry (dict): The action log entry to append.
         """
         entry["timestamp"] = time.time()
         self.blackboard.setdefault("actions_log", []).append(entry)
 
     def record_reward(self, action: str, reward: float):
         """
-        שומר את ערך התגמול לפעולה האחרונה שבוצעה.
+        Record a reward event for the last action taken.
+
+        Args:
+            action (str): The action associated with the reward.
+            reward (float): The reward value.
         """
         entry = {
             "action": action,
@@ -58,7 +77,12 @@ class BlackboardAPI:
 
     def add_error(self, agent: str, action: str, error: str):
         """
-        מתעד שגיאה שהתרחשה במהלך הרצת פעולה.
+        Record an error that occurred during an agent's action.
+
+        Args:
+            agent (str): The name of the agent.
+            action (str): The action that caused the error.
+            error (str): The error message.
         """
         entry = {
             "agent": agent,
@@ -70,16 +94,26 @@ class BlackboardAPI:
 
     def get_last_actions(self, agent: str, n: int = 5):
         """
-        מחלץ את N הפעולות האחרונות שביצע סוכן מסוים.
+        Retrieve the last N actions performed by a specific agent.
+
+        Args:
+            agent (str): The agent name.
+            n (int): Number of past actions to retrieve.
+
+        Returns:
+            list: List of recent action log entries.
         """
         return [
             log for log in reversed(self.blackboard.get("actions_log", []))
-            if log["agent"] == agent
+            if log.get("agent") == agent
         ][:n]
 
     def update_target_services(self, new_services: list):
         """
-        מוסיף שירותים חדשים ל־target.services אם הם עדיין לא קיימים.
+        Add new services to the target.services list if not already present.
+
+        Args:
+            new_services (list): List of service dicts to add.
         """
         existing = self.blackboard["target"].get("services", [])
         for service in new_services:
@@ -88,26 +122,26 @@ class BlackboardAPI:
 
     def update_exploit_metadata(self, exploit_data: dict):
         """
-        מעדכן את המידע על Exploit אחרון שנבחר.
+        Update the metadata block about the selected exploit.
+
+        Args:
+            exploit_data (dict): Dictionary of exploit metadata to update.
         """
         self.blackboard["exploit_metadata"].update(exploit_data)
 
     def overwrite_blackboard(self, new_state: dict):
         """
-        מעדכן את ה־blackboard עם new_state,
-        ושומר רק את השדה actions_history מהמצב הקיים.
+        Overwrite the blackboard with a new state dictionary.
+
+        Notes:
+        - Completely clears the previous blackboard.
+        - Does NOT preserve transient fields like 'actions_history'.
+
+        Args:
+            new_state (dict): The new state to replace the old one.
         """
         if not isinstance(new_state, dict):
             raise ValueError("new_state must be a dictionary")
 
-        # שמירת actions_history בלבד
-        preserved_actions_history = self.blackboard.get("actions_history", {})
-
-        # איפוס מלא
         self.blackboard.clear()
-
-        # עדכון עם המידע החדש מה־LLM
         self.blackboard.update(new_state)
-
-        # הוספת היסטוריית הפעולות חזרה
-        self.blackboard["actions_history"] = preserved_actions_history

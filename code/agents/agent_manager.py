@@ -1,22 +1,37 @@
 class AgentManager:
+    """
+    Manages the lifecycle and execution of multiple agents within an attack scenario.
+    Supports agent registration, turn-based or full execution, logging, and pending checks.
+    """
+
     def __init__(self, blackboard_api):
+        """
+        Initialize the AgentManager with access to the shared blackboard.
+
+        Args:
+            blackboard_api: Instance of BlackboardAPI for shared state.
+        """
         self.agents = []
         self.blackboard = blackboard_api
         self.current_index = 0
         self.execution_log = []
-        self.actions_history = []  # רשימה שתשמור את כל הפעולות שבוצעו במערכת
+        self.actions_history = []
 
     def register_agents(self, agent_list):
         """
-        מקבל רשימת סוכנים ומריץ תהליך רישום.
+        Register a new list of agents and reset execution state.
+
+        Args:
+            agent_list (list): List of agent instances to register.
         """
         self.agents = agent_list
         self.current_index = 0
         self.execution_log.clear()
+        self.actions_history.clear()
 
     def run_all(self):
         """
-        מריץ את כל הסוכנים ש־should_run שלהם מחזיר True.
+        Run all agents whose `should_run()` method returns True.
         """
         for agent in self.agents:
             if agent.should_run():
@@ -26,7 +41,7 @@ class AgentManager:
 
     def run_step(self):
         """
-        מריץ את הסוכן הבא בתור אם הוא מוכן לפעולה.
+        Run the next agent in a round-robin fashion if it's ready to act.
         """
         if not self.agents:
             return
@@ -39,17 +54,22 @@ class AgentManager:
             self.execution_log.append(agent.name)
             self.actions_history.append(agent.last_action)
 
-    def has_pending_actions(self):
+    def has_pending_actions(self) -> bool:
         """
-        בודק אם יש סוכנים שעדיין עשויים לפעול.
+        Check if any registered agent is still eligible to act.
+
+        Returns:
+            bool: True if at least one agent should run, otherwise False.
         """
         return any(agent.should_run() for agent in self.agents)
 
     def log_summary(self):
         """
-        מציג את רשימת הסוכנים שפעלו עד כה.
+        Print a summary of which agents executed in the last round.
         """
         print("Agents executed in this round:")
         for name in self.execution_log:
-            print(f"✅ {name}")
-            print(self.actions_history)
+            print(f"- {name}")
+        print("Executed actions:")
+        for action in self.actions_history:
+            print(f"  → {action}")

@@ -2,19 +2,36 @@ import random
 import numpy as np
 import torch
 
+
 class PrioritizedReplayBuffer:
-    def __init__(self, max_size=100000, alpha=0.6, beta=0.4):
+    def __init__(self, max_size=100_000, alpha=0.6, beta=0.4):
+        """
+        A prioritized experience replay buffer for deep Q-learning.
+
+        Args:
+            max_size (int): Maximum number of experiences to store.
+            alpha (float): Priority exponent (how much prioritization is used).
+            beta (float): Importance-sampling exponent (how much to correct for bias).
+        """
         self.max_size = max_size
-        self.alpha = alpha  # alpha קובע את עוצמת ה-priorities
-        self.beta = beta    # beta קובע עד כמה נעדיף חוויות עם priorites גבוהים
+        self.alpha = alpha
+        self.beta = beta
+
         self.buffer = []
         self.priorities = []
 
     def add_experience(self, state, action, reward, next_state, done):
         """
-        מוסיף ניסיון חדש למאגר עם priority.
+        Add a new experience to the buffer with maximum priority.
+
+        Args:
+            state (Tensor): Current state.
+            action (int): Action taken.
+            reward (float): Reward received.
+            next_state (Tensor): Next state.
+            done (bool): Whether the episode ended.
         """
-        priority = max(self.priorities) if self.buffer else 1.0  # אתחול priority
+        max_priority = max(self.priorities) if self.buffer else 1.0
         experience = {
             "state": state,
             "action": action,
@@ -28,39 +45,59 @@ class PrioritizedReplayBuffer:
             self.priorities.pop(0)
 
         self.buffer.append(experience)
-        self.priorities.append(priority)
+        self.priorities.append(max_priority)
 
     def sample_batch(self, batch_size):
         """
-        מחזיר דגימה אקראית של חוויות מהמאגר לפי עדיפות.
+        Sample a batch of experiences according to their priority.
+
+        Args:
+            batch_size (int): Number of experiences to sample.
+
+        Returns:
+            Tuple of tensors: (states, actions, rewards, next_states, dones, weights, indices)
         """
-        priorities = np.array(self.priorities)
+        if len(self.buffer) == 0:
+            raise ValueError("The replay buffer is empty.")
+
+        priorities = np.array(self.priorities, dtype=np.float32)
         scaled_priorities = priorities ** self.alpha
-        probabilities = scaled_priorities / np.sum(scaled_priorities)
+        sampling_probs = scaled_priorities / scaled_priorities.sum()
 
-        indices = np.random.choice(len(self.buffer), size=batch_size, p=probabilities)
-        batch = [self.buffer[i] for i in indices]
-        weights = (len(self.buffer) * probabilities[indices]) ** -self.beta
-        weights /= weights.max()
+        indices = np.random.choice(len(self.buffer), size=batch_size, p=sampling_probs)
+        experiences = [self.buffer[i] for i in indices]
 
-        states = torch.stack([ex['state'] for ex in batch])
-        actions = torch.tensor([ex['action'] for ex in batch])
-        rewards = torch.tensor([ex['reward'] for ex in batch])
-        next_states = torch.stack([ex['next_state'] for ex in batch])
-        dones = torch.tensor([ex['done'] for ex in batch])
+        weights = (len(self.buffer) * sampling_probs[indices]) ** -self.beta
+        weights = weights / weights.max()
 
-        return states, actions, rewards, next_states, dones, weights, indices
+        states = torch.stack([exp["state"] for exp in experiences])
+        actions = torch.tensor([exp["action"] for exp in experiences])
+        rewards = torch.tensor([exp["reward"] for exp in experiences])
+        next_states = torch.stack([exp["next_state"] for exp in experiences])
+        dones = torch.tensor([exp["done"] for exp in experiences])
 
-    def update_priorities(self, indices, priorities):
+        return states, actions, rewards, next_states, dones, torch.tensor(weights, dtype=torch.float32), indices
+
+    def update_priorities(self, indices, new_priorities):
         """
-        מעדכן את ה-priorities של חוויות מסוימות לפי חוויות מאוחרות.
+        Update the priority of sampled experiences.
+
+        Args:
+            indices (List[int]): Indices of the sampled experiences.
+            new_priorities (List[float]): Updated priority values.
         """
-        for idx, priority in zip(indices, priorities):
+        for idx, priority in zip(indices, new_priorities):
             self.priorities[idx] = priority
 
     def size(self):
+        """
+        Return the number of stored experiences.
+        """
         return len(self.buffer)
 
     def clear(self):
+        """
+        Clear all experiences and priorities.
+        """
         self.buffer.clear()
         self.priorities.clear()
