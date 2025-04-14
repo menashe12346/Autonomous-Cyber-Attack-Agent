@@ -95,3 +95,4 @@ TO DO:
  4. Meta-Reinforcement Learning
  5. Communication-Based RL
  6. Hierarchical Parallel Multi-Agent RL
+ 7. שילוב של Hierarchical Multi-Agent RL עם Meta-Reinforcement Learning ו־Self-Reflective Systems)
