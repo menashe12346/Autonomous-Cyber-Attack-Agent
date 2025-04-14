@@ -101,33 +101,9 @@ cmake ..
 
 cmake --build . --config Release -j$(nproc)  
 
-
-
-
-
-
-
 # ─────────────────────────────────────────────
-
-
-# ✅ 4. RUN THE MODEL WITH A TEST PROMPT
-
-
-# ─────────────────────────────────────────────
-
-
-
-
-
 
 TO DO:
 
  1. vectorized learning
  2. llama-simple-chat
-
-
-
-
-# Replace <model_path> if needed:
-
-./bin/llama-run ../Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf "Hello! What is 2 + 2?"
