@@ -91,4 +91,7 @@ TO DO:
 
  1. vectorized learning
  2. llama-simple-chat
- 3. Tokenizer שתואם לסוכנים שלי
+ 3. Tokenizer that fits my agents
+ 4. Meta-Reinforcement Learning
+ 5. Communication-Based RL
+ 6. Hierarchical Parallel Multi-Agent RL
