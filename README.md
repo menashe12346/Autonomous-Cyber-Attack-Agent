@@ -91,3 +91,4 @@ TO DO:
 
  1. vectorized learning
  2. llama-simple-chat
+ 3. Tokenizer שתואם לסוכנים שלי
