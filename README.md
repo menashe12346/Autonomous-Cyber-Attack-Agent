@@ -46,16 +46,18 @@ pip install huggingface_hub
 ### ─────────────────────────────────────────────
 
 
+###  2. Requirements
+python version 3.9+
+
+
+### ─────────────────────────────────────────────
+
 
 
 ### (Optional) Login to HuggingFace if the model is gated:
 
 
 huggingface-cli login   # ← Paste your token when prompted
-
-
-###  2. Requirements
-python version 3.9+
 
 
 
