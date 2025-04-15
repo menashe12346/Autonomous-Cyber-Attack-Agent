@@ -54,6 +54,10 @@ pip install huggingface_hub
 huggingface-cli login   # ← Paste your token when prompted
 
 
+###  2. Requirements
+python version 3.9+
+
+
 
 
 ### 📄 Download the model file:
