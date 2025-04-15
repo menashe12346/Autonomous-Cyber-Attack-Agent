@@ -1,0 +1,2621 @@
+<</mnt/linux-data/project/code/config.py>>
+# Simulation parameters
+NUM_EPISODES = 100
+MAX_STEPS_PER_EPISODE = 5
+
+# Target configuration
+TARGET_IP = "192.168.56.101"
+
+# Model configuration
+LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
+MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+
+# Wordlists paths
+WORDLISTS = {
+    "gobuster_common": "/mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+}
+
+# LLM cache path
+LLM_CACHE_PATH = "/mnt/linux-data/project/code/Cache/llm_cache.pkl"
+<</mnt/linux-data/project/code/main.py>>
+import torch
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP
+
+from blackboard.blackboard import initialize_blackboard
+from blackboard.api import BlackboardAPI
+
+from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
+
+from agents.agent_manager import AgentManager
+from agents.recon_agent import ReconAgent
+
+from orchestrator.scenario_orchestrator import ScenarioOrchestrator
+
+from models.policy_model import PolicyModel
+from models.trainer import RLModelTrainer
+from models.llm.llama_interface import LlamaModel
+
+from encoders.state_encoder import StateEncoder
+from encoders.action_encoder import ActionEncoder
+
+from tools.action_space import get_commands_for_agent
+
+def main():
+
+    # LLM Model
+    model = LlamaModel(LLAMA_RUN, MODEL_PATH)
+
+    # Replay Buffer
+    replay_buffer = PrioritizedReplayBuffer(max_size=20000)
+
+    # Action Space
+    action_space = get_commands_for_agent("recon", TARGET_IP)
+    action_encoder = ActionEncoder(action_space)
+    state_encoder = StateEncoder(action_space=action_space)
+
+    # Policy Model
+    state_size = 128
+    action_size = len(action_space)
+    policy_model = PolicyModel(state_size=state_size, action_size=action_size)
+
+    # Move to GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    policy_model.to(device)
+
+    # Trainer
+    trainer = RLModelTrainer(
+    policy_model=policy_model,
+    replay_buffer=replay_buffer,
+    device=device,
+    learning_rate=1e-3,
+    gamma=0.99
+    )
+
+    command_cache = {}
+    all_actions = []
+
+    # === EPISODE LOOP ===
+    for episode in range(NUM_EPISODES):
+        print(f"\n========== EPISODE {episode + 1} ==========")
+
+        # --- Initialize Blackboard ---
+        blackboard_dict = initialize_blackboard()
+        blackboard_dict["target"]["ip"] = TARGET_IP
+        bb_api = BlackboardAPI(blackboard_dict)
+
+        # --- Create Recon Agent ---
+        recon_agent = ReconAgent(
+            blackboard_api=bb_api,
+            policy_model=policy_model,
+            replay_buffer=replay_buffer,
+            state_encoder=state_encoder,
+            action_encoder=action_encoder,
+            command_cache=command_cache,
+            model=model
+        )
+
+        # --- Register Agents ---
+        agents = [recon_agent]
+        agent_manager = AgentManager(bb_api)
+        agent_manager.register_agents(agents)
+
+        # --- Run Scenario ---
+        scenario_name = f"AttackEpisode_{episode + 1}"
+        orchestrator = ScenarioOrchestrator(
+            blackboard=bb_api,
+            agent_manager=agent_manager,
+            max_steps=MAX_STEPS_PER_EPISODE,
+            scenario_name=scenario_name,
+            target=TARGET_IP
+        )
+        orchestrator.run_scenario_loop()
+
+        # --- Track actions taken ---
+        all_actions.append({
+            "episode": episode + 1,
+            "actions": recon_agent.actions_history.copy()
+        })
+
+        # --- Train Policy Model ---
+        for _ in range(10):
+            loss = trainer.train_batch(batch_size=32)
+            if loss is not None:
+                print(f"[Episode {episode + 1}] Training loss: {loss:.4f}")
+
+    #print("\n========== SUMMARY OF ALL EPISODES ==========")
+    #for episode_info in all_actions:
+    #    print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
+
+    trainer.save_model("models/saved_models/policy_model.pth")
+    print("✅ Final trained model saved.")
+
+if __name__ == "__main__":
+    main()
+
+<</mnt/linux-data/project/code/replay_buffer/Prioritized_Replay_Buffer.py>>
+import random
+import numpy as np
+import torch
+
+
+class PrioritizedReplayBuffer:
+    def __init__(self, max_size=100_000, alpha=0.6, beta=0.4):
+        """
+        A prioritized experience replay buffer for deep Q-learning.
+
+        Args:
+            max_size (int): Maximum number of experiences to store.
+            alpha (float): Priority exponent (how much prioritization is used).
+            beta (float): Importance-sampling exponent (how much to correct for bias).
+        """
+        self.max_size = max_size
+        self.alpha = alpha
+        self.beta = beta
+
+        self.buffer = []
+        self.priorities = []
+
+    def add_experience(self, state, action, reward, next_state, done):
+        """
+        Add a new experience to the buffer with maximum priority.
+
+        Args:
+            state (Tensor): Current state.
+            action (int): Action taken.
+            reward (float): Reward received.
+            next_state (Tensor): Next state.
+            done (bool): Whether the episode ended.
+        """
+        max_priority = max(self.priorities) if self.buffer else 1.0
+        experience = {
+            "state": state,
+            "action": action,
+            "reward": reward,
+            "next_state": next_state,
+            "done": done
+        }
+
+        if len(self.buffer) >= self.max_size:
+            self.buffer.pop(0)
+            self.priorities.pop(0)
+
+        self.buffer.append(experience)
+        self.priorities.append(max_priority)
+
+    def sample_batch(self, batch_size):
+        """
+        Sample a batch of experiences according to their priority.
+
+        Args:
+            batch_size (int): Number of experiences to sample.
+
+        Returns:
+            Tuple of tensors: (states, actions, rewards, next_states, dones, weights, indices)
+        """
+        if len(self.buffer) == 0:
+            raise ValueError("The replay buffer is empty.")
+
+        priorities = np.array(self.priorities, dtype=np.float32)
+        scaled_priorities = priorities ** self.alpha
+        sampling_probs = scaled_priorities / scaled_priorities.sum()
+
+        indices = np.random.choice(len(self.buffer), size=batch_size, p=sampling_probs)
+        experiences = [self.buffer[i] for i in indices]
+
+        weights = (len(self.buffer) * sampling_probs[indices]) ** -self.beta
+        weights = weights / weights.max()
+
+        states = torch.stack([exp["state"] for exp in experiences])
+        actions = torch.tensor([exp["action"] for exp in experiences])
+        rewards = torch.tensor([exp["reward"] for exp in experiences])
+        next_states = torch.stack([exp["next_state"] for exp in experiences])
+        dones = torch.tensor([exp["done"] for exp in experiences])
+
+        return states, actions, rewards, next_states, dones, torch.tensor(weights, dtype=torch.float32), indices
+
+    def update_priorities(self, indices, new_priorities):
+        """
+        Update the priority of sampled experiences.
+
+        Args:
+            indices (List[int]): Indices of the sampled experiences.
+            new_priorities (List[float]): Updated priority values.
+        """
+        for idx, priority in zip(indices, new_priorities):
+            self.priorities[idx] = priority
+
+    def size(self):
+        """
+        Return the number of stored experiences.
+        """
+        return len(self.buffer)
+
+    def clear(self):
+        """
+        Clear all experiences and priorities.
+        """
+        self.buffer.clear()
+        self.priorities.clear()
+
+<</mnt/linux-data/project/code/agents/base_agent.py>>
+import random
+import subprocess
+import json
+from abc import ABC, abstractmethod
+
+from Cache.llm_cache import LLMCache
+
+from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
+from utils.utils import remove_comments_and_empty_lines, extract_json_block, one_line
+from utils.state_check.state_validator import validate_state
+from utils.state_check.state_correctness import correct_state
+
+class BaseAgent(ABC):
+    """
+    Abstract base class for all AI agents in the attack environment.
+    Provides the main learning and acting loop, caching, output parsing, and interaction with the blackboard.
+    """
+
+    def __init__(self, name, action_space, blackboard_api, replay_buffer,
+                 policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
+        self.name = name
+        self.action_space = action_space
+        self.blackboard_api = blackboard_api
+        self.replay_buffer = replay_buffer
+        self.policy_model = policy_model
+        self.state_encoder = state_encoder
+        self.action_encoder = action_encoder
+        self.command_cache = command_cache
+        self.model = model
+        self.epsilon = epsilon
+        self.actions_history = []
+        self.last_state = None
+        self.last_action = None
+        self.llm_cache = LLMCache(state_encoder=state_encoder)
+
+    @abstractmethod
+    def should_run(self) -> bool:
+        """
+        Must be implemented by subclasses to decide whether the agent should act now.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_reward(self, prev_state, action, next_state) -> float:
+        """
+        Must be implemented by subclasses to compute the reward signal.
+        """
+        raise NotImplementedError
+
+    def run(self):
+        """
+        Main loop of the agent: observe, choose action, perform, parse, learn, update.
+        """
+        # Step 1: get state
+        raw_state = self.get_state_raw()
+        raw_state_with_history = dict(raw_state)
+        raw_state_with_history["actions_history"] = self.actions_history.copy()
+        state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
+        self.last_state = state
+
+        print(f"last state: {json.dumps(raw_state_with_history, indent=2)}")
+
+        # Step 2: select action
+        action = self.choose_action(state)
+        self.last_action = action
+        self.actions_history.append(action)
+
+        print(f"\n[+] Agent: {self.name}")
+        print(f"    Current state: {str(state)[:8]}...")
+        print(f"    Chosen action: {action}")
+
+        # Step 3: execute action
+        result = remove_comments_and_empty_lines(self.perform_action(action))
+        print("\033[1;32m" + str(result) + "\033[0m")
+
+        # Step 4: clean output (if long)
+        if len(result.split()) > 300:
+            try:
+                cleaned_output = self.clean_output(clean_output_prompt(result))
+            except Exception as e:
+                print(f"[!] Failed to clean output: {e}")
+                cleaned_output = result
+        else:
+            cleaned_output = result
+        print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
+
+        # Step 5: parse, validate and update blackboard
+        parsed_info = self.parse_output(cleaned_output)
+        print(f"parsed_info - {parsed_info}")
+
+        parsed_info = correct_state(parsed_info)
+        print("correct_state: {parsed_info}")
+
+        self.blackboard_api.overwrite_blackboard(parsed_info)
+
+        # Step 6: observe next state
+        raw_next_state = self.get_state_raw()
+        raw_next_state_with_history = dict(raw_next_state)
+        raw_next_state_with_history["actions_history"] = self.actions_history.copy()
+        next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
+
+        # Step 7: reward and update model
+        reward = self.get_reward(state, action, next_state)
+        print(f"new state: {json.dumps(dict(self.state_encoder.decode(next_state)), indent=2)}")
+
+        experience = {
+            "state": state,
+            "action": self.action_space.index(action),
+            "reward": reward,
+            "next_state": next_state
+        }
+
+        q_pred, loss = self.policy_model.update(experience)
+
+        print(f"    Predicted Q-value: {q_pred:.4f}")
+        print(f"    Actual reward:     {reward:.4f}")
+        print(f"    Loss:              {loss:.6f}")
+
+        # Step 8: save experience
+        self.replay_buffer.add_experience(state, self.action_space.index(action), reward, next_state, False)
+
+        # Step 9: log action
+        self.blackboard_api.append_action_log({
+            "agent": self.name,
+            "action": action,
+            "result": result,
+        })
+
+    def choose_action(self, state_vector):
+        """
+        ε-greedy policy: choose random action with probability ε, else best predicted action.
+        """
+        if random.random() < self.epsilon:
+            action_index = random.randint(0, len(self.action_space) - 1)
+            self.decay_epsilon()
+        else:
+            action_index = self.policy_model.predict_best_action(state_vector)
+
+        return self.action_space[action_index]
+
+    def decay_epsilon(self, decay_rate=0.995, min_epsilon=0.01):
+        """
+        Gradually reduce exploration probability.
+        """
+        self.epsilon = max(self.epsilon * decay_rate, min_epsilon)
+
+    def get_state_raw(self):
+        """
+        Get the current blackboard state as-is (used for encoding).
+        """
+        return self.blackboard_api.get_state_for_agent(self.name)
+
+    def get_state(self):
+        """
+        Encoded state vector.
+        """
+        return self.state_encoder.encode(self.get_state_raw(), self.actions_history)
+
+    def perform_action(self, action: str) -> str:
+        """
+        Default behavior: run an IP-based shell command with the action template.
+        """
+        ip = self.blackboard_api.blackboard.get("target", {}).get("ip", "127.0.0.1")
+        command = action.format(ip=ip)
+
+        if action in self.command_cache:
+            print(f"[Cache] Returning cached result for action: {action}")
+            return self.command_cache[action]
+
+        try:
+            output = subprocess.check_output(command.split(), timeout=10).decode()
+        except Exception as e:
+            self.blackboard_api.add_error(self.name, action, str(e))
+            output = ""
+
+        self.command_cache[action] = output
+        return output
+
+    def parse_output(self, command_output: str) -> dict:
+        """
+        Parse command output using the LLM. Use cache if available.
+        """
+        raw_state = self.get_state_raw()
+        raw_state["actions_history"] = self.actions_history.copy()
+
+        cached = self.llm_cache.get(raw_state, self.last_action)
+        if cached:
+            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
+            return cached
+
+        prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
+        inner_prompt = self.model.run([prompt_for_prompt])[0]
+        final_prompt = PROMPT_2(command_output, inner_prompt)
+
+        responses = self.model.run([
+            one_line(PROMPT_1(json.dumps(self.get_state_raw(), indent=2))),
+            one_line(final_prompt)
+        ])
+        
+        full_response = responses[1] + "\n" + responses[0]
+        print(f"full_response - {full_response}")
+
+        parsed = extract_json_block(full_response)
+        if parsed:
+            self.llm_cache.set(raw_state, self.last_action, parsed)
+
+        return parsed
+
+    def clean_output(self, command_output: str) -> dict:
+        """
+        Clean long noisy outputs using a cleanup prompt and the LLM.
+        """
+        return self.model.run_prompt(clean_output_prompt(command_output))
+
+    def update_policy(self, state, action, reward, next_state):
+        """
+        Manually trigger an update to the Q-network.
+        """
+        self.policy_model.update({
+            "state": state,
+            "action": self.action_space.index(action),
+            "reward": reward,
+            "next_state": next_state
+        })
+
+    def correct_state(self, current_state):
+        new_state = state_validator(current_state)
+        new_state = state_correctness(new_state)
+        return new_state
+
+<</mnt/linux-data/project/code/agents/recon_agent.py>>
+import json
+import hashlib
+from agents.base_agent import BaseAgent
+from tools.action_space import get_commands_for_agent
+
+
+class ReconAgent(BaseAgent):
+    """
+    A specialized agent for reconnaissance actions in the attack simulation.
+    It selects and executes recon commands to gather service and network info.
+    """
+
+    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model):
+        """
+        Initialize the ReconAgent with access to the blackboard and learning components.
+
+        Args:
+            blackboard_api (BlackboardAPI): Shared state interface.
+            policy_model (PolicyModel): Q-network.
+            replay_buffer: Experience replay buffer.
+            state_encoder: State vector encoder.
+            action_encoder: Action index encoder.
+            command_cache: Shared cache of previously executed commands.
+            model: LLM interface used for output parsing.
+        """
+        ip = blackboard_api.blackboard["target"]["ip"]
+        super().__init__(
+            name="ReconAgent",
+            blackboard_api=blackboard_api,
+            action_space=get_commands_for_agent("recon", ip),
+            policy_model=policy_model,
+            replay_buffer=replay_buffer,
+            state_encoder=state_encoder,
+            action_encoder=action_encoder,
+            command_cache=command_cache,
+            model=model
+        )
+
+    def should_run(self):
+        """
+        Determine whether the agent should run in the current blackboard state.
+
+        Returns:
+            bool: True if the agent should act, False otherwise.
+        """
+        bb = self.blackboard_api.blackboard
+        target = bb.get("target", {})
+        runtime = bb.get("runtime_behavior", {})
+        actions_log = bb.get("actions_log", [])
+        errors = bb.get("errors", [])
+        impact = bb.get("attack_impact", {})
+
+        services = target.get("services", [])
+        open_ports = target.get("open_ports", [])
+
+        # 1. No services or ports yet
+        if not services and not open_ports:
+            return True
+
+        # 2. Too few results
+        if len(services) < 2 and len(open_ports) < 2:
+            return True
+
+        # 3. Errors from this agent
+        for err in errors:
+            if err.get("agent") == self.name:
+                return True
+
+        # 4. Hasn't run recently
+        last_time = None
+        for log in reversed(actions_log):
+            if log.get("agent") == self.name:
+                last_time = log.get("timestamp")
+                break
+        if last_time is None:
+            return True
+
+        import time
+        if time.time() - last_time > 300:
+            return True
+
+        # 5. Shell already open
+        shell = runtime.get("shell_opened", {})
+        if shell.get("shell_type") and shell.get("shell_access_level"):
+            return False
+
+        # 6. Detected by defenses
+        if impact.get("detected_by_defenses", False):
+            return False
+
+        return True
+
+    def get_reward(self, prev_state, action, next_state) -> float:
+        """
+        Calculate the reward based on changes in knowledge or system state.
+
+        Args:
+            prev_state: Previous state vector.
+            action (str): Action that was taken.
+            next_state: Resulting state vector.
+
+        Returns:
+            float: The reward value for this transition.
+        """
+        reward = 0.0
+        reasons = []
+
+        def _services_to_set(services):
+            return set(
+                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
+                for s in services if isinstance(s, dict)
+            )
+
+        try:
+            prev_key = str(prev_state.tolist())
+            next_key = str(next_state.tolist())
+
+            prev_dict = self.state_encoder.encoded_to_state.get(prev_key, {})
+            next_dict = self.state_encoder.encoded_to_state.get(next_key, {})
+
+            actions_history = prev_dict.get("actions_history", [])
+
+            # Repeated action penalty
+            if action in actions_history:
+                reward -= 0.5
+                reasons.append("Repeated action -0.5")
+            else:
+                reward += 0.2
+                reasons.append("New action +0.2")
+
+            # New services discovered
+            prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
+            next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
+            new_services = next_services - prev_services
+            reward += 1.0 * len(new_services)
+            if new_services:
+                reasons.append(f"{len(new_services)} new services discovered +{1.0 * len(new_services):.1f}")
+
+            # New ports discovered
+            prev_ports = set(prev_dict.get("target", {}).get("open_ports", []))
+            next_ports = set(next_dict.get("target", {}).get("open_ports", []))
+            new_ports = next_ports - prev_ports
+            reward += 0.5 * len(new_ports)
+            if new_ports:
+                reasons.append(f"{len(new_ports)} new open ports +{0.5 * len(new_ports):.1f}")
+
+            # New shell opened
+            prev_shell = prev_dict.get("runtime_behavior", {}).get("shell_opened", {})
+            next_shell = next_dict.get("runtime_behavior", {}).get("shell_opened", {})
+
+            if not prev_shell.get("shell_type") and next_shell.get("shell_type"):
+                reward += 5.0
+                reasons.append("New shell opened +5.0")
+
+            # Privilege escalation
+            levels = {"": 0, "user": 1, "root": 2}
+            prev_level = prev_shell.get("shell_access_level", "")
+            next_level = next_shell.get("shell_access_level", "")
+            if levels.get(next_level, 0) > levels.get(prev_level, 0):
+                reward += 3.0
+                reasons.append(f"Privilege escalation from {prev_level} to {next_level} +3.0")
+
+            # Useless repetition penalty
+            if not new_services and not new_ports and not next_shell.get("shell_type"):
+                if action in actions_history:
+                    reward -= 1.0
+                    reasons.append("No new discoveries and repeated action -1.0")
+
+            # Debug summary
+            print(f"[Reward Debug] Action: {action}")
+            print(f"[Reward Debug] New services: {len(new_services)}")
+            print(f"[Reward Debug] New ports: {len(new_ports)}")
+            print(f"[Reward Debug] Shell opened: {next_shell.get('shell_type')}")
+            print(f"[Reward Debug] Total reward: {reward:.4f}")
+
+            print("\n[Reward Summary]")
+            print(f"Action: {action}")
+            print("Reasons:")
+            for r in reasons:
+                print(f" - {r}")
+            print(f"Total reward: {reward:.4f}\n")
+
+            return reward
+
+        except Exception as e:
+            print(f"[!] Reward computation failed: {e}")
+            return 0.0
+<</mnt/linux-data/project/code/agents/agent_manager.py>>
+class AgentManager:
+    """
+    Manages the lifecycle and execution of multiple agents within an attack scenario.
+    Supports agent registration, turn-based or full execution, logging, and pending checks.
+    """
+
+    def __init__(self, blackboard_api):
+        """
+        Initialize the AgentManager with access to the shared blackboard.
+
+        Args:
+            blackboard_api: Instance of BlackboardAPI for shared state.
+        """
+        self.agents = []
+        self.blackboard = blackboard_api
+        self.current_index = 0
+        self.execution_log = []
+        self.actions_history = []
+
+    def register_agents(self, agent_list):
+        """
+        Register a new list of agents and reset execution state.
+
+        Args:
+            agent_list (list): List of agent instances to register.
+        """
+        self.agents = agent_list
+        self.current_index = 0
+        self.execution_log.clear()
+        self.actions_history.clear()
+
+    def run_all(self):
+        """
+        Run all agents whose `should_run()` method returns True.
+        """
+        for agent in self.agents:
+            if agent.should_run():
+                agent.run()
+                self.execution_log.append(agent.name)
+                self.actions_history.append(agent.last_action)
+
+    def run_step(self):
+        """
+        Run the next agent in a round-robin fashion if it's ready to act.
+        """
+        if not self.agents:
+            return
+
+        agent = self.agents[self.current_index]
+        self.current_index = (self.current_index + 1) % len(self.agents)
+
+        if agent.should_run():
+            agent.run()
+            self.execution_log.append(agent.name)
+            self.actions_history.append(agent.last_action)
+
+    def has_pending_actions(self) -> bool:
+        """
+        Check if any registered agent is still eligible to act.
+
+        Returns:
+            bool: True if at least one agent should run, otherwise False.
+        """
+        return any(agent.should_run() for agent in self.agents)
+
+    def log_summary(self):
+        """
+        Print a summary of which agents executed in the last round.
+        """
+        print("Agents executed in this round:")
+        for name in self.execution_log:
+            print(f"- {name}")
+        print("Executed actions:")
+        for action in self.actions_history:
+            print(f"  → {action}")
+
+<</mnt/linux-data/project/code/agents/llm_parser_agent.py>>
+# agents/llm_parser_agent.py
+
+from agents.base_agent import BaseAgent
+from utils.utils import extract_json_block
+from utils.prompts import PROMPT_1, PROMPT_2, PROMPT_FOR_A_PROMPT
+from utils.prompts import clean_output_prompt
+
+class LLMParserAgent(BaseAgent):
+    """
+    Agent for parsing raw command outputs into structured blackboard-compatible JSON
+    using a language model.
+    """
+
+    def __init__(self, blackboard_api, model):
+        super().__init__(
+            name="LLMParserAgent",
+            action_space=[],  # No actions
+            blackboard_api=blackboard_api,
+            replay_buffer=None,
+            policy_model=None,
+            state_encoder=None,
+            action_encoder=None,
+            command_cache={},
+            model=model
+        )
+
+    def should_run(self) -> bool:
+        # Run if new raw output is present
+        return bool(self.blackboard_api.blackboard.get("last_raw_output", ""))
+
+    def get_reward(self, prev_state, action, next_state) -> float:
+        # This agent doesn't participate in reward learning
+        return 0.0
+
+    def run(self):
+        raw_output = self.blackboard_api.blackboard.get("last_raw_output", "")
+        if not raw_output:
+            print("[LLMParserAgent] No raw output to process.")
+            return
+
+        print("\n[+] LLMParserAgent running...")
+
+        # 1. Create prompts
+        prompt_for_prompt = PROMPT_FOR_A_PROMPT(raw_output)
+        inner_prompt = self.model.run([prompt_for_prompt])[0]
+        final_prompt = PROMPT_2(raw_output, inner_prompt)
+
+        # 2. Run with context structure
+        structure_prompt = PROMPT_1(self.blackboard_api.get_state_for_agent(self.name))
+        responses = self.model.run([
+            self.one_line(structure_prompt),
+            self.one_line(final_prompt)
+        ])
+
+        # 3. Extract JSON
+        full_response = responses[1] + "\n" + responses[0]
+        print(f"[LLMParserAgent] full_response - {full_response}")
+
+        parsed = extract_json_block(full_response)
+
+        if parsed:
+            # Post-fix structure if needed
+            parsed = self.fix_json(parsed)
+            print(f"[LLMParserAgent] Parsed JSON: {parsed}")
+            self.blackboard_api.overwrite_blackboard(parsed)
+        else:
+            print("[LLMParserAgent] ❌ Failed to extract valid JSON.")
+
+    def one_line(self, text: str) -> str:
+        return ' '.join(line.strip() for line in text.strip().splitlines() if line).replace('  ', ' ')
+
+    def fix_json(self, parsed: dict) -> dict:
+        """
+        Ensures the parsed JSON strictly follows expected format.
+        """
+        required_statuses = ["200", "401", "403", "404", "503"]
+        wds = parsed.get("web_directories_status", {})
+        for status in required_statuses:
+            if status not in wds or not isinstance(wds[status], dict) or not wds[status]:
+                wds[status] = {"": ""}
+        parsed["web_directories_status"] = wds
+
+        # Ensure services list has exactly 3 entries
+        services = parsed.get("target", {}).get("services", [])
+        while len(services) < 3:
+            services.append({"port": "", "protocol": "", "service": ""})
+        parsed["target"]["services"] = services[:3]
+
+        return parsed
+
+<</mnt/linux-data/project/code/Cache/llm_cache.py>>
+import os
+import pickle
+
+from config import LLM_CACHE_PATH
+
+class LLMCache:
+    """
+    Caches LLM outputs to avoid redundant processing for identical state-action pairs.
+    """
+
+    def __init__(self, cache_file=LLM_CACHE_PATH, state_encoder=None):
+        self.cache_file = cache_file
+        self.state_encoder = state_encoder
+        self.cache = self._load_cache()
+
+    def _load_cache(self):
+        """
+        Loads the cache from disk if it exists.
+        """
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file, "rb") as f:
+                return pickle.load(f)
+        return {}
+
+    def _save_cache(self):
+        """
+        Saves the current cache dictionary to disk.
+        """
+        with open(self.cache_file, "wb") as f:
+            pickle.dump(self.cache, f)
+
+    def _get_key(self, state_dict, actions_history, action_str):
+        """
+        Generates a unique key for the cache based on:
+        - the encoded state (including action history)
+        - the current action string
+        """
+        vector = self.state_encoder.encode(state_dict, actions_history)
+        vector_key = str(vector.tolist())
+        return f"{vector_key}||{action_str}"
+
+    def get(self, state_dict, action_str, actions_history=[]):
+        """
+        Retrieves a cached result based on the state, history, and action.
+        Returns None if no cached result exists.
+        """
+        key = self._get_key(state_dict, actions_history, action_str)
+        return self.cache.get(key)
+
+    def set(self, state_dict, action_str, value, actions_history=[]):
+        """
+        Stores a result in the cache for a specific state and action.
+        """
+        key = self._get_key(state_dict, actions_history, action_str)
+        self.cache[key] = value
+        self._save_cache()
+<</mnt/linux-data/project/code/tools/action_space.py>>
+from typing import List, Dict
+
+from config import WORDLISTS
+
+# Mapping of tool categories to their command templates
+COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
+    "recon": {
+        "ping": [
+            "ping -c 1 {ip}"
+        ],
+        "nmap": [
+            "nmap -F {ip}",
+            "nmap {ip}"
+        ],
+        "curl": [
+            "curl -I http://{ip}",
+            "curl http://{ip}/"
+        ],
+        "wget": [
+            "wget http://{ip} -O -"
+        ],
+        "traceroute": [
+            "traceroute {ip}"
+        ],
+        "whatweb": [
+            "whatweb http://{ip}"
+        ],
+        "gobuster": [
+            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+        ]
+    },
+
+    # Example future support:
+    # "exploit": {
+    #     "manual_exploit": [
+    #         "python3 /path/to/exploit.py {ip}"
+    #     ]
+    # }
+}
+
+
+def build_action_space(agent_type: str, ip: str) -> List[str]:
+    """
+    Builds a list of actions for the given agent type and target IP address.
+
+    Args:
+        agent_type (str): Type of the agent (e.g., "recon", "exploit").
+        ip (str): Target IP address.
+
+    Returns:
+        List[str]: List of formatted commands.
+    """
+    actions = []
+    agent_type = agent_type.lower()
+
+    if agent_type not in COMMAND_TEMPLATES:
+        raise ValueError(f"Unknown agent type: '{agent_type}'")
+
+    for tool, templates in COMMAND_TEMPLATES[agent_type].items():
+        for cmd in templates:
+            actions.append(cmd.format(ip=ip))
+
+    return actions
+
+
+def get_commands_for_agent(agent_type: str, ip: str) -> List[str]:
+    """
+    Retrieves a list of commands for a specific agent.
+
+    Args:
+        agent_type (str): Agent category ("recon", etc).
+        ip (str): Target IP.
+
+    Returns:
+        List[str]: List of formatted commands.
+    """
+    return build_action_space(agent_type, ip)
+
+
+if __name__ == "__main__":
+    # Debug output of commands for a given IP and agent type
+    target_ip = "192.168.56.101"
+    commands = get_commands_for_agent("recon", target_ip)
+    for cmd in commands:
+        print(cmd)
+<</mnt/linux-data/project/code/get_code/get_code.py>>
+import os, tiktoken
+
+def count_tokens(text):
+    enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
+    return len(enc.encode(text, disallowed_special=()))
+
+def print_all_python_files(start_dir, output_file):
+    skip_dirs = {
+        "llama.cpp",
+        "nous-hermes",
+        "__pycache__",
+        "llama-factory",
+        "models--google--flan-t5-xl"
+    }
+
+    output = ''
+    for root, dirs, files in os.walk(start_dir):
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+
+        for file in files:
+            if file.endswith(".py"):
+                path = os.path.join(root, file)
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        snippet = f"<<{path}>>\n{content}\n"
+                        output += snippet
+                        print(snippet)
+                except Exception as e:
+                    print(f"[ERROR] Failed to read {path}: {e}")
+
+    with open(output_file, 'w', encoding='utf-8') as out_f:
+        out_f.write(output)
+
+    print(f"\n[Total Tokens (GPT-4o): {count_tokens(output)}]")
+    print(f"[Saved to: {output_file}]")
+
+print_all_python_files(
+    "/mnt/linux-data/project/code",
+    "/mnt/linux-data/project/code/get_code/code.txt"
+)
+
+<</mnt/linux-data/project/code/Debug/run_model.py>>
+from models.llm.llama_interface import LlamaModel
+from utils.prompts import PROMPT_FOR_A_PROMPT
+from config import LLAMA_RUN, MODEL_PATH
+
+model = LlamaModel(LLAMA_RUN, MODEL_PATH)
+
+command_output = """
+<html><head><title>Metasploitable2 - Linux</title></head><body>
+<pre>
+
+                _                  _       _ _        _     _      ____  
+ _ __ ___   ___| |_ __ _ ___ _ __ | | ___ (_) |_ __ _| |__ | | ___|___ \ 
+| '_ ` _ \ / _ \ __/ _` / __| '_ \| |/ _ \| | __/ _` | '_ \| |/ _ \ __) |
+| | | | | |  __/ || (_| \__ \ |_) | | (_) | | || (_| | |_) | |  __// __/ 
+|_| |_| |_|\___|\__\__,_|___/ .__/|_|\___/|_|\__\__,_|_.__/|_|\___|_____|
+                            |_|                                          
+
+
+Warning: Never expose this VM to an untrusted network!
+
+Contact: msfdev[at]metasploit.com
+
+Login with msfadmin/msfadmin to get started
+
+
+</pre>
+<ul>
+<li><a href="/twiki/">TWiki</a></li>
+<li><a href="/phpMyAdmin/">phpMyAdmin</a></li>
+<li><a href="/mutillidae/">Mutillidae</a></li>
+<li><a href="/dvwa/">DVWA</a></li>
+<li><a href="/dav/">WebDAV</a></li>
+</ul>
+</body>
+</html>
+"""
+response = model.run([PROMPT_FOR_A_PROMPT(command_output)])
+print(f"1: {response}")
+
+
+
+
+<</mnt/linux-data/project/code/Debug/model_test_limits.py>>
+import subprocess
+import os
+
+LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
+MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+PROMPT = "Generate a very long list of numbers starting from 1.\n1."
+THREADS = "4"
+N_BATCH = "32"  # ערך שמרני ויציב
+
+def is_available(path):
+    return os.path.exists(path) and os.access(path, os.X_OK)
+
+def test_token_limit():
+    if not is_available(LLAMA_RUN):
+        print(f"[!] Error: llama-run not found at {LLAMA_RUN}")
+        return
+
+    print(f"📍 Testing llama-run at: {LLAMA_RUN}")
+    print(f"📍 Using model: {MODEL_PATH}\n")
+
+    low = 1
+    high = 8192
+    best = 0
+
+    print("🚀 Starting token limit test (with detailed errors)...")
+
+    while low <= high:
+        mid = (low + high) // 2
+        print(f"🔍 Testing with {mid} tokens...", end=" ")
+
+        cmd = [
+            LLAMA_RUN,
+            MODEL_PATH,
+            PROMPT,
+            "-n", str(mid),
+            "-t", THREADS,
+            "--n-batch", N_BATCH
+        ]
+
+        try:
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60*20)
+            best = mid
+            print("✅ Passed")
+            low = mid + 1
+
+        except subprocess.CalledProcessError as e:
+            print("❌ Failed")
+            print(f"    ↳ Return code: {e.returncode}")
+            print(f"    ↳ stderr: {e.stderr.strip().splitlines()[-1] if e.stderr else 'No stderr'}")
+            high = mid - 1
+
+        except subprocess.TimeoutExpired:
+            print("❌ Timeout")
+            high = mid - 1
+
+    print(f"\n🎯 Maximum usable tokens without crash: {best}")
+
+if __name__ == "__main__":
+    test_token_limit()
+
+<</mnt/linux-data/project/code/orchestrator/scenario_orchestrator.py>>
+class ScenarioOrchestrator:
+    """
+    Manages the execution of a penetration testing scenario.
+
+    This class controls:
+    - Blackboard initialization per scenario
+    - AgentManager coordination
+    - Looping through steps
+    - Stop conditions enforcement
+    """
+
+    def __init__(self, blackboard, agent_manager, target, max_steps=20, scenario_name="DefaultScenario", stop_conditions=None):
+        """
+        Initialize the orchestrator with simulation parameters.
+
+        Args:
+            blackboard: BlackboardAPI instance.
+            agent_manager: AgentManager instance.
+            target (str): Target IP address.
+            max_steps (int): Maximum number of steps to execute.
+            scenario_name (str): Human-readable name of the scenario.
+            stop_conditions (list): Optional list of callables taking blackboard dict and returning True if scenario should stop.
+        """
+        self.blackboard = blackboard
+        self.agent_manager = agent_manager
+        self.max_steps = max_steps
+        self.current_step = 0
+        self.scenario_name = scenario_name
+        self.stop_conditions = stop_conditions or []
+        self.active = False
+        self.target = target
+
+    def start(self):
+        """
+        Initialize blackboard values and mark scenario as active.
+        Resets internal step counter and blackboard state.
+        """
+        self.current_step = 0
+        self.active = True
+
+        # Initialize target structure
+        self.blackboard.blackboard["target"] = {
+            "ip": self.target,
+            "os": "",
+            "services": [
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""}
+            ]
+        }
+
+        # Initialize web directory status with all status codes
+        self.blackboard.blackboard["web_directories_status"] = {
+            "404": { "": "" },
+            "200": { "": "" },
+            "403": { "": "" },
+            "401": { "": "" },
+            "503": { "": "" }
+        }
+
+        print(f"[+] Starting scenario: {self.scenario_name}")
+
+    def should_continue(self):
+        """
+        Check whether scenario should continue based on conditions.
+
+        Returns:
+            bool: True if scenario should continue, False if it should stop.
+        """
+        if not self.active:
+            return False
+
+        if self.current_step >= self.max_steps:
+            print("[!] Max steps reached.")
+            return False
+
+        for condition in self.stop_conditions:
+            if condition(self.blackboard.blackboard):
+                print("[!] Stop condition met.")
+                return False
+
+        return True
+
+    def step(self):
+        """
+        Execute a single simulation step by running the next eligible agent.
+        """
+        print(f"[>] Running step {self.current_step}...")
+        self.agent_manager.run_step()
+        self.current_step += 1
+
+    def end(self):
+        """
+        Mark scenario as ended and print completion message.
+        """
+        self.active = False
+        print(f"[+] Scenario '{self.scenario_name}' ended after {self.current_step} steps.")
+
+    def run_scenario_loop(self):
+        """
+        Run full scenario loop from start to end.
+        """
+        self.start()
+        while self.should_continue():
+            self.step()
+        self.end()
+
+<</mnt/linux-data/project/code/models/policy_model.py>>
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class PolicyModel(nn.Module):
+    """
+    A fully-connected Q-network for reinforcement learning.
+    Maps input state vectors to Q-values for each action.
+    """
+
+    def __init__(self, state_size, action_size, hidden_sizes=[128, 64], learning_rate=1e-3, gamma=0.99):
+        """
+        Initialize the Q-network.
+
+        Args:
+            state_size (int): Size of the input state vector.
+            action_size (int): Number of possible actions.
+            hidden_sizes (list): List of hidden layer sizes (default: [128, 64]).
+            learning_rate (float): Learning rate for the optimizer.
+            gamma (float): Discount factor for future rewards.
+        """
+        super(PolicyModel, self).__init__()
+
+        self.state_size = state_size
+        self.action_size = action_size
+        self.gamma = gamma
+
+        self.fc1 = nn.Linear(state_size, hidden_sizes[0])
+        self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
+        self.output = nn.Linear(hidden_sizes[1], action_size)
+
+        self.loss_fn = nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+
+    def forward(self, state_vector):
+        """
+        Compute the Q-values for a given input state vector.
+
+        Args:
+            state_vector (Tensor or list): The input state representation.
+
+        Returns:
+            Tensor: Q-values for each possible action.
+        """
+        if not isinstance(state_vector, torch.Tensor):
+            state_vector = torch.tensor(state_vector, dtype=torch.float32)
+
+        if state_vector.ndim == 1:
+            state_vector = state_vector.unsqueeze(0)  # Add batch dimension
+
+        x = F.relu(self.fc1(state_vector))
+        x = F.relu(self.fc2(x))
+        return self.output(x)  # Raw Q-values
+
+    def predict_best_action(self, state_vector):
+        """
+        Predict the index of the best action based on current Q-values.
+
+        Args:
+            state_vector (Tensor or list): Encoded state input.
+
+        Returns:
+            int: Index of action with the highest Q-value.
+        """
+        with torch.no_grad():
+            q_values = self.forward(state_vector)
+            return torch.argmax(q_values).item()
+
+    def update(self, experience):
+        """
+        Perform a single Q-learning update based on one experience tuple.
+
+        Args:
+            experience (dict): Contains 'state', 'action', 'reward', 'next_state'.
+
+        Returns:
+            tuple: (predicted_q_value, loss_value)
+        """
+        state = experience["state"].clone().detach().unsqueeze(0)
+        action = torch.tensor([experience["action"]], dtype=torch.long)
+        reward = torch.tensor([experience["reward"]], dtype=torch.float32)
+        next_state = experience["next_state"].clone().detach().unsqueeze(0)
+
+        # Q(s, a)
+        q_values = self.forward(state)
+        q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)
+
+        # max_a' Q(next_state, a')
+        next_q_values = self.forward(next_state)
+        max_next_q_value = next_q_values.max(1)[0].detach()
+
+        # TD Target
+        td_target = reward + self.gamma * max_next_q_value
+        td_target = td_target.view(-1)
+
+        # Loss = MSE(Q, TD_target)
+        loss = self.loss_fn(q_value, td_target)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return q_value.item(), loss.item()
+
+    def save(self, path):
+        """
+        Save the model weights to disk.
+
+        Args:
+            path (str): Path to save the model.
+        """
+        torch.save(self.state_dict(), path)
+
+    def load(self, path):
+        """
+        Load the model weights from disk.
+
+        Args:
+            path (str): Path to load model from.
+        """
+        self.load_state_dict(torch.load(path))
+        self.eval()
+<</mnt/linux-data/project/code/models/trainer.py>>
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import copy
+import random
+
+
+class RLModelTrainer:
+    """
+    A trainer class for reinforcement learning using Q-learning with experience replay.
+    Supports prioritized experience buffers and a target network for stable learning.
+    """
+
+    def __init__(self, policy_model, replay_buffer, device='cpu', learning_rate=1e-3, gamma=0.99):
+        """
+        Initialize the trainer.
+
+        Args:
+            policy_model (nn.Module): The main Q-network.
+            replay_buffer: Experience replay buffer.
+            device (str): 'cpu' or 'cuda'.
+            learning_rate (float): Optimizer learning rate.
+            gamma (float): Discount factor for future rewards.
+        """
+        self.policy_model = policy_model.to(device)
+        self.replay_buffer = replay_buffer
+        self.device = device
+        self.gamma = gamma
+
+        self.optimizer = optim.Adam(self.policy_model.parameters(), lr=learning_rate)
+        self.loss_fn = nn.MSELoss()
+
+        self.training_history = []
+        self.target_model = copy.deepcopy(policy_model).to(device)
+        self.target_model.eval()
+
+        self.update_target_steps = 100
+        self.train_step = 0
+
+    def train_batch(self, batch_size):
+        """
+        Sample a batch from the replay buffer and update the policy model.
+
+        Args:
+            batch_size (int): Number of experiences to train on.
+
+        Returns:
+            float or None: The loss value, or None if buffer too small.
+        """
+        if self.replay_buffer.size() < batch_size:
+            return None  # Not enough data yet
+
+        states, actions, rewards, next_states, dones, weights, indices = self.replay_buffer.sample_batch(batch_size)
+
+        # Move tensors to device
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
+        weights = torch.tensor(weights, dtype=torch.float32).to(self.device)
+
+        # Q(s, a)
+        q_values = self.policy_model.forward(states)
+        current_q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+
+        # max_a' Q(next_state, a')
+        next_q_values = self.target_model.forward(next_states)
+        max_next_q_values = next_q_values.max(1)[0]
+        dones = dones.float()
+        td_target = rewards + self.gamma * max_next_q_values * (1 - dones)
+        td_target = td_target.detach()
+
+        # TD Error & loss
+        td_errors = torch.abs(current_q_values - td_target)
+        loss = (weights * td_errors).mean()
+
+        # Backpropagation
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Update target model if needed
+        self.train_step += 1
+        if self.train_step % self.update_target_steps == 0:
+            self.target_model.load_state_dict(self.policy_model.state_dict())
+
+        # Update priorities
+        self.replay_buffer.update_priorities(indices, td_errors.detach().cpu().numpy())
+
+        self.training_history.append(loss.item())
+        return loss.item()
+
+    def evaluate_action(self, state):
+        """
+        Evaluate Q-values for all actions given a state (no learning).
+
+        Args:
+            state (list or Tensor): Input state.
+
+        Returns:
+            ndarray: Q-values for each action.
+        """
+        with torch.no_grad():
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
+            q_values = self.policy_model.forward(state_tensor)
+            return q_values.cpu().numpy()
+
+    def save_model(self, path):
+        """
+        Save the policy model to a file.
+
+        Args:
+            path (str): File path to save model.
+        """
+        torch.save(self.policy_model.state_dict(), path)
+
+    def load_model(self, path):
+        """
+        Load the policy model from a file.
+
+        Args:
+            path (str): File path to load model from.
+        """
+        self.policy_model.load_state_dict(torch.load(path, map_location=self.device))
+        self.policy_model.eval()
+
+    def plot_learning_curve(self):
+        """
+        Plot the training loss over time.
+        """
+        if not self.training_history:
+            print("No training history to plot.")
+            return
+
+        import matplotlib.pyplot as plt
+        plt.plot(self.training_history)
+        plt.xlabel("Training Steps")
+        plt.ylabel("Loss")
+        plt.title("Training Loss Curve")
+        plt.grid(True)
+        plt.show()
+
+<</mnt/linux-data/project/code/models/llm/llama_interface.py>>
+import os
+import subprocess
+import tiktoken
+
+from models.llm.base_llm import BaseLLM
+from utils.utils import one_line
+
+
+class LlamaModel(BaseLLM):
+    """
+    LLM interface for executing prompts using llama.cpp binary.
+    Supports single or multiple prompts with contextual memory.
+    """
+
+    def __init__(self, llama_path, model_path, tokens=4096, threads=8, n_batch=8192):
+        self.llama_path = llama_path
+        self.model_path = model_path
+        self.tokens = str(tokens)
+        self.threads = str(threads)
+        self.n_batch = str(n_batch)
+
+        if not os.path.isfile(self.llama_path):
+            raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
+        if not self.model_path.startswith("file://"):
+            raise ValueError("model_path must start with 'file://'")
+        
+        print("✅ Llama Model initialized successfully.")
+
+    def count_tokens(self, text: str) -> int:
+        """
+        Count the number of tokens in a text string using cl100k_base tokenizer.
+        """
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text, disallowed_special=()))
+
+    def run(self, prompts: list[str]) -> list[str]:
+        """
+        Run one or more prompts in sequence, maintaining conversational context.
+        For a single prompt, just call run([prompt]).
+
+        Args:
+            prompts (list[str]): List of prompt strings.
+
+        Returns:
+            list[str]: List of model outputs, one per prompt.
+        """
+        responses = []
+        context = ""
+
+        for prompt in prompts:
+            full_prompt = context + "\n" + prompt if context else prompt
+
+            # === Debug Output ===
+            #print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
+            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
+            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+
+            cmd = [
+                self.llama_path,
+                self.model_path,
+                full_prompt,
+                "-n", self.tokens,
+                "-t", self.threads,
+                "--n-batch", self.n_batch,
+                "--ctx-size", "4096",
+            ]
+
+            try:
+                output = subprocess.check_output(cmd, text=True).strip()
+                responses.append(output)
+                context += f"\n{prompt}\n{one_line(output)}"
+            except subprocess.CalledProcessError:
+                responses.append("")
+
+        return responses
+
+<</mnt/linux-data/project/code/models/llm/finetuner.py>>
+# models/llm/finetuner.py
+
+import os
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, Seq2SeqTrainer, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq
+
+def finetune_parser_model(
+    model_name="t5-small",
+    dataset_path="/mnt/linux-data/project/code/datasets/parser_examples.jsonl",
+    output_dir="/mnt/linux-data/project/code/models/trained_models/parser-model",
+    max_input_length=512,
+    max_target_length=512,
+    epochs=5,
+    batch_size=8
+):
+    # Load base model and tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
+    # Load dataset
+    raw_dataset = load_dataset("json", data_files=dataset_path, split="train")
+
+    # Tokenization
+    def preprocess(example):
+        input_enc = tokenizer(example["input"], max_length=max_input_length, truncation=True)
+        target_enc = tokenizer(example["output"], max_length=max_target_length, truncation=True)
+        input_enc["labels"] = target_enc["input_ids"]
+        return input_enc
+
+    tokenized_dataset = raw_dataset.map(preprocess, remove_columns=["input", "output"])
+
+    # Training arguments
+    training_args = Seq2SeqTrainingArguments(
+        output_dir=output_dir,
+        per_device_train_batch_size=batch_size,
+        num_train_epochs=epochs,
+        save_strategy="epoch",
+        logging_strategy="epoch",
+        evaluation_strategy="no",
+        save_total_limit=1,
+        fp16=False,
+        learning_rate=5e-5,
+        overwrite_output_dir=True,
+    )
+
+    data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
+
+    trainer = Seq2SeqTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_dataset,
+        data_collator=data_collator,
+        tokenizer=tokenizer,
+    )
+
+    trainer.train()
+    trainer.save_model(output_dir)
+    tokenizer.save_pretrained(output_dir)
+
+    print(f"✅ Fine-tuned model saved to {output_dir}")
+
+<</mnt/linux-data/project/code/models/llm/base_llm.py>>
+from abc import ABC, abstractmethod
+from typing import List
+
+class BaseLLM(ABC):
+    """
+    Abstract base class for LLM interfaces.
+    All language model implementations must inherit from this class and implement the following methods.
+    """
+
+    @abstractmethod
+    def run(self, prompts: List[str]) -> List[str]:
+        """
+        Executes a list of prompts sequentially, preserving context.
+        Returns a list of outputs.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def count_tokens(self, text: str) -> int:
+        """
+        Counts the number of tokens in the given text.
+        """
+        raise NotImplementedError
+<</mnt/linux-data/project/code/blackboard/blackboard.py>>
+def initialize_blackboard():
+    """
+    Returns a new initialized blackboard dictionary with empty/default values.
+
+    Structure includes:
+    - target information (IP, OS, services)
+    - web directory status categorized by HTTP status codes
+    - action history (agent logs, to be extended by API)
+
+    Returns:
+        dict: Initialized blackboard structure
+    """
+    return {
+        "target": {
+            "ip": "",
+            "os": "",
+            "services": [
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "", "protocol": "", "service": ""}
+            ]
+        },
+        "web_directories_status": {
+            "404": { "": "" },
+            "200": { "": "" },
+            "403": { "": "" },
+            "401": { "": "" },
+            "503": { "": "" }
+        }
+    }
+<</mnt/linux-data/project/code/blackboard/blackboard_all.py>>
+def initialize_blackboard():
+    return {
+        "attack_id": "",
+        "target": {
+            "ip": "",
+            "os": "",
+            "services": []
+        },
+        "exploit_metadata": {
+            "exploit_id": None,
+            "exploit_title": "",
+            "exploit_language": None,
+            "exploit_type": "",
+            "source": "",
+            "exploit_path": None
+        },
+        "exploit_code_raw": None,
+        "code_static_features": {
+            "functions": [],
+            "syscalls_used": [],
+            "payload_type": "",
+            "encoding_methods": [],
+            "obfuscation_level": "",
+            "external_dependencies": [],
+            "exploit_technique": ""
+        },
+        "connections_summary": {
+            "total_connections": None,
+            "total_packets": None,
+            "protocols": [],
+            "ports_involved": [],
+            "flags_observed": [],
+            "data_transferred_bytes": None,
+            "sessions": []
+        },
+        "payload_analysis": [],
+        "runtime_behavior": {
+            "shell_opened": {
+                "shell_type": "",
+                "session_type": "",
+                "shell_access_level": "",
+                "authentication_method": "",
+                "shell_session": {
+                    "commands_run": []
+                }
+            }
+        },
+        "timestamps": {
+            "first_packet": None,
+            "last_packet": None
+        },
+        "attack_impact": {
+            "success": None,
+            "access_level": "",
+            "shell_opened": None,
+            "shell_type": "",
+            "authentication_required": None,
+            "persistence_achieved": None,
+            "data_exfiltrated": [],
+            "sensitive_info_exposed": [],
+            "log_files_modified": [],
+            "detected_by_defenses": None,
+            "quality_score": None
+        },
+        "actions_log": [],
+        "errors": [],
+        "reward_log": [],
+        "exploits_attempted": [],
+        "explanation_of_attack": "",
+        "exploit_analysis_detailed": []
+    }
+
+
+<</mnt/linux-data/project/code/blackboard/api.py>>
+import time
+import copy
+
+class BlackboardAPI:
+    """
+    Provides controlled access and updates to a shared blackboard dictionary.
+    This class is used by agents to retrieve and modify the shared state.
+    """
+
+    def __init__(self, blackboard_dict: dict):
+        """
+        Initialize the API with an external blackboard dictionary.
+
+        Args:
+            blackboard_dict (dict): A dictionary representing the shared state.
+        """
+        self.blackboard = blackboard_dict
+
+    def get_state_for_agent(self, agent_name: str) -> dict:
+        """
+        Return a deep copy of the current blackboard state for agent use.
+
+        Args:
+            agent_name (str): Name of the agent requesting the state.
+
+        Returns:
+            dict: A deep copy of the current state.
+        """
+        return copy.deepcopy(self.blackboard)
+
+    def update_runtime_behavior(self, info_dict: dict):
+        """
+        Update or merge runtime_behavior fields in the blackboard.
+
+        Args:
+            info_dict (dict): Runtime keys and values to update.
+        """
+        runtime = self.blackboard.setdefault("runtime_behavior", {})
+
+        for key, value in info_dict.items():
+            if isinstance(value, list):
+                existing = runtime.get(key, [])
+                runtime[key] = list(set(existing + value))
+            elif isinstance(value, dict):
+                existing = runtime.get(key, {})
+                if not isinstance(existing, dict):
+                    existing = {}
+                existing.update(value)
+                runtime[key] = existing
+            else:
+                runtime[key] = value
+
+    def append_action_log(self, entry: dict):
+        """
+        Append an action entry to the action log with a timestamp.
+
+        Args:
+            entry (dict): The action log entry to append.
+        """
+        entry["timestamp"] = time.time()
+        #self.blackboard.setdefault("actions_log", []).append(entry) Now for debuging
+
+    def record_reward(self, action: str, reward: float):
+        """
+        Record a reward event for the last action taken.
+
+        Args:
+            action (str): The action associated with the reward.
+            reward (float): The reward value.
+        """
+        entry = {
+            "action": action,
+            "reward": reward,
+            "timestamp": time.time()
+        }
+        self.blackboard.setdefault("reward_log", []).append(entry)
+
+    def add_error(self, agent: str, action: str, error: str):
+        """
+        Record an error that occurred during an agent's action.
+
+        Args:
+            agent (str): The name of the agent.
+            action (str): The action that caused the error.
+            error (str): The error message.
+        """
+        entry = {
+            "agent": agent,
+            "action": action,
+            "error": error,
+            "timestamp": time.time()
+        }
+        self.blackboard.setdefault("errors", []).append(entry)
+
+    def get_last_actions(self, agent: str, n: int = 5):
+        """
+        Retrieve the last N actions performed by a specific agent.
+
+        Args:
+            agent (str): The agent name.
+            n (int): Number of past actions to retrieve.
+
+        Returns:
+            list: List of recent action log entries.
+        """
+        return [
+            log for log in reversed(self.blackboard.get("actions_log", []))
+            if log.get("agent") == agent
+        ][:n]
+
+    def update_target_services(self, new_services: list):
+        """
+        Add new services to the target.services list if not already present.
+
+        Args:
+            new_services (list): List of service dicts to add.
+        """
+        existing = self.blackboard["target"].get("services", [])
+        for service in new_services:
+            if service not in existing:
+                existing.append(service)
+
+    def update_exploit_metadata(self, exploit_data: dict):
+        """
+        Update the metadata block about the selected exploit.
+
+        Args:
+            exploit_data (dict): Dictionary of exploit metadata to update.
+        """
+        self.blackboard["exploit_metadata"].update(exploit_data)
+
+    def overwrite_blackboard(self, new_state: dict):
+        """
+        Overwrite the blackboard with a new state dictionary.
+
+        Notes:
+        - Completely clears the previous blackboard.
+        - Does NOT preserve transient fields like 'actions_history'.
+
+        Args:
+            new_state (dict): The new state to replace the old one.
+        """
+        if not isinstance(new_state, dict):
+            raise ValueError("new_state must be a dictionary")
+
+        self.blackboard.clear()
+        self.blackboard.update(new_state)
+<</mnt/linux-data/project/code/utils/prompts.py>>
+def PROMPT_1(current_state: str) -> str:
+  return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
+
+Do not explain, summarize, or transform it in any way.
+Just memorize it internally — you will be asked to use it later.
+
+Here is the structure:
+{current_state}
+"""
+
+def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
+  return f"""You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly. Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only). You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status". Include all real fileds found, with no limit each status key must exist with {{"": ""}} if empty Do not change "ip" — always leave it as-is. Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows"). In "services", add an entry for each service found: "port": numeric (e.g. 22, 80) "protocol": "tcp" or "udp" (lowercase) "service": service name (e.g. http, ssh) — lowercase If missing, leave value as "". In "web_directories_status", for each status (200, 401, 403, 404, 503): Map any discovered paths (like "/admin") to their message (or use "" if no message). All five keys must appear, even if empty. If none found, keep {{ "": "" }}. Do not invent or guess data. Do not rename, add, or remove any fields. Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. All response should be one line. Instructions for this specific command: {Custom_prompt} Here is the new data: {command_output} Before returning your answer: Compare it to the original structure character by character Return ONLY ONE JSON — no explanation, no formatting, no comments"""
+
+"""
+You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.
+Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only).
+You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status".
+Include all real fileds found, with no limit
+each status key must exist with {{"": ""}} if empty
+Do not change "ip" — always leave it as-is.
+Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows").
+In "services", add an entry for each service found:
+"port": numeric (e.g. 22, 80)
+"protocol": "tcp" or "udp" (lowercase)
+"service": service name (e.g. http, ssh) — lowercase
+If missing, leave value as "".
+In "web_directories_status", for each status (200, 401, 403, 404, 503):
+Map any discovered paths (like "/admin") to their message (or use "" if no message).
+All five keys must appear, even if empty. If none found, keep {{ "": "" }}.
+Do not invent or guess data.
+Do not rename, add, or remove any fields.
+Return only the completed JSON. No extra text or formatting.
+Return only one-line compact JSON with same structure, no newlines, no indentations.
+All response should be one line.
+Instructions for this specific command:
+{Custom_prompt}
+Here is the new data:
+{command_output}
+Before returning your answer:
+Compare it to the original structure character by character
+Return ONLY ONE JSON — no explanation, no formatting, no comments
+"""
+
+def clean_output_prompt(raw_output: str) -> str:
+    return f"""
+You are given raw output from a network-related command.
+
+🎯 Your task is to extract only the **critical technical reconnaissance data** relevant to identifying, fingerprinting, or mapping a **target system**.
+
+❗ You do **NOT** know which command was used — it could be `whois`, `dig`, `nmap`, `nslookup`, `curl -I`, or any other.
+
+✅ KEEP only the following:
+- IP ranges, CIDRs, hostnames, domain names
+- Open ports and services (e.g., "80/tcp open http")
+- Server headers and fingerprinting info (e.g., Apache, nginx, PHP, IIS, versions)
+- WHOIS identifiers: NetName, NetHandle, NetType, CIDR
+- RFC references and technical timestamps (RegDate, Updated)
+- Technical metadata directly describing network blocks or infrastructure
+
+🛑 REMOVE everything else, including:
+- Organization identity fields: `OrgName`, `OrgId`, `OrgTechName`, `OrgAbuseName`, etc.
+- Geographical location: `City`, `Country`, `PostalCode`, `Address`
+- Abuse or tech contact details: `OrgAbuseEmail`, `OrgTechEmail`, `Phone numbers`
+- Legal disclaimers or registry policy messages (ARIN/RIPE/IANA)
+- Any general comments, public notices, usage suggestions, or boilerplate text
+- Duplicate fields or references (e.g., "Ref:", "Parent:")
+- Empty fields, formatting headers, decorative characters
+
+⚠️ DO NOT:
+- Rephrase anything
+- Add explanations or summaries
+- Invent missing values
+
+Return ONLY the cleaned, relevant technical output that a **penetration tester or AI agent** could use to understand the target system.
+
+---
+
+Here is the raw output:
+---
+{raw_output}
+---
+
+Return ONLY the cleaned output. No explanations, no formatting.
+"""
+
+def PROMPT_FOR_A_PROMPT(raw_output: str) -> str:
+    return f"""
+You are an LLM tasked with analyzing raw output from a reconnaissance command.
+
+Your job is to generate **precise instructions** that guide another LLM on how to extract technical information from this specific output.  
+🛠 The instructions must describe **how to interpret the output**, **what patterns to look for**, and **what information is relevant**.
+
+🎯 Your output must:
+- Identify the type of information present (e.g., IP, OS, ports, services)
+- Specify **how to locate that data** (e.g., line structure, keywords, formats)
+- Describe each relevant field that should be extracted
+- Be tailored **specifically to this output** — not generic
+
+❌ Do **NOT** include:
+- Any example JSON structure
+- Any explanations, summaries, or assumptions
+- Any formatting instructions or extra commentary
+
+📥 Here is the raw output to analyze:
+
+{raw_output}
+
+Very importent - It should be maximux 60 words!!!
+No emojis!!
+✏️ Return only a clear and focused list of extraction instructions based on the data in this output.
+"""
+<</mnt/linux-data/project/code/utils/utils.py>>
+import json
+import re
+
+def extract_json_block(text_input):
+    """
+    Extracts the largest and most complete JSON block from a noisy text input.
+    Handles malformed JSON, stray text, markdown fences, escape codes, and unbalanced braces.
+    
+    Parameters:
+        text_input (str or List[str])
+    
+    Returns:
+        dict or None
+    """
+    if isinstance(text_input, list):
+        text = "\n".join(text_input)
+    else:
+        text = str(text_input)
+
+    # 1. Remove ANSI escape codes
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+
+    # 2. Remove Markdown-style ```json ... ``` wrappers
+    text = re.sub(r"```(?:json)?\s*({.*?})\s*```", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+
+    # 3. Remove non-JSON explanation blocks (e.g., "The JSON structure provided is:")
+    text = re.sub(r"The JSON structure provided.*?```", "", text, flags=re.DOTALL)
+
+    # 4. Remove repeated explanations of the structure
+    text = re.sub(r"(?i)(you were previously given|here is the structure|return ONLY ONE JSON).*?{", "{", text, flags=re.DOTALL)
+
+    # 5. Remove trailing commas before } or ]
+    text = re.sub(r",\s*([\]}])", r"\1", text)
+
+    # 6. Attempt to find all top-level {...} blocks with balanced braces
+    matches = []
+    stack = []
+    start = None
+
+    for i, char in enumerate(text):
+        if char == '{':
+            if not stack:
+                start = i
+            stack.append('{')
+        elif char == '}':
+            if stack:
+                stack.pop()
+                if not stack and start is not None:
+                    candidate = text[start:i + 1]
+                    matches.append(candidate)
+
+    # 7. Try parsing candidates
+    valid_jsons = []
+    for candidate in matches:
+        try:
+            obj = json.loads(candidate)
+            valid_jsons.append((candidate, obj))
+        except json.JSONDecodeError:
+            # Try to auto-fix
+            try:
+                fixed = fix_malformed_json(candidate)
+                obj = json.loads(fixed)
+                valid_jsons.append((fixed, obj))
+            except:
+                continue
+
+    if not valid_jsons:
+        print("❌ No valid JSON found.")
+        return None
+
+    # 8. Return the one with the longest valid content
+    best_candidate = max(valid_jsons, key=lambda pair: len(json.dumps(pair[1])))
+    is_valid, validation_errors = validate_json_structure(best_candidate[1])
+    if not is_valid:
+        print("❌ Invalid JSON structure:")
+        for e in validation_errors:
+            print(" -", e)
+    return best_candidate[1]
+
+def fix_malformed_json(text):
+    """
+    Attempts to fix common JSON syntax problems.
+    """
+    # Remove ANSI escape codes
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+
+    # Fix extra commas before brackets
+    text = re.sub(r",\s*}", "}", text)
+    text = re.sub(r",\s*]", "]", text)
+
+    # Fix nested closing brackets
+    text = re.sub(r"}\s*}", "}}", text)
+    text = re.sub(r"]\s*]", "]]", text)
+
+    # Trim outside garbage
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1:
+        text = text[start:end+1]
+
+    # Auto-balance unclosed brackets
+    open_count = text.count('{')
+    close_count = text.count('}')
+    if open_count > close_count:
+        text += '}' * (open_count - close_count)
+
+    return text
+
+EXPECTED_TOP_KEYS = {"target", "web_directories_status"}
+EXPECTED_SERVICE_KEYS = {"port", "protocol", "service"}
+EXPECTED_STATUS_CODES = {"200", "401", "403", "404", "503"}
+
+def validate_json_structure(obj):
+    """
+    Validates that the object matches the strict schema for the penetration AI system.
+    Returns (bool, list_of_errors)
+    """
+    errors = []
+
+    if not isinstance(obj, dict):
+        return False, ["Top-level is not a dictionary"]
+
+    # Check top-level keys
+    extra_keys = set(obj.keys()) - EXPECTED_TOP_KEYS
+    missing_keys = EXPECTED_TOP_KEYS - set(obj.keys())
+    if extra_keys:
+        errors.append(f"Unexpected top-level keys: {extra_keys}")
+    if missing_keys:
+        errors.append(f"Missing top-level keys: {missing_keys}")
+
+    # Validate "target"
+    target = obj.get("target", {})
+    if not isinstance(target, dict):
+        errors.append("'target' must be a dictionary")
+    else:
+        if "ip" not in target or not isinstance(target["ip"], str):
+            errors.append("Missing or invalid 'target.ip'")
+        if "os" not in target or not isinstance(target["os"], str):
+            errors.append("Missing or invalid 'target.os'")
+
+        services = target.get("services", [])
+        if not isinstance(services, list):
+            errors.append("'target.services' must be a list")
+        else:
+            for i, service in enumerate(services):
+                if not isinstance(service, dict):
+                    errors.append(f"Service #{i} is not a dict")
+                    continue
+                keys = set(service.keys())
+                if keys != EXPECTED_SERVICE_KEYS:
+                    errors.append(f"Service #{i} has invalid keys: {keys}")
+
+    # Validate "web_directories_status"
+    wds = obj.get("web_directories_status", {})
+    if not isinstance(wds, dict):
+        errors.append("'web_directories_status' must be a dictionary")
+    else:
+        for status in EXPECTED_STATUS_CODES:
+            if status not in wds:
+                errors.append(f"Missing status code {status} in web_directories_status")
+            elif not isinstance(wds[status], dict):
+                errors.append(f"Status code {status} value is not a dictionary")
+
+    return len(errors) == 0, errors
+
+def remove_comments_and_empty_lines(text: str) -> str:
+    """
+    Removes comment lines (starting with '#') and empty lines from a multiline string.
+
+    Parameters:
+        text (str): Multiline string.
+
+    Returns:
+        str: Cleaned text.
+    """
+    cleaned_lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
+
+def one_line(text: str) -> str:
+    """
+    Convert a multi-line string into a clean single line.
+    """
+    return ' '.join(line.strip() for line in text.strip().splitlines() if line).replace('  ', ' ')
+
+
+# Example debug run
+def main():
+    text_input = [
+        '[Some prompt text\n\n{\n  "target": {\n    "ip": "",\n    "os": "Unknown"\n  }\n}\x1b[0m\n',
+        '{\n  "target": {\n    "ip": "",\n    "os": "Unknown"\n  }\n}\x1b[0m\n'
+    ]
+
+    result = extract_json_block(text_input)
+    print("✅ Extracted JSON:")
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+
+<</mnt/linux-data/project/code/utils/state_check/state_correctness.py>>
+import subprocess
+import re
+import json
+from utils.utils import remove_comments_and_empty_lines
+
+def run_command(cmd: str) -> str:
+    try:
+        result = subprocess.check_output(cmd.split(), timeout=10).decode()
+        return remove_comments_and_empty_lines(result)
+    except:
+        return ""
+
+def parse_nmap_services(nmap_output: str) -> list:
+    services = []
+    for line in nmap_output.splitlines():
+        match = re.match(r"(\d+)/tcp\s+open\s+(\S+)", line)
+        if match:
+            port = match.group(1)
+            service = match.group(2).lower()
+            services.append({
+                "port": port,
+                "protocol": "tcp",
+                "service": service
+            })
+    return services
+
+def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
+    tools = [
+        f"nmap -O {ip}",
+        f"whatweb http://{ip}",
+        f"curl -I http://{ip}",
+        f"wget http://{ip} -O -"
+    ]
+
+    os_candidates = []
+
+    for cmd in tools:
+        output = run_command(cmd)
+        if "linux" in output.lower():
+            os_candidates.append("Linux")
+        elif "windows" in output.lower():
+            os_candidates.append("Windows")
+        elif "ubuntu" in output.lower():
+            os_candidates.append("Linux")
+        elif "iis" in output.lower():
+            os_candidates.append("Windows")
+        elif "apache" in output.lower() or "nginx" in output.lower():
+            os_candidates.append("Linux")
+
+    if os_candidates:
+        # עדיפות לזיהוי Linux אם יש כמה
+        if "Linux" in os_candidates:
+            return "Linux"
+        return os_candidates[0]
+
+    return current_os  # לא מוחקים — מחזירים את מה שהיה קודם
+
+def verify_web_directories(ip: str, web_dirs: dict) -> dict:
+    verified = {code: {} for code in ["200", "401", "403", "404", "503"]}
+    for code, entries in web_dirs.items():
+        for path in entries:
+            full_url = f"http://{ip}{path}"
+            try:
+                response = subprocess.check_output(
+                    ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", full_url],
+                    timeout=5
+                ).decode().strip()
+                if response in verified:
+                    verified[response][path] = entries[path]
+                else:
+                    verified["404"][path] = entries[path]
+            except:
+                verified["404"][path] = entries[path]
+    return verified
+
+def correct_state(state: dict, ip: str) -> dict:
+    print(f"[+] Running nmap to verify services on {ip}...")
+    nmap_output = run_command(f"nmap -sV -O {ip}")
+    new_services = parse_nmap_services(nmap_output)
+    current_os = state["target"].get("os", "Unknown")
+    new_os = detect_os_from_multiple_tools(ip, current_os)
+
+    state["target"]["services"] = new_services
+    state["target"]["os"] = new_os
+
+    print(f"[+] Verifying web directories with curl...")
+    state["web_directories_status"] = verify_web_directories(ip, state.get("web_directories_status", {}))
+
+    return state
+<</mnt/linux-data/project/code/utils/state_check/state_validator.py>>
+import re
+
+VALID_PROTOCOLS = {"tcp", "udp"}
+EXPECTED_WEB_CODES = ["200", "401", "403", "404", "503"]
+
+def ensure_structure(state: dict) -> dict:
+    """
+    מוודא שכל שדות החובה קיימים במבנה ה־state.
+    """
+    state.setdefault("target", {})
+    state["target"].setdefault("ip", "")
+    state["target"].setdefault("os", "Unknown")
+    state["target"].setdefault("services", [])
+
+    state.setdefault("web_directories_status", {})
+    for code in EXPECTED_WEB_CODES:
+        state["web_directories_status"].setdefault(code, {"": ""})
+
+    return state
+
+def validate_services_format(services: list) -> list:
+    """
+    מוודא שכל שירות במבנה תקני: פורט מספרי, פרוטוקול tcp/udp, ושם שירות באנגלית.
+    """
+    valid = []
+    for s in services:
+        try:
+            port = int(s.get("port", ""))
+            protocol = s.get("protocol", "").lower()
+            service = s.get("service", "").lower()
+            if (
+                0 < port <= 65535 and
+                protocol in VALID_PROTOCOLS and
+                re.match(r'^[a-z0-9\-_\.]+$', service)
+            ):
+                valid.append({
+                    "port": str(port),
+                    "protocol": protocol,
+                    "service": service
+                })
+        except:
+            continue
+    return valid
+
+def filter_invalid_services(services: list) -> list:
+    """
+    מסנן שירותים פיקטיביים לפי פורטים או שמות בעייתיים.
+    """
+    suspicious_ports = {0, 1, 9999}
+    blocked_names = {"unknown", "none", "fake"}
+
+    return [
+        s for s in services
+        if int(s["port"]) not in suspicious_ports
+        and s["service"] not in blocked_names
+    ]
+
+def clean_web_directories(web_dirs: dict) -> dict:
+    """
+    מסיר ערכים לא חוקיים מתיקיית web_directories_status.
+    """
+    cleaned = {}
+    for code in EXPECTED_WEB_CODES:
+        cleaned[code] = {}
+        entries = web_dirs.get(code, {})
+        if isinstance(entries, dict):
+            for path, label in entries.items():
+                if isinstance(path, str) and isinstance(label, str):
+                    if path.startswith("/") or path == "":
+                        cleaned[code][path] = label
+        if not cleaned[code]:
+            cleaned[code] = {"": ""}
+    return cleaned
+
+def truncate_lists(state: dict, max_services=10, max_paths_per_status=100) -> dict:
+    """
+    מגביל את האורך של services ונתיבי web.
+    """
+    state["target"]["services"] = state["target"]["services"][:max_services]
+    for code in EXPECTED_WEB_CODES:
+        entries = state["web_directories_status"].get(code, {})
+        limited = dict(list(entries.items())[:max_paths_per_status])
+        state["web_directories_status"][code] = limited
+    return state
+
+def validate_state(state: dict) -> dict:
+    """
+    פונקציה ראשית שמיישמת את כל שלבי הבדיקה והניקוי.
+    """
+    state = ensure_structure(state)
+    services = state["target"]["services"]
+    services = validate_services_format(services)
+    services = filter_invalid_services(services)
+    state["target"]["services"] = services
+
+    state["web_directories_status"] = clean_web_directories(state["web_directories_status"])
+    state = truncate_lists(state)
+    return state
+
+
+<</mnt/linux-data/project/code/encoders/state_encoder.py>>
+import hashlib
+import json
+import torch
+import numbers
+import numpy as np
+
+class StateEncoder:
+    """
+    Encodes complex nested blackboard state structures into fixed-length numerical vectors
+    suitable for use as input to neural networks.
+    """
+
+    def __init__(self, action_space: list, max_features: int = 128):
+        """
+        Args:
+            action_space (list): List of all valid action strings.
+            max_features (int): Fixed length of the output state vector.
+        """
+        self.encoded_to_state = {}  # Maps stringified vectors to original state dicts
+        self.max_features = max_features
+        self.action_space = action_space
+        self.action_to_index = {action: i for i, action in enumerate(action_space)}
+
+    def base100_encode(self, text: str) -> float:
+        """
+        Encodes a string to a base-100 floating point number in [0, 1).
+
+        Args:
+            text (str): Input string (e.g., service name, OS, etc.)
+
+        Returns:
+            float: Encoded value between 0 and 1.
+        """
+        base = 100
+        code = 0
+        for i, c in enumerate(text[:5]):
+            code += ord(c) * (base ** (4 - i))
+        max_code = (base ** 5) - 1
+        return code / max_code
+
+    def encode(self, state: dict, actions_history: list) -> torch.Tensor:
+        """
+        Converts the blackboard state and action history into a fixed-length torch vector.
+
+        Args:
+            state (dict): The full blackboard state.
+            actions_history (list): List of actions executed by the agent so far.
+
+        Returns:
+            torch.Tensor: A vector of shape (max_features,) representing the state.
+        """
+        # Flatten the state
+        flat_state = self._flatten_state(state)
+
+        # Encode action history as one-hot
+        actions_vector = np.zeros(len(self.action_space), dtype=np.float32)
+        for action in actions_history:
+            if action in self.action_to_index:
+                idx = self.action_to_index[action]
+                actions_vector[idx] = 1.0
+
+        # Add action history to the flat dictionary
+        for i, val in enumerate(actions_vector):
+            flat_state[f"action_history_idx_{i}"] = val
+
+        # Sort keys to ensure consistent ordering
+        sorted_items = sorted(flat_state.items())
+        encoded_values = [self._normalize_value(k, v) for k, v in sorted_items]
+
+        # Pad or truncate to fixed length
+        if len(encoded_values) < self.max_features:
+            encoded_values += [0.0] * (self.max_features - len(encoded_values))
+        else:
+            encoded_values = encoded_values[:self.max_features]
+
+        # Convert to tensor
+        vector = torch.tensor(encoded_values, dtype=torch.float32)
+
+        # Store reverse mapping for debug and reward tracking
+        vector_key = str(vector.tolist())
+        self.encoded_to_state[vector_key] = state
+
+        print(f"[Encoder] Encoded vector of length {len(encoded_values)} (state + history)")
+        return vector
+
+    def decode(self, vector_key: str) -> dict:
+        """
+        Retrieves the original state dictionary corresponding to a previously encoded vector.
+
+        Args:
+            vector_key (str): The stringified vector key.
+
+        Returns:
+            dict: The original blackboard state (if exists).
+        """
+        return self.encoded_to_state.get(vector_key, {})
+
+    def _flatten_state(self, obj, prefix='') -> dict:
+        """
+        Flattens a nested dictionary or list into a single-level dict of key→value.
+
+        Args:
+            obj: The structure to flatten.
+            prefix: Internal prefix used for recursion.
+
+        Returns:
+            dict: Flattened key-value pairs.
+        """
+        items = {}
+
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                full_key = f"{prefix}.{k}" if prefix else k
+                items.update(self._flatten_state(v, full_key))
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                full_key = f"{prefix}[{i}]"
+                items.update(self._flatten_state(v, full_key))
+        elif isinstance(obj, bool):
+            items[prefix] = 1.0 if obj else 0.0
+        elif isinstance(obj, numbers.Number):
+            items[prefix] = float(obj)
+        elif isinstance(obj, str):
+            items[prefix] = self.base100_encode(obj)
+        else:
+            items[prefix] = 0.0
+
+        return items
+
+    def _normalize_value(self, key: str, value: float) -> float:
+        """
+        Normalizes values based on the type of field they represent.
+
+        Args:
+            key (str): Feature name (used to detect type like "port", "service", etc.)
+            value (float): The numeric value to normalize.
+
+        Returns:
+            float: Normalized value between 0 and 1.
+        """
+        if isinstance(value, (int, float)):
+            if "port" in key:
+                return min(value / 65535.0, 1.0)
+            elif "protocol" in key:
+                return min(value / 3.0, 1.0)
+            elif "action_history" in key:
+                return float(value)
+            elif any(field in key for field in ["service", "web_directories_status", "os"]):
+                return min(value / 1e6, 1.0)
+            else:
+                return min(value / 1e6, 1.0)
+        return 0.0
+
+<</mnt/linux-data/project/code/encoders/action_encoder.py>>
+from typing import List
+
+class ActionEncoder:
+    """
+    Encodes and decodes actions using consistent index-based mappings.
+    Converts between string-based actions and their numeric representation.
+    """
+
+    def __init__(self, actions: List[str]):
+        """
+        Args:
+            actions (List[str]): List of possible action strings.
+        """
+        self.action_to_index = {action: i for i, action in enumerate(actions)}
+        self.index_to_action = {i: action for i, action in enumerate(actions)}
+
+    def encode(self, action: str) -> int:
+        """
+        Converts an action string to its corresponding index.
+
+        Args:
+            action (str): Action command (e.g., "nmap -sV {ip}")
+
+        Returns:
+            int: Index of the action in the action space.
+
+        Raises:
+            KeyError: If the action is not in the known action space.
+        """
+        if action not in self.action_to_index:
+            raise KeyError(f"Action '{action}' not found in action space.")
+        return self.action_to_index[action]
+
+    def decode(self, index: int) -> str:
+        """
+        Converts an action index back to its corresponding command string.
+
+        Args:
+            index (int): Index in the action space.
+
+        Returns:
+            str: Action command string.
+
+        Raises:
+            KeyError: If the index is out of bounds.
+        """
+        if index not in self.index_to_action:
+            raise KeyError(f"Index {index} is not valid in action space.")
+        return self.index_to_action[index]
+

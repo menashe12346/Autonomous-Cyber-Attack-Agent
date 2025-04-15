@@ -58,7 +58,7 @@ class BlackboardAPI:
             entry (dict): The action log entry to append.
         """
         entry["timestamp"] = time.time()
-        self.blackboard.setdefault("actions_log", []).append(entry)
+        #self.blackboard.setdefault("actions_log", []).append(entry) Now for debuging
 
     def record_reward(self, action: str, reward: float):
         """

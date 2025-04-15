@@ -1,5 +1,5 @@
 from models.llm.llama_interface import LlamaModel
-from prompts import PROMPT_FOR_A_PROMPT
+from utils.prompts import PROMPT_FOR_A_PROMPT
 from config import LLAMA_RUN, MODEL_PATH
 
 model = LlamaModel(LLAMA_RUN, MODEL_PATH)

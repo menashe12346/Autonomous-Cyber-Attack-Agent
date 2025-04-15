@@ -1,6 +1,6 @@
-llama.cpp/    
-models--google--flan-t5-xl/ 
+llama.cpp/ 
 __pycache__/
 nous-hermes/ 
 .locks/
-
+hf_models/
+llama-factory/

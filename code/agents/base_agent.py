@@ -1,14 +1,14 @@
-# agents/base_agent.py
-
 import random
 import subprocess
 import json
 from abc import ABC, abstractmethod
 
-from models.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
-from utils.utils import remove_comments_and_empty_lines, extract_json_block
 from Cache.llm_cache import LLMCache
 
+from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
+from utils.utils import remove_comments_and_empty_lines, extract_json_block, one_line
+from utils.state_check.state_validator import validate_state
+from utils.state_check.state_correctness import correct_state
 
 class BaseAgent(ABC):
     """
@@ -84,9 +84,13 @@ class BaseAgent(ABC):
             cleaned_output = result
         print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
 
-        # Step 5: parse and update blackboard
+        # Step 5: parse, validate and update blackboard
         parsed_info = self.parse_output(cleaned_output)
         print(f"parsed_info - {parsed_info}")
+
+        parsed_info = self.check_state(parsed_info)
+        print("correct_state: {parsed_info}")
+
         self.blackboard_api.overwrite_blackboard(parsed_info)
 
         # Step 6: observe next state
@@ -185,13 +189,15 @@ class BaseAgent(ABC):
             return cached
 
         prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-        inner_prompt = self.model.run_prompt(prompt_for_prompt)
+        inner_prompt = self.model.run([prompt_for_prompt])[0]
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        full_response = self.model.run_prompts([
-            self.one_line(PROMPT_1(json.dumps(self.get_state_raw(), indent=2))),
-            self.one_line(final_prompt)
+        responses = self.model.run([
+            one_line(PROMPT_1(json.dumps(self.get_state_raw(), indent=2))),
+            one_line(final_prompt)
         ])
+        
+        full_response = responses[1] + "\n" + responses[0]
         print(f"full_response - {full_response}")
 
         parsed = extract_json_block(full_response)
@@ -206,12 +212,6 @@ class BaseAgent(ABC):
         """
         return self.model.run_prompt(clean_output_prompt(command_output))
 
-    def one_line(self, text: str) -> str:
-        """
-        Convert multiline text into a single line (compact form).
-        """
-        return ' '.join(line.strip() for line in text.strip().splitlines() if line).replace('  ', ' ')
-
     def update_policy(self, state, action, reward, next_state):
         """
         Manually trigger an update to the Q-network.
@@ -222,3 +222,8 @@ class BaseAgent(ABC):
             "reward": reward,
             "next_state": next_state
         })
+
+    def check_state(self, current_state: str):
+        new_state = validate_state(current_state)
+        new_state = correct_state(new_state)
+        return new_state

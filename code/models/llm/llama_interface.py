@@ -23,6 +23,8 @@ class LlamaModel(BaseLLM):
             raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
         if not self.model_path.startswith("file://"):
             raise ValueError("model_path must start with 'file://'")
+        
+        print("✅ Llama Model initialized successfully.")
 
     def count_tokens(self, text: str) -> int:
         """
@@ -49,9 +51,9 @@ class LlamaModel(BaseLLM):
             full_prompt = context + "\n" + prompt if context else prompt
 
             # === Debug Output ===
-            print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
-            print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
-            print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+            #print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
+            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
+            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
 
             cmd = [
                 self.llama_path,

@@ -9,7 +9,8 @@ def print_all_python_files(start_dir, output_file):
         "llama.cpp",
         "nous-hermes",
         "__pycache__",
-        "models--google--flan-t5-xl"
+        "llama-factory",
+        "hf_models"
     }
 
     output = ''

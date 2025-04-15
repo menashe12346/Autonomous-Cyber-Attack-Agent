@@ -1,29 +1,3 @@
-PROMPT_1 = """ You are about to receive a specific JSON structure. You must remember it exactly as-is.
-
-Do not explain, summarize, or transform it in any way.
-Just memorize it internally — you will be asked to use it later.
-
-Here is the structure:
-{
-  "target": {
-    "ip": "",
-    "os": "",
-    "services": [
-      {"port": "", "protocol": "", "service": ""},
-      {"port": "", "protocol": "", "service": ""},
-      {"port": "", "protocol": "", "service": ""}
-    ]
-  },
-  "web_directories_status": {
-    "404": { "": "" },
-    "200": { "": "" },
-    "403": { "": "" },
-    "401": { "": "" },
-    "503": { "": "" }
-  },
-}
-"""
-
 def PROMPT_1(current_state: str) -> str:
   return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
 
