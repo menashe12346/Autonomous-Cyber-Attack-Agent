@@ -1,6 +1,7 @@
 import random
 import subprocess
 import json
+import torch
 from abc import ABC, abstractmethod
 
 from Cache.llm_cache import LLMCache
@@ -9,6 +10,11 @@ from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_
 from utils.utils import remove_comments_and_empty_lines, extract_json_block, one_line
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
+from utils.json_fixer import fix_json
+
+def remove_untrained_categories(state: dict, categories : set):
+    for categorie in categories:
+        state.pop(categorie, None)  
 
 class BaseAgent(ABC):
     """
@@ -51,17 +57,20 @@ class BaseAgent(ABC):
         """
         Main loop of the agent: observe, choose action, perform, parse, learn, update.
         """
+        #step 1: fill state withh all categories
+        self.blackboard_api.fill_state(
+            actions_history=self.actions_history.copy(),
+            )
         # Step 1: get state
-        raw_state = self.get_state_raw()
-        raw_state_with_history = dict(raw_state)
-        raw_state_with_history["actions_history"] = self.actions_history.copy()
-        state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
+        state = dict(self.get_state_raw())
+        encoded_state = self.state_encoder.encode(state, self.actions_history)
         self.last_state = state
 
-        print(f"last state: {json.dumps(raw_state_with_history, indent=2)}")
+        # [DEBUG]
+        print(f"last state: {json.dumps(state, indent=2)}")
 
         # Step 2: select action
-        action = self.choose_action(state)
+        action = self.choose_action(encoded_state)
         self.last_action = action
         self.actions_history.append(action)
 
@@ -89,25 +98,23 @@ class BaseAgent(ABC):
         print(f"parsed_info - {parsed_info}")
 
         parsed_info = self.check_state(parsed_info)
-        print("correct_state: {parsed_info}")
+        print(type(parsed_info))
 
-        self.blackboard_api.overwrite_blackboard(parsed_info)
+        self.blackboard_api.update_state(self.name, parsed_info)
 
         # Step 6: observe next state
-        raw_next_state = self.get_state_raw()
-        raw_next_state_with_history = dict(raw_next_state)
-        raw_next_state_with_history["actions_history"] = self.actions_history.copy()
-        next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
+        next_state = dict(self.get_state_raw())
+        encoded_next_state = self.state_encoder.encode(next_state, self.actions_history)
 
         # Step 7: reward and update model
-        reward = self.get_reward(state, action, next_state)
-        print(f"new state: {json.dumps(dict(self.state_encoder.decode(next_state)), indent=2)}")
+        reward = self.get_reward(encoded_state, action, encoded_next_state)
+        print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
         experience = {
-            "state": state,
+            "state": encoded_state,
             "action": self.action_space.index(action),
             "reward": reward,
-            "next_state": next_state
+            "next_state": encoded_next_state
         }
 
         q_pred, loss = self.policy_model.update(experience)
@@ -117,7 +124,7 @@ class BaseAgent(ABC):
         print(f"    Loss:              {loss:.6f}")
 
         # Step 8: save experience
-        self.replay_buffer.add_experience(state, self.action_space.index(action), reward, next_state, False)
+        self.replay_buffer.add_experience(encoded_state, self.action_space.index(action), reward, encoded_next_state, False)
 
         # Step 9: log action
         self.blackboard_api.append_action_log({
@@ -180,29 +187,37 @@ class BaseAgent(ABC):
         """
         Parse command output using the LLM. Use cache if available.
         """
-        raw_state = self.get_state_raw()
-        raw_state["actions_history"] = self.actions_history.copy()
+        state = self.get_state_raw()
 
-        cached = self.llm_cache.get(raw_state, self.last_action)
+        cached = self.llm_cache.get(state, self.last_action)
         if cached:
             print("\033[93m[CACHE] Using cached LLM result.\033[0m")
             return cached
+
+        untrained_categories = {"actions_history","vulnerabilities_found", "cpes"}
+        remove_untrained_categories(state, untrained_categories)
+        
+        # [DEBUG]
+        print(f"state full: {state}")
 
         prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
         inner_prompt = self.model.run([prompt_for_prompt])[0]
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
         responses = self.model.run([
-            one_line(PROMPT_1(json.dumps(self.get_state_raw(), indent=2))),
+            one_line(PROMPT_1(json.dumps(state, indent=2))),
             one_line(final_prompt)
         ])
         
-        full_response = responses[1] + "\n" + responses[0]
+        full_response = responses[1]
         print(f"full_response - {full_response}")
 
-        parsed = extract_json_block(full_response)
+        parsed = fix_json(self.last_state, str(full_response))
+        if parsed is None:
+            print("⚠️ parsed is None – skipping this round safely.")
+            return self.get_state_raw()
         if parsed:
-            self.llm_cache.set(raw_state, self.last_action, parsed)
+            self.llm_cache.set(state, self.last_action, parsed)
 
         return parsed
 
@@ -224,6 +239,17 @@ class BaseAgent(ABC):
         })
 
     def check_state(self, current_state: str):
+        # Validate and correct the state
         new_state = validate_state(current_state)
+        print(f"validate_state: {new_state}")
+        
+        # Correct the state based on predefined rules
         new_state = correct_state(new_state)
+        print(f"correct_state: {new_state}")
+
+        # Ensure the state is a dictionary
+        if not isinstance(new_state, dict):
+            print(f"[!] Warning: Invalid state type received. Converting to dictionary...")
+            new_state = dict(new_state)
+
         return new_state

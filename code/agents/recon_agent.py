@@ -88,6 +88,10 @@ class ReconAgent(BaseAgent):
         if impact.get("detected_by_defenses", False):
             return False
 
+        # ----- DEBUG ----- #
+        if prev_dict.get("os"):
+            return False
+
         return True
 
     def get_reward(self, prev_state, action, next_state) -> float:

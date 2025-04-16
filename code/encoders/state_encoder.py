@@ -57,7 +57,7 @@ class StateEncoder:
         for action in actions_history:
             if action in self.action_to_index:
                 idx = self.action_to_index[action]
-                actions_vector[idx] = 1.0
+                actions_vector[idx] += 1.0 # To count the number of time that command ran
 
         # Add action history to the flat dictionary
         for i, val in enumerate(actions_vector):
@@ -107,6 +107,9 @@ class StateEncoder:
             dict: Flattened key-value pairs.
         """
         items = {}
+
+        if prefix.endswith("vulnerabilities_found"):
+            return {}
 
         if isinstance(obj, dict):
             for k, v in obj.items():

@@ -3,6 +3,7 @@ def PROMPT_1(current_state: str) -> str:
 
 Do not explain, summarize, or transform it in any way.
 Just memorize it internally — you will be asked to use it later.
+All response should be one line.
 
 Here is the structure:
 {current_state}

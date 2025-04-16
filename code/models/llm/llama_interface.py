@@ -12,12 +12,13 @@ class LlamaModel(BaseLLM):
     Supports single or multiple prompts with contextual memory.
     """
 
-    def __init__(self, llama_path, model_path, tokens=4096, threads=8, n_batch=8192):
+    def __init__(self, llama_path, model_path, tokens=3500, threads=4, n_batch=8192, context_size=500):
         self.llama_path = llama_path
         self.model_path = model_path
         self.tokens = str(tokens)
         self.threads = str(threads)
         self.n_batch = str(n_batch)
+        self.context_size= str(context_size)
 
         if not os.path.isfile(self.llama_path):
             raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
@@ -51,9 +52,9 @@ class LlamaModel(BaseLLM):
             full_prompt = context + "\n" + prompt if context else prompt
 
             # === Debug Output ===
-            #print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
-            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
-            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+            print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
+            print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
+            print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
 
             cmd = [
                 self.llama_path,
@@ -62,7 +63,7 @@ class LlamaModel(BaseLLM):
                 "-n", self.tokens,
                 "-t", self.threads,
                 "--n-batch", self.n_batch,
-                "--ctx-size", "4096",
+                "--ctx-size", self.context_size,
             ]
 
             try:

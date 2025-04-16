@@ -1,5 +1,5 @@
 import torch
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -8,6 +8,7 @@ from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
 
 from agents.agent_manager import AgentManager
 from agents.recon_agent import ReconAgent
+from agents.vuln_agent import VulnAgent, load_cve_database
 
 from orchestrator.scenario_orchestrator import ScenarioOrchestrator
 
@@ -24,6 +25,10 @@ def main():
 
     # LLM Model
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
+
+    # Load cve dataset
+    cve_items = load_cve_database(CVE_PATH)
+    print("✅ CVE dataset Loaded successfully.")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
@@ -73,9 +78,15 @@ def main():
             command_cache=command_cache,
             model=model
         )
+        
+        # --- Create vuln Agent ---
+        vuln_agent = VulnAgent(
+            blackboard_api=bb_api,
+            cve_items=cve_items
+        )
 
         # --- Register Agents ---
-        agents = [recon_agent]
+        agents = [recon_agent, vuln_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 

@@ -1,0 +1,29 @@
+{
+  "target": {
+    "ip": "192.168.56.101",
+    "os": "Linux",
+    "services": []
+  },
+  "web_directories_status": {
+    "200": {
+      "": ""
+    },
+    "401": {
+      "": ""
+    },
+    "403": {
+      "": ""
+    },
+    "404": {
+      "": ""
+    },
+    "503": {
+      "": ""
+    }
+  },
+  "actions_history": [
+    "nmap -F 192.168.56.101"
+  ],
+  "cpes": [],
+  "vulnerabilities_found": []
+}

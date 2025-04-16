@@ -10,7 +10,8 @@ def print_all_python_files(start_dir, output_file):
         "nous-hermes",
         "__pycache__",
         "llama-factory",
-        "hf_models"
+        "hf_models",
+        "Debug"
     }
 
     output = ''

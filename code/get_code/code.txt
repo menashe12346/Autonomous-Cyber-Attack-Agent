@@ -1,4 +1,7 @@
 <</mnt/linux-data/project/code/config.py>>
+# Project path
+PROJECT_PATH = "/mnt/linux-data"
+
 # Simulation parameters
 NUM_EPISODES = 100
 MAX_STEPS_PER_EPISODE = 5
@@ -7,19 +10,24 @@ MAX_STEPS_PER_EPISODE = 5
 TARGET_IP = "192.168.56.101"
 
 # Model configuration
-LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
-MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+LLAMA_RUN = f"{PROJECT_PATH}/project/code/models/llama.cpp/build/bin/llama-run"
+MODEL_PATH = f"file://{PROJECT_PATH}/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
 
 # Wordlists paths
 WORDLISTS = {
-    "gobuster_common": "/mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+    "gobuster_common": f"{PROJECT_PATH}/wordlists/SecLists/Discovery/Web-Content/common.txt"
 }
 
 # LLM cache path
-LLM_CACHE_PATH = "/mnt/linux-data/project/code/Cache/llm_cache.pkl"
+LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.pkl"
+
+CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/all_cves_combined.json"
+
+#Blackboard path
+BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
 <</mnt/linux-data/project/code/main.py>>
 import torch
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -28,6 +36,7 @@ from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
 
 from agents.agent_manager import AgentManager
 from agents.recon_agent import ReconAgent
+from agents.vuln_agent import VulnAgent, load_cve_database
 
 from orchestrator.scenario_orchestrator import ScenarioOrchestrator
 
@@ -44,6 +53,10 @@ def main():
 
     # LLM Model
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
+
+    # Load cve dataset
+    cve_items = load_cve_database(CVE_PATH)
+    print("✅ CVE dataset Loaded successfully.")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
@@ -93,9 +106,15 @@ def main():
             command_cache=command_cache,
             model=model
         )
+        
+        # --- Create vuln Agent ---
+        vuln_agent = VulnAgent(
+            blackboard_api=bb_api,
+            cve_items=cve_items
+        )
 
         # --- Register Agents ---
-        agents = [recon_agent]
+        agents = [recon_agent, vuln_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
@@ -241,6 +260,7 @@ class PrioritizedReplayBuffer:
 import random
 import subprocess
 import json
+import torch
 from abc import ABC, abstractmethod
 
 from Cache.llm_cache import LLMCache
@@ -249,6 +269,11 @@ from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_
 from utils.utils import remove_comments_and_empty_lines, extract_json_block, one_line
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
+from utils.json_fixer import fix_json
+
+def remove_untrained_categories(state: dict, categories : set):
+    for categorie in categories:
+        state.pop(categorie, None)  
 
 class BaseAgent(ABC):
     """
@@ -291,17 +316,20 @@ class BaseAgent(ABC):
         """
         Main loop of the agent: observe, choose action, perform, parse, learn, update.
         """
+        #step 1: fill state withh all categories
+        self.blackboard_api.fill_state(
+            actions_history=self.actions_history.copy(),
+            )
         # Step 1: get state
-        raw_state = self.get_state_raw()
-        raw_state_with_history = dict(raw_state)
-        raw_state_with_history["actions_history"] = self.actions_history.copy()
-        state = self.state_encoder.encode(raw_state_with_history, self.actions_history)
+        state = dict(self.get_state_raw())
+        encoded_state = self.state_encoder.encode(state, self.actions_history)
         self.last_state = state
 
-        print(f"last state: {json.dumps(raw_state_with_history, indent=2)}")
+        # [DEBUG]
+        print(f"last state: {json.dumps(state, indent=2)}")
 
         # Step 2: select action
-        action = self.choose_action(state)
+        action = self.choose_action(encoded_state)
         self.last_action = action
         self.actions_history.append(action)
 
@@ -328,26 +356,24 @@ class BaseAgent(ABC):
         parsed_info = self.parse_output(cleaned_output)
         print(f"parsed_info - {parsed_info}")
 
-        parsed_info = correct_state(parsed_info)
-        print("correct_state: {parsed_info}")
-
-        self.blackboard_api.overwrite_blackboard(parsed_info)
+        parsed_info = self.check_state(parsed_info)
+        print(type(parsed_info))
+        
+        self.blackboard_api.update_state(parsed_info, self.name)
 
         # Step 6: observe next state
-        raw_next_state = self.get_state_raw()
-        raw_next_state_with_history = dict(raw_next_state)
-        raw_next_state_with_history["actions_history"] = self.actions_history.copy()
-        next_state = self.state_encoder.encode(raw_next_state_with_history, self.actions_history)
+        next_state = dict(self.get_state_raw())
+        encoded_next_state = self.state_encoder.encode(next_state, self.actions_history)
 
         # Step 7: reward and update model
-        reward = self.get_reward(state, action, next_state)
-        print(f"new state: {json.dumps(dict(self.state_encoder.decode(next_state)), indent=2)}")
+        reward = self.get_reward(encoded_state, action, encoded_next_state)
+        print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
         experience = {
-            "state": state,
+            "state": encoded_state,
             "action": self.action_space.index(action),
             "reward": reward,
-            "next_state": next_state
+            "next_state": encoded_next_state
         }
 
         q_pred, loss = self.policy_model.update(experience)
@@ -357,7 +383,7 @@ class BaseAgent(ABC):
         print(f"    Loss:              {loss:.6f}")
 
         # Step 8: save experience
-        self.replay_buffer.add_experience(state, self.action_space.index(action), reward, next_state, False)
+        self.replay_buffer.add_experience(encoded_state, self.action_space.index(action), reward, encoded_next_state, False)
 
         # Step 9: log action
         self.blackboard_api.append_action_log({
@@ -420,13 +446,18 @@ class BaseAgent(ABC):
         """
         Parse command output using the LLM. Use cache if available.
         """
-        raw_state = self.get_state_raw()
-        raw_state["actions_history"] = self.actions_history.copy()
+        state = self.get_state_raw()
 
-        cached = self.llm_cache.get(raw_state, self.last_action)
+        cached = self.llm_cache.get(state, self.last_action)
         if cached:
             print("\033[93m[CACHE] Using cached LLM result.\033[0m")
             return cached
+
+        untrained_categories = {"actions_history","vulnerabilities_found", "cpes"}
+        remove_untrained_categories(state, untrained_categories)
+        
+        # [DEBUG]
+        print(f"state full: {state}")
 
         prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
         inner_prompt = self.model.run([prompt_for_prompt])[0]
@@ -437,12 +468,15 @@ class BaseAgent(ABC):
             one_line(final_prompt)
         ])
         
-        full_response = responses[1] + "\n" + responses[0]
+        full_response = responses[1]
         print(f"full_response - {full_response}")
 
-        parsed = extract_json_block(full_response)
+        parsed = fix_json(str(full_response))
+        if parsed is None:
+            print("⚠️ parsed is None – skipping this round safely.")
+            return self.get_state_raw()
         if parsed:
-            self.llm_cache.set(raw_state, self.last_action, parsed)
+            self.llm_cache.set(state, self.last_action, parsed)
 
         return parsed
 
@@ -463,9 +497,20 @@ class BaseAgent(ABC):
             "next_state": next_state
         })
 
-    def correct_state(self, current_state):
-        new_state = state_validator(current_state)
-        new_state = state_correctness(new_state)
+    def check_state(self, current_state: str):
+        # Validate and correct the state
+        new_state = validate_state(current_state)
+        print(f"validate_state: {new_state}")
+        
+        # Correct the state based on predefined rules
+        new_state = correct_state(new_state)
+        print(f"correct_state: {new_state}")
+
+        # Ensure the state is a dictionary
+        if not isinstance(new_state, dict):
+            print(f"[!] Warning: Invalid state type received. Converting to dictionary...")
+            new_state = dict(new_state)
+
         return new_state
 
 <</mnt/linux-data/project/code/agents/recon_agent.py>>
@@ -557,6 +602,10 @@ class ReconAgent(BaseAgent):
 
         # 6. Detected by defenses
         if impact.get("detected_by_defenses", False):
+            return False
+
+        # ----- DEBUG ----- #
+        if prev_dict.get("os"):
             return False
 
         return True
@@ -656,6 +705,221 @@ class ReconAgent(BaseAgent):
         except Exception as e:
             print(f"[!] Reward computation failed: {e}")
             return 0.0
+<</mnt/linux-data/project/code/agents/vuln_agent.py>>
+import json
+import re
+import fnmatch
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from config import TARGET_IP, LLAMA_RUN, MODEL_PATH, CVE_PATH
+from agents.base_agent import BaseAgent
+
+def load_cve_database(cve_path: str):
+    """
+    Loads and normalizes the CVE database from the given JSON file.
+
+    Returns:
+        List[dict]: List of CVE items (parsed and ready).
+    """
+    with open(cve_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+        if isinstance(data, list):
+            return data
+
+        elif isinstance(data, dict) and "CVE_Items" in data:
+            return data["CVE_Items"]
+
+        else:
+            raise ValueError("❌ Unsupported CVE format: expected list or dict with 'CVE_Items'")
+
+def extract_all_cpe_matches(node):
+    """
+    Recursively extract all 'cpe_match' entries from a node and its children.
+    """
+    matches = []
+
+    if "cpe_match" in node:
+        matches.extend(node["cpe_match"])
+
+    if "children" in node:
+        for child in node["children"]:
+            matches.extend(extract_all_cpe_matches(child))
+
+    return matches
+    
+class VulnAgent(BaseAgent):
+    """
+    Agent that scans for CVEs matching known CPEs based on current state.
+    """
+
+    def __init__(self, blackboard_api, cve_items):
+        super().__init__(
+            name="VulnAgent",
+            action_space=[],  # No actions
+            blackboard_api=blackboard_api,
+            replay_buffer=None,
+            policy_model=None,
+            state_encoder=None,
+            action_encoder=None,
+            command_cache={},
+            model=None
+        )
+        self.cve_items = cve_items
+
+    def should_run(self) -> bool:
+        state = self.blackboard_api.get_state_for_agent(self.name)
+        return True
+
+    def get_reward(self, prev_state, action, next_state) -> float:
+        return 0.0  # This agent does not learn
+
+    def run(self):
+        print("[+] VulnAgent running...")
+        state = self.blackboard_api.get_state_for_agent(self.name)
+        possible_cpes = self.generate_possible_cpes(state)
+
+        found_vulns = self.match_cves_to_cpes(possible_cpes)
+
+        print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
+        self.blackboard_api.blackboard["vulnerabilities_found"] = found_vulns
+
+    def match_cves_to_cpes(self, possible_cpes):
+        """
+        Compare possible CPEs from current state to CVE database and return matching entries.
+        Supports recursive search of cpe_match in nodes and nested children.
+        """
+        vuln_dict = {}
+
+        for item in self.cve_items:
+            try:
+                cve_id = item["cve"]["CVE_data_meta"]["ID"]
+                configurations = item.get("configurations", {})
+                nodes = configurations.get("nodes", [])
+
+                for node in nodes:
+                    all_cpe_matches = extract_all_cpe_matches(node)
+
+                    for match in all_cpe_matches:
+                        match_cpe = match.get("cpe23Uri", "").lower()
+
+                        for my_cpe in possible_cpes:
+                            my_cpe = my_cpe.lower()
+
+                            # התאמה רגילה עם תווים כלליים
+                            if fnmatch.fnmatch(match_cpe, my_cpe):
+                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
+                                break
+
+                            # התאמה לפי מילות מפתח בהקשר של HTTP
+                            if "http" in my_cpe and "http" in match_cpe:
+                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
+                                break
+
+            except Exception as e:
+                print(f"[!] Failed parsing CVE {item.get('cve', {}).get('CVE_data_meta', {}).get('ID', 'unknown')}: {e}")
+                continue
+
+        return list(vuln_dict.values())
+
+    def generate_possible_cpes(self, state_dict):
+        """
+        Generate all possible CPE 2.3 URIs from OS, services and web directories using a generic strategy.
+        """
+        cpes = set()
+        target = state_dict.get("target", {})
+
+        # === OS to CPE ===
+        os_raw = target.get("os", "").strip().lower()
+        if os_raw:
+            vendor = os_raw.replace(" ", "_")
+            product = os_raw.replace(" ", "_")
+            cpes.add(f"cpe:2.3:o:{vendor}:{product}:*:*:*:*:*:*:*:*")
+
+        # === Services to CPE ===
+        services = target.get("services", [])
+        for s in services:
+            name = str(s.get("service", "")).strip().lower().replace(" ", "_")
+            if not name:
+                continue
+            vendor = product = name
+            cpes.update(self._generate_service_cpes(vendor, product))
+
+        # === Web Directories Heuristics ===
+        dirs = state_dict.get("web_directories_status", {})
+        for code in ["200", "403"]:  # ננסה להוציא מזה מערכות קיימות
+            paths = dirs.get(code, {})
+            for path in paths:
+                dir_name = path.strip("/").lower()
+                if not dir_name or "/" in dir_name:
+                    continue  # נתעלם מתיקיות ריקות או עמוקות מדי
+                vendor = product = dir_name.replace("-", "_")
+                cpes.update(self._generate_service_cpes(vendor, product))
+
+        print(f"[VulnAgent] Generated {len(cpes)} possible CPEs (OS + Services + Web Heuristics).")
+        return list(cpes)
+
+    def _generate_service_cpes(self, vendor, product):
+        """
+        Helper to generate multiple flexible CPE patterns for a given vendor/product.
+        """
+        return {
+            f"cpe:2.3:a:{vendor}:{product}:*:*:*:*:*:*:*:*",
+            f"cpe:2.3:a:*:{product}:*:*:*:*:*:*:*:*",
+            f"cpe:2.3:a:{vendor}:*:*:*:*:*:*:*:*:*"
+        }
+
+# DEBUG
+if __name__ == "__main__":
+
+    print("[*] Loading CVE database...")
+    cve_items = load_cve_database(CVE_PATH)
+    print(f"[+] Loaded {len(cve_items)} CVE entries")
+
+    # מצב בדיקה ידני
+    test_state = {
+        "target": {
+            "ip": "192.168.56.101",
+            "os": "Linux",
+            "services": [
+                {"port": "80", "protocol": "tcp", "service": "apache"},
+                {"port": "3306", "protocol": "tcp", "service": "mysql"}
+            ]
+        },
+        "web_directories_status": {
+            "200": {
+                "/phpmyadmin/": "",
+                "/dvwa/": ""
+            },
+            "403": {
+                "/webdav/": ""
+            }
+        }
+    }
+
+    # מחלקת dummy כדי לדמות את ה-API
+    class DummyBlackboardAPI:
+        def get_state_for_agent(self, name):
+            return test_state
+
+        @property
+        def blackboard(self):
+            return {}
+
+    # צור את הסוכן והפעל את הפונקציות
+    agent = VulnAgent(blackboard_api=DummyBlackboardAPI(), cve_items=cve_items)
+
+    possible_cpes = agent.generate_possible_cpes(test_state)
+    matches = agent.match_cves_to_cpes(possible_cpes)
+
+    print(f"\n[✓] Found {len(matches)} matching CVEs")
+    for match in matches[:10]:  # מדפיס את 10 הראשונים בלבד
+        print(f"  - {match['cve']}: {len(match['matched_cpes'])} matched CPEs")
+        for cpe in match["matched_cpes"]:
+            print(f"    • {cpe}")
+
 <</mnt/linux-data/project/code/agents/agent_manager.py>>
 class AgentManager:
     """
@@ -890,27 +1154,27 @@ from config import WORDLISTS
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "ping": [
-            "ping -c 1 {ip}"
+            #"ping -c 1 {ip}"
         ],
         "nmap": [
             "nmap -F {ip}",
             "nmap {ip}"
         ],
         "curl": [
-            "curl -I http://{ip}",
-            "curl http://{ip}/"
+          #  "curl -I http://{ip}",
+            #"curl http://{ip}/"
         ],
         "wget": [
-            "wget http://{ip} -O -"
+       #     "wget http://{ip} -O -"
         ],
         "traceroute": [
-            "traceroute {ip}"
+          #  "traceroute {ip}"
         ],
         "whatweb": [
-            "whatweb http://{ip}"
+         #   "whatweb http://{ip}"
         ],
         "gobuster": [
-            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+          #  "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ]
     },
 
@@ -921,7 +1185,6 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     #     ]
     # }
 }
-
 
 def build_action_space(agent_type: str, ip: str) -> List[str]:
     """
@@ -980,7 +1243,8 @@ def print_all_python_files(start_dir, output_file):
         "nous-hermes",
         "__pycache__",
         "llama-factory",
-        "models--google--flan-t5-xl"
+        "hf_models",
+        "Debug"
     }
 
     output = ''
@@ -1009,110 +1273,6 @@ print_all_python_files(
     "/mnt/linux-data/project/code",
     "/mnt/linux-data/project/code/get_code/code.txt"
 )
-
-<</mnt/linux-data/project/code/Debug/run_model.py>>
-from models.llm.llama_interface import LlamaModel
-from utils.prompts import PROMPT_FOR_A_PROMPT
-from config import LLAMA_RUN, MODEL_PATH
-
-model = LlamaModel(LLAMA_RUN, MODEL_PATH)
-
-command_output = """
-<html><head><title>Metasploitable2 - Linux</title></head><body>
-<pre>
-
-                _                  _       _ _        _     _      ____  
- _ __ ___   ___| |_ __ _ ___ _ __ | | ___ (_) |_ __ _| |__ | | ___|___ \ 
-| '_ ` _ \ / _ \ __/ _` / __| '_ \| |/ _ \| | __/ _` | '_ \| |/ _ \ __) |
-| | | | | |  __/ || (_| \__ \ |_) | | (_) | | || (_| | |_) | |  __// __/ 
-|_| |_| |_|\___|\__\__,_|___/ .__/|_|\___/|_|\__\__,_|_.__/|_|\___|_____|
-                            |_|                                          
-
-
-Warning: Never expose this VM to an untrusted network!
-
-Contact: msfdev[at]metasploit.com
-
-Login with msfadmin/msfadmin to get started
-
-
-</pre>
-<ul>
-<li><a href="/twiki/">TWiki</a></li>
-<li><a href="/phpMyAdmin/">phpMyAdmin</a></li>
-<li><a href="/mutillidae/">Mutillidae</a></li>
-<li><a href="/dvwa/">DVWA</a></li>
-<li><a href="/dav/">WebDAV</a></li>
-</ul>
-</body>
-</html>
-"""
-response = model.run([PROMPT_FOR_A_PROMPT(command_output)])
-print(f"1: {response}")
-
-
-
-
-<</mnt/linux-data/project/code/Debug/model_test_limits.py>>
-import subprocess
-import os
-
-LLAMA_RUN = "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run"
-MODEL_PATH = "file:///mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
-PROMPT = "Generate a very long list of numbers starting from 1.\n1."
-THREADS = "4"
-N_BATCH = "32"  # ערך שמרני ויציב
-
-def is_available(path):
-    return os.path.exists(path) and os.access(path, os.X_OK)
-
-def test_token_limit():
-    if not is_available(LLAMA_RUN):
-        print(f"[!] Error: llama-run not found at {LLAMA_RUN}")
-        return
-
-    print(f"📍 Testing llama-run at: {LLAMA_RUN}")
-    print(f"📍 Using model: {MODEL_PATH}\n")
-
-    low = 1
-    high = 8192
-    best = 0
-
-    print("🚀 Starting token limit test (with detailed errors)...")
-
-    while low <= high:
-        mid = (low + high) // 2
-        print(f"🔍 Testing with {mid} tokens...", end=" ")
-
-        cmd = [
-            LLAMA_RUN,
-            MODEL_PATH,
-            PROMPT,
-            "-n", str(mid),
-            "-t", THREADS,
-            "--n-batch", N_BATCH
-        ]
-
-        try:
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60*20)
-            best = mid
-            print("✅ Passed")
-            low = mid + 1
-
-        except subprocess.CalledProcessError as e:
-            print("❌ Failed")
-            print(f"    ↳ Return code: {e.returncode}")
-            print(f"    ↳ stderr: {e.stderr.strip().splitlines()[-1] if e.stderr else 'No stderr'}")
-            high = mid - 1
-
-        except subprocess.TimeoutExpired:
-            print("❌ Timeout")
-            high = mid - 1
-
-    print(f"\n🎯 Maximum usable tokens without crash: {best}")
-
-if __name__ == "__main__":
-    test_token_limit()
 
 <</mnt/linux-data/project/code/orchestrator/scenario_orchestrator.py>>
 class ScenarioOrchestrator:
@@ -1504,12 +1664,13 @@ class LlamaModel(BaseLLM):
     Supports single or multiple prompts with contextual memory.
     """
 
-    def __init__(self, llama_path, model_path, tokens=4096, threads=8, n_batch=8192):
+    def __init__(self, llama_path, model_path, tokens=3500, threads=4, n_batch=8192, context_size=500):
         self.llama_path = llama_path
         self.model_path = model_path
         self.tokens = str(tokens)
         self.threads = str(threads)
         self.n_batch = str(n_batch)
+        self.context_size= str(context_size)
 
         if not os.path.isfile(self.llama_path):
             raise FileNotFoundError(f"llama-run binary not found: {self.llama_path}")
@@ -1543,9 +1704,9 @@ class LlamaModel(BaseLLM):
             full_prompt = context + "\n" + prompt if context else prompt
 
             # === Debug Output ===
-            #print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
-            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
-            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+            print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
+            print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
+            print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
 
             cmd = [
                 self.llama_path,
@@ -1554,7 +1715,7 @@ class LlamaModel(BaseLLM):
                 "-n", self.tokens,
                 "-t", self.threads,
                 "--n-batch", self.n_batch,
-                "--ctx-size", "4096",
+                "--ctx-size", self.context_size,
             ]
 
             try:
@@ -1760,6 +1921,9 @@ def initialize_blackboard():
 <</mnt/linux-data/project/code/blackboard/api.py>>
 import time
 import copy
+import json
+
+from config import BLACKBOARD_PATH
 
 class BlackboardAPI:
     """
@@ -1767,7 +1931,7 @@ class BlackboardAPI:
     This class is used by agents to retrieve and modify the shared state.
     """
 
-    def __init__(self, blackboard_dict: dict):
+    def __init__(self, blackboard_dict: dict, json_path: str = BLACKBOARD_PATH):
         """
         Initialize the API with an external blackboard dictionary.
 
@@ -1775,7 +1939,14 @@ class BlackboardAPI:
             blackboard_dict (dict): A dictionary representing the shared state.
         """
         self.blackboard = blackboard_dict
-
+        self.json_path = json_path
+        self._save_to_file()
+    
+    def fill_state(self, actions_history: dict):
+        self.blackboard["actions_history"] = actions_history.copy()
+        self.blackboard["cpes"] = []
+        self.blackboard["vulnerabilities_found"] = []
+    
     def get_state_for_agent(self, agent_name: str) -> dict:
         """
         Return a deep copy of the current blackboard state for agent use.
@@ -1788,28 +1959,6 @@ class BlackboardAPI:
         """
         return copy.deepcopy(self.blackboard)
 
-    def update_runtime_behavior(self, info_dict: dict):
-        """
-        Update or merge runtime_behavior fields in the blackboard.
-
-        Args:
-            info_dict (dict): Runtime keys and values to update.
-        """
-        runtime = self.blackboard.setdefault("runtime_behavior", {})
-
-        for key, value in info_dict.items():
-            if isinstance(value, list):
-                existing = runtime.get(key, [])
-                runtime[key] = list(set(existing + value))
-            elif isinstance(value, dict):
-                existing = runtime.get(key, {})
-                if not isinstance(existing, dict):
-                    existing = {}
-                existing.update(value)
-                runtime[key] = existing
-            else:
-                runtime[key] = value
-
     def append_action_log(self, entry: dict):
         """
         Append an action entry to the action log with a timestamp.
@@ -1819,6 +1968,7 @@ class BlackboardAPI:
         """
         entry["timestamp"] = time.time()
         #self.blackboard.setdefault("actions_log", []).append(entry) Now for debuging
+        self._save_to_file()
 
     def record_reward(self, action: str, reward: float):
         """
@@ -1834,6 +1984,7 @@ class BlackboardAPI:
             "timestamp": time.time()
         }
         self.blackboard.setdefault("reward_log", []).append(entry)
+        self._save_to_file()
 
     def add_error(self, agent: str, action: str, error: str):
         """
@@ -1851,6 +2002,7 @@ class BlackboardAPI:
             "timestamp": time.time()
         }
         self.blackboard.setdefault("errors", []).append(entry)
+        self._save_to_file()
 
     def get_last_actions(self, agent: str, n: int = 5):
         """
@@ -1879,15 +2031,45 @@ class BlackboardAPI:
         for service in new_services:
             if service not in existing:
                 existing.append(service)
-
-    def update_exploit_metadata(self, exploit_data: dict):
+    
+    def update_state(self, agent_name: str, new_state: dict):
         """
-        Update the metadata block about the selected exploit.
+        Update the blackboard based on the agent name and the new state it provides.
 
         Args:
-            exploit_data (dict): Dictionary of exploit metadata to update.
+            agent_name (str): The name of the agent performing the update.
+            new_state (dict): The new partial state information to merge.
         """
-        self.blackboard["exploit_metadata"].update(exploit_data)
+        if not isinstance(new_state, dict):
+            raise ValueError("new_state must be a dictionary")
+
+        # Example logic - call specific update methods based on agent type
+        if agent_name.lower() == "reconagent":
+            self._update_from_recon_agent(new_state)
+        elif agent_name.lower() == "vulnagent":
+            self._update_from_vuln_agent(new_state)
+        else:
+            raise ValueError(f"Unknown agent name: '{agent_name}'")
+
+        self._save_to_file()
+
+    def _update_from_recon_agent(self, new_state: dict):
+        """
+        Update fields relevant to ReconAgent.
+        """
+        if "target" in new_state:
+            self.blackboard.setdefault("target", {}).update(new_state["target"])
+        if "web_directories_status" in new_state:
+            self.blackboard["web_directories_status"] = new_state["web_directories_status"]
+
+    def _update_from_vuln_agent(self, new_state: dict):
+        """
+        Update fields relevant to VulnAgent.
+        """
+        if "cpes" in new_state:
+            self.blackboard["cpes"] = new_state["cpes"]
+        if "vulnerabilities_found" in new_state:
+            self.blackboard["vulnerabilities_found"] = new_state["vulnerabilities_found"]
 
     def overwrite_blackboard(self, new_state: dict):
         """
@@ -1905,12 +2087,331 @@ class BlackboardAPI:
 
         self.blackboard.clear()
         self.blackboard.update(new_state)
+        self._save_to_file()
+    
+    def _save_to_file(self):
+        try:
+            with open(self.json_path, "w", encoding="utf-8") as f:
+                json.dump(self.blackboard, f, indent=2)
+        except Exception as e:
+            print(f"[!] Failed to save blackboard to {self.json_path}: {e}")
+
+<</mnt/linux-data/project/code/utils/json_fixer.py>>
+import re
+import json
+
+from blackboard.blackboard import initialize_blackboard
+
+def fix_malformed_json(text):
+    """
+    Attempts to fix common JSON syntax problems carefully.
+    Fixes only known issues to avoid breaking valid JSONs.
+    """
+    # Remove ANSI escape codes (if any)
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+
+    # Fix cases where the status code key is missing quotation marks (e.g., "200": {/": "OK"})
+    text = re.sub(r'"(\d{3})"\s*{(/\s*":\s*")', r'"\1": {"\2', text)
+
+    # Fix missing closing quotation mark and colon for some cases like:
+    # "200": /": "OK", --> "200": {"/": "OK"}
+    text = re.sub(r'"/\s*":\s*([a-zA-Z0-9\s]+)"', r'"/": "\1"', text)
+
+    # Handle cases where missing quotation marks or incorrect symbols
+    text = re.sub(r'(\d{3}):\s*{/\s*":\s*', r'"\1": {"', text)
+
+    # Ensure that strings have quotes (add if missing)
+    text = re.sub(r'([a-zA-Z0-9_\-/]+)\s*:', r'"\1":', text)
+
+    # Fix lines like "/path/: Status" → "/path/": "Status"
+    def fix_key_value_line(match):
+        key = match.group(1).strip()
+        value = match.group(2).strip()
+        if key and value and not key.endswith('"') and not value.startswith('"'):
+            return f'"{key}": "{value}"'
+        return match.group(0)  # leave unchanged
+
+    text = re.sub(r'"(/[^"]*?):\s*([^"]+?)"', fix_key_value_line, text)
+
+    # Remove stray broken key-value pairs like '"" : ""' with no comma
+    text = re.sub(r'"\s*"\s*:\s*"\s*"\s*(?!,)', '"": "",', text)
+
+    # Remove duplicate JSON blocks without comma between
+    text = re.sub(r'}\s*{', '}, {', text)
+
+    # Fix extra commas before closing
+    text = re.sub(r",\s*([\]}])", r"\1", text)
+
+    # Trim garbage outside JSON
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1:
+        text = text[start:end+1]
+
+    # Auto-balance braces if needed
+    open_count = text.count('{')
+    close_count = text.count('}')
+    if open_count > close_count:
+        text += '}' * (open_count - close_count)
+
+    return text
+
+def extract_json_parts(noisy_text):
+    """
+    Extracts the different parts of the JSON structure from the noisy text.
+    It finds specific values under 'target', 'os', 'ip', and 'web_directories_status' structure.
+    :param noisy_text: The noisy text to extract information from.
+    :return: A dictionary with extracted parts.
+    """
+    # First, fix any malformed JSON
+    fixed_text = fix_malformed_json(noisy_text)
+    
+    parts = {}
+
+    # Extracting "target" -> "ip"
+    ip = extract_value_from_text(fixed_text, "ip", value_type="number")
+    if ip:
+        parts["target"] = {"ip": ip}
+
+    # Extracting "target" -> "os"
+    os = extract_value_from_text(fixed_text, "os", value_type="string")
+    if os:
+        if "target" not in parts:
+            parts["target"] = {}
+        parts["target"]["os"] = os
+
+    # Extracting "target" -> "services"
+    services = []
+    service_matches = re.findall(r'"port": "(.*?)", "protocol": "(.*?)", "service": "(.*?)"', fixed_text)
+    for match in service_matches:
+        port, protocol, service = match
+        services.append({"port": port, "protocol": protocol, "service": service})
+
+    if services:
+        if "target" not in parts:
+            parts["target"] = {}
+        parts["target"]["services"] = services
+
+    # Extracting "web_directories_status"
+    web_directories_status = {}
+    status_matches = re.findall(r'"(\d{3})": {(.*?)}', fixed_text)
+    for status, directories in status_matches:
+        directories_dict = {}
+        directories_list = re.findall(r'"(/.*?)": "(.*?)"', directories)
+        for dir_path, status_text in directories_list:
+            # Fixing missing " or :
+            if not dir_path.startswith('"'):
+                dir_path = '"' + dir_path
+            if not dir_path.endswith('"'):
+                dir_path = dir_path + '"'
+            if not status_text.startswith('"'):
+                status_text = '"' + status_text
+            if not status_text.endswith('"'):
+                status_text = status_text + '"'
+            directories_dict[dir_path] = status_text
+        web_directories_status[status] = directories_dict
+
+    if web_directories_status:
+        parts["web_directories_status"] = web_directories_status
+
+    return parts
+
+def extract_value_from_text(text, start_keyword, value_type="string"):
+    """
+    Extracts value after a keyword in the text.
+    :param text: The input text to search in.
+    :param start_keyword: The keyword to search for.
+    :param value_type: Type of value to extract ("string", "number").
+    :return: Extracted value.
+    """
+    pattern = re.compile(rf"{start_keyword}[^a-zA-Z0-9]*([a-zA-Z0-9\s\.]*)")
+    match = re.search(pattern, text)
+    if match:
+        value = match.group(1).strip()
+        if value_type == "number":
+            # Extract the number only
+            number_match = re.match(r"[\d.]+", value)
+            if number_match:
+                return number_match.group(0)
+            else:
+                return None
+        return value
+    return None
+
+def print_json_parts(parts):
+    """
+    Recursively prints the contents of the JSON parts dictionary in a structured way.
+    """
+    def print_dict(d, indent=0):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                print(' ' * indent + f"{key}:")
+                print_dict(value, indent + 2)
+            elif isinstance(value, list):
+                print(' ' * indent + f"{key}:")
+                for i, item in enumerate(value):
+                    print(f"{' ' * (indent + 2)}Item {i + 1}:")
+                    print_dict(item, indent + 4)
+            else:
+                print(f"{' ' * indent}{key}: {value}")
+
+    print_dict(parts)
+
+def fill_json_structure(extracted_parts):
+    """
+    Fills the provided JSON template with extracted parts data, ensuring no overwriting of existing data
+    and handling edge cases (e.g., malformed JSON, missing values).
+    
+    Arguments:
+    template_json -- The initial JSON structure to be filled
+    extracted_parts -- The dictionary containing the extracted parts data
+    
+    Returns:
+    A filled and corrected JSON structure
+    """
+    # Initialize a clean template for the JSON (or use the existing one)
+    template_json = initialize_blackboard()
+
+    # === Step 1: Fill "target" section ===
+    target = template_json.get("target", {})
+
+    if "target" in extracted_parts:
+        target_data = extracted_parts["target"]
+
+        # Fill IP only if it's not already present
+        if "ip" in target_data and not target.get("ip"):
+            target["ip"] = target_data["ip"]
+
+        # Fill OS only if it's not already present
+        if "os" in target_data and not target.get("os"):
+            target["os"] = target_data["os"]
+
+        # Fill services only if it's not already present
+        if "services" in target_data and not target.get("services"):
+            target["services"] = target_data["services"]
+
+        # Ensure all the services in the extracted data are added
+        if "services" in target_data:
+            existing_services = {service["port"]: service for service in target.get("services", [])}
+            for service in target_data["services"]:
+                # Add each service only if it's not already added
+                if service["port"] not in existing_services:
+                    target["services"].append(service)
+
+    template_json["target"] = target
+
+    # === Step 2: Fill "web_directories_status" section ===
+    web_directories_status = template_json.get("web_directories_status", {})
+
+    if "web_directories_status" in extracted_parts:
+        wds_data = extracted_parts["web_directories_status"]
+
+        for status, directories in wds_data.items():
+            if status not in web_directories_status:
+                web_directories_status[status] = {}
+            for directory, value in directories.items():
+                # Remove unnecessary escape characters like "\"/admin\""
+                directory = directory.strip('"')
+                value = value.strip('"')
+
+                # Add directory only if it doesn't already exist
+                if directory not in web_directories_status[status]:
+                    web_directories_status[status][directory] = value
+
+    template_json["web_directories_status"] = web_directories_status
+
+    # === Step 3: Correct malformed structures (handling edge cases) ===
+    # Loop over the JSON parts and fix missing or broken structures
+    for section in ["target", "web_directories_status"]:
+        if section in template_json:
+            # If any dictionary is empty (like empty services or empty directories), fill with defaults
+            if section == "target":
+                if not template_json["target"].get("services"):
+                    template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]
+            if section == "web_directories_status":
+                for status in ["200", "401", "403", "404", "503"]:
+                    if status not in template_json["web_directories_status"]:
+                        template_json["web_directories_status"][status] = {}
+
+    # === Step 4: Remove empty services and empty directories ===
+    final_json = remove_empty_services(template_json)
+    final_json = clean_empty_directories_status(final_json)
+
+    return final_json
+
+def remove_empty_services(template_json):
+    """
+    Removes any services with empty values in the "services" list inside "target".
+    
+    Arguments:
+    template_json -- The JSON structure that contains the "target" section
+    
+    Returns:
+    The updated JSON structure with empty services removed
+    """
+    # Check if the 'target' and 'services' keys exist
+    if "target" in template_json and "services" in template_json["target"]:
+        # Filter out any service where any of the fields are empty
+        template_json["target"]["services"] = [
+            service for service in template_json["target"]["services"]
+            if service.get("port") and service.get("protocol") and service.get("service")
+        ]
+    
+    return template_json
+
+def clean_empty_directories_status(json_data):
+    """
+    This function checks the 'web_directories_status' section in the full JSON data.
+    If there are no directories (empty dictionary), it ensures that the entry with an empty key (": "") is present.
+    If there are directories, it removes the entry with the empty key if it exists, and removes any additional occurrences of it.
+    
+    Arguments:
+    json_data -- The full JSON data containing 'web_directories_status' among other parts
+    
+    Returns:
+    json_data -- The updated JSON data with cleaned 'web_directories_status'
+    """
+    
+    # Check if 'web_directories_status' exists in the json_data
+    if "web_directories_status" in json_data:
+        web_directories_status = json_data["web_directories_status"]
+        
+        # Loop over each status in web_directories_status
+        for status, directories in web_directories_status.items():
+            # Remove any occurrences of "": "" from the directories
+            if "" in directories:
+                del directories[""]  # Remove the empty key entry
+
+            # If the status contains directories, we don't need to add an empty key
+            if not directories:  # If no directories exist
+                # Ensure that the empty key "" is present if no directories
+                directories[""] = ""  # Add the empty key with empty value
+    
+    return json_data
+
+def fix_json(text: str):
+    parts = extract_json_parts(text)
+    if parts:
+        print("✅ JSON extracted successfully.")
+        print_json_parts(parts)
+    else:
+        print("❌ Failed to extract valid JSON.")
+    
+    # Fill the JSON structure
+    filled_json = fill_json_structure(parts)
+
+    # Print result
+    print(json.dumps(filled_json, indent=2))
+
+    return filled_json
+
 <</mnt/linux-data/project/code/utils/prompts.py>>
 def PROMPT_1(current_state: str) -> str:
   return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
 
 Do not explain, summarize, or transform it in any way.
 Just memorize it internally — you will be asked to use it later.
+All response should be one line.
 
 Here is the structure:
 {current_state}
@@ -2018,42 +2519,33 @@ No emojis!!
 ✏️ Return only a clear and focused list of extraction instructions based on the data in this output.
 """
 <</mnt/linux-data/project/code/utils/utils.py>>
-import json
 import re
+import json
+from utils.state_check.state_validator import validate_state
 
 def extract_json_block(text_input):
     """
-    Extracts the largest and most complete JSON block from a noisy text input.
-    Handles malformed JSON, stray text, markdown fences, escape codes, and unbalanced braces.
-    
-    Parameters:
-        text_input (str or List[str])
-    
-    Returns:
-        dict or None
+    Extracts the largest and most complete valid JSON block from noisy text.
+    It cleans the input, finds all JSON-like blocks, parses them, validates them,
+    and returns the best candidate.
     """
+
+    # === Step 1: Convert input to string ===
     if isinstance(text_input, list):
         text = "\n".join(text_input)
     else:
         text = str(text_input)
 
-    # 1. Remove ANSI escape codes
-    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
-
-    # 2. Remove Markdown-style ```json ... ``` wrappers
-    text = re.sub(r"```(?:json)?\s*({.*?})\s*```", r"\1", text, flags=re.DOTALL)
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-
-    # 3. Remove non-JSON explanation blocks (e.g., "The JSON structure provided is:")
+    # === Step 2: Initial cleaning (remove ANSI codes, markdown, LLM artifacts) ===
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)  # ANSI colors
+    text = re.sub(r"```(?:json)?\s*({.*?})\s*```", r"\1", text, flags=re.DOTALL)  # strip ```json
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)  # strip any code blocks
+    text = re.sub(r"(The given JSON structure is:|Here is the structure:|You were previously given.*?)\n", "", text, flags=re.IGNORECASE)
     text = re.sub(r"The JSON structure provided.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"(?i)(you were previously given|return ONLY ONE JSON).*?{", "{", text, flags=re.DOTALL)
+    text = re.sub(r",\s*([\]}])", r"\1", text)  # remove trailing commas
 
-    # 4. Remove repeated explanations of the structure
-    text = re.sub(r"(?i)(you were previously given|here is the structure|return ONLY ONE JSON).*?{", "{", text, flags=re.DOTALL)
-
-    # 5. Remove trailing commas before } or ]
-    text = re.sub(r",\s*([\]}])", r"\1", text)
-
-    # 6. Attempt to find all top-level {...} blocks with balanced braces
+    # === Step 3: Find candidate JSON blocks using brace matching ===
     matches = []
     stack = []
     start = None
@@ -2070,62 +2562,99 @@ def extract_json_block(text_input):
                     candidate = text[start:i + 1]
                     matches.append(candidate)
 
-    # 7. Try parsing candidates
+    # === Step 4: Attempt to parse each candidate JSON block ===
     valid_jsons = []
+
     for candidate in matches:
+        candidate = candidate.strip()
         try:
             obj = json.loads(candidate)
-            valid_jsons.append((candidate, obj))
-        except json.JSONDecodeError:
-            # Try to auto-fix
+            obj = one_line(obj)  # flatten
+            valid_jsons.append((json.dumps(obj), obj))
+        except json.JSONDecodeError as e:
+            print(f"[!] JSONDecodeError: {e} — attempting to fix...")
             try:
                 fixed = fix_malformed_json(candidate)
-                obj = json.loads(fixed)
-                valid_jsons.append((fixed, obj))
-            except:
+                obj = json.loads(validate_state(fixed))
+                obj = one_line(obj)  # flatten
+                valid_jsons.append((json.dumps(obj), obj))
+            except Exception as e_inner:
+                print(f"[!] Failed to fix JSON — {type(e_inner).__name__}: {e_inner}")
                 continue
+        except Exception as e:
+            print(f"[!] Unexpected error — {type(e).__name__}: {e}")
+            continue
 
+        # Try to flatten the JSON into one line (optional visual clean-up)
+        try:
+            obj = one_line(obj)
+        except:
+            pass
+
+        valid_jsons.append((json.dumps(obj), obj))
+    
     if not valid_jsons:
         print("❌ No valid JSON found.")
         return None
 
-    # 8. Return the one with the longest valid content
-    best_candidate = max(valid_jsons, key=lambda pair: len(json.dumps(pair[1])))
+
+    # === Step 5: Return the best valid JSON candidate ===
+
+    # Select the largest (most complete) candidate
+    best_candidate = max(valid_jsons, key=lambda pair: len(pair[0]))
+
+    # === Step 6: Validate the JSON structure ===
     is_valid, validation_errors = validate_json_structure(best_candidate[1])
     if not is_valid:
         print("❌ Invalid JSON structure:")
         for e in validation_errors:
             print(" -", e)
+
     return best_candidate[1]
 
 def fix_malformed_json(text):
     """
-    Attempts to fix common JSON syntax problems.
+    Attempts to fix common JSON syntax problems carefully.
+    Fixes only known issues to avoid breaking valid JSONs.
     """
+    import re
+
     # Remove ANSI escape codes
     text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
-    # Fix extra commas before brackets
-    text = re.sub(r",\s*}", "}", text)
-    text = re.sub(r",\s*]", "]", text)
+    # Remove stray broken key-value pairs like '"" : ""' with no comma
+    text = re.sub(r'"\s*"\s*:\s*"\s*"\s*(?!,)', '"": "",', text)
 
-    # Fix nested closing brackets
-    text = re.sub(r"}\s*}", "}}", text)
-    text = re.sub(r"]\s*]", "]]", text)
+    # Remove duplicate JSON blocks without comma between
+    text = re.sub(r'}\s*{', '}, {', text)
 
-    # Trim outside garbage
+    # Fix extra commas before closing
+    text = re.sub(r",\s*([\]}])", r"\1", text)
+
+    # Fix lines like "/path/: Status" → "/path/": "Status"
+    def fix_key_value_line(match):
+        key = match.group(1).strip()
+        value = match.group(2).strip()
+        if key and value and not key.endswith('"') and not value.startswith('"'):
+            return f'"{key}": "{value}"'
+        return match.group(0)  # leave unchanged
+
+    text = re.sub(r'"(/[^"]*?):\s*([^"]+?)"', fix_key_value_line, text)
+
+    # Trim garbage outside JSON
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1:
         text = text[start:end+1]
 
-    # Auto-balance unclosed brackets
+    # Auto-balance braces
     open_count = text.count('{')
     close_count = text.count('}')
     if open_count > close_count:
         text += '}' * (open_count - close_count)
 
     return text
+
 
 EXPECTED_TOP_KEYS = {"target", "web_directories_status"}
 EXPECTED_SERVICE_KEYS = {"port", "protocol", "service"}
@@ -2228,6 +2757,8 @@ import subprocess
 import re
 import json
 from utils.utils import remove_comments_and_empty_lines
+from config import TARGET_IP
+from utils.state_check.state_validator import clean_web_directories
 
 def run_command(cmd: str) -> str:
     try:
@@ -2236,23 +2767,25 @@ def run_command(cmd: str) -> str:
     except:
         return ""
 
-def parse_nmap_services(nmap_output: str) -> list:
-    services = []
-    for line in nmap_output.splitlines():
-        match = re.match(r"(\d+)/tcp\s+open\s+(\S+)", line)
-        if match:
-            port = match.group(1)
-            service = match.group(2).lower()
-            services.append({
-                "port": port,
-                "protocol": "tcp",
-                "service": service
-            })
-    return services
+def check_port_with_nmap(ip: str, port: str) -> str:
+    output = run_command(f"nmap -sV -p {port} {ip}")
+    #print(f"[DEBUG] nmap output for port {port}:\n{output}")
+
+    for line in output.splitlines():
+        # בדוק שהפורט פתוח, גם אם אין שם שירות
+        if re.match(rf"^{port}/tcp\s+open", line):
+            match = re.match(rf"^{port}/tcp\s+open\s+(\S+)", line)
+            if match:
+                return match.group(1).lower()
+            else:
+                print(f"[!] Could not determine service on open port {port}/tcp — marking as 'unknown'")
+                return "unknown"
+
+    print(f"[!] Port {port}/tcp is not open — skipping.")
+    return None
 
 def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
     tools = [
-        f"nmap -O {ip}",
         f"whatweb http://{ip}",
         f"curl -I http://{ip}",
         f"wget http://{ip} -O -"
@@ -2274,45 +2807,90 @@ def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
             os_candidates.append("Linux")
 
     if os_candidates:
-        # עדיפות לזיהוי Linux אם יש כמה
         if "Linux" in os_candidates:
             return "Linux"
         return os_candidates[0]
 
-    return current_os  # לא מוחקים — מחזירים את מה שהיה קודם
+    return current_os
+
+EXPECTED_CODES = ["200", "401", "403", "404", "503"]
 
 def verify_web_directories(ip: str, web_dirs: dict) -> dict:
-    verified = {code: {} for code in ["200", "401", "403", "404", "503"]}
+    """
+    מאמת נתיבי Web מול השרת וממקם כל נתיב בקטגוריית הסטטוס האמיתית בלבד.
+    בנוסף, מסיר "" ריקים אם קיימים נתיבים תקניים.
+    """
+    verified = {code: {} for code in EXPECTED_CODES}
+
     for code, entries in web_dirs.items():
         for path in entries:
             full_url = f"http://{ip}{path}"
             try:
                 response = subprocess.check_output(
-                    ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", full_url],
+                    ["curl", "-i", "-s", full_url],
                     timeout=5
-                ).decode().strip()
-                if response in verified:
-                    verified[response][path] = entries[path]
+                ).decode()
+
+                # מציאת שורת ה־HTTP
+                first_line = next((line for line in response.splitlines() if line.startswith("HTTP/")), "")
+                parts = first_line.strip().split(" ", 2)
+                status_code = parts[1] if len(parts) > 1 else "404"
+                reason = parts[2] if len(parts) > 2 else ""
+
+                # ניקוי הקוד
+                status_code = status_code.strip()
+                reason = reason.strip()
+
+                if status_code in verified:
+                    verified[status_code][path] = reason
                 else:
-                    verified["404"][path] = entries[path]
-            except:
-                verified["404"][path] = entries[path]
+                    verified["404"][path] = reason or "Unknown"
+
+            except Exception:
+                verified["404"][path] = "Error or Timeout"
+
+    # הסרת "" מיותר ויישור סופי של המבנה
+    verified = clean_web_directories(verified)
     return verified
 
-def correct_state(state: dict, ip: str) -> dict:
-    print(f"[+] Running nmap to verify services on {ip}...")
-    nmap_output = run_command(f"nmap -sV -O {ip}")
-    new_services = parse_nmap_services(nmap_output)
+def correct_state(state: dict) -> dict:
+    ip = TARGET_IP
+
+    print(f"[+] Verifying declared services individually on {ip}...")
+
+    verified_services = []
+    for s in state.get("target", {}).get("services", []):
+        port = s.get("port", "")
+        protocol = s.get("protocol", "").lower()
+        declared_service = s.get("service", "").lower()
+
+        if not port or not protocol or protocol != "tcp":
+            continue  # מדלגים על שורות פגומות או שאינן TCP
+
+        actual_service = check_port_with_nmap(ip, port)
+        if actual_service:
+            verified_services.append({
+                "port": port,
+                "protocol": "tcp",
+                "service": actual_service  # יכול להיות שונה מהצהרה
+            })
+        else:
+            print(f"[!] Port {port}/tcp is not open — removing.")
+
+    state["target"]["services"] = verified_services
+
+    # OS detection
     current_os = state["target"].get("os", "Unknown")
     new_os = detect_os_from_multiple_tools(ip, current_os)
-
-    state["target"]["services"] = new_services
     state["target"]["os"] = new_os
 
+    # Web directories
     print(f"[+] Verifying web directories with curl...")
-    state["web_directories_status"] = verify_web_directories(ip, state.get("web_directories_status", {}))
+    raw_web_dirs = verify_web_directories(ip, state.get("web_directories_status", {}))
+    state["web_directories_status"] = clean_web_directories(raw_web_dirs)
 
     return state
+
 <</mnt/linux-data/project/code/utils/state_check/state_validator.py>>
 import re
 
@@ -2325,8 +2903,14 @@ def ensure_structure(state: dict) -> dict:
     """
     state.setdefault("target", {})
     state["target"].setdefault("ip", "")
-    state["target"].setdefault("os", "Unknown")
+    state["target"].setdefault("os", "")
     state["target"].setdefault("services", [])
+
+    # עבור כל שירות ברשימה, ודא שהפורט, הפרוטוקול והשירות קיימים, אחרת הסר את השירות
+    state["target"]["services"] = [
+        service for service in state["target"]["services"]
+        if service.get("port") and service.get("protocol") and service.get("service")
+    ]
 
     state.setdefault("web_directories_status", {})
     for code in EXPECTED_WEB_CODES:
@@ -2363,7 +2947,7 @@ def filter_invalid_services(services: list) -> list:
     מסנן שירותים פיקטיביים לפי פורטים או שמות בעייתיים.
     """
     suspicious_ports = {0, 1, 9999}
-    blocked_names = {"unknown", "none", "fake"}
+    blocked_names = {"none", "fake"}
 
     return [
         s for s in services
@@ -2373,22 +2957,37 @@ def filter_invalid_services(services: list) -> list:
 
 def clean_web_directories(web_dirs: dict) -> dict:
     """
-    מסיר ערכים לא חוקיים מתיקיית web_directories_status.
+    מנקה ומוודאת את מבנה web_directories_status:
+    - שומר רק נתיבים חוקיים שמתחילים ב-"/".
+    - מוסיף '"" : ""' רק אם היה לפחות נתיב עם '/'.
+    - תמיד מחזיר את כל חמשת הקטגוריות: 200, 401, 403, 404, 503.
     """
     cleaned = {}
-    for code in EXPECTED_WEB_CODES:
-        cleaned[code] = {}
+    expected_codes = ["200", "401", "403", "404", "503"]
+
+    for code in expected_codes:
         entries = web_dirs.get(code, {})
+        valid_paths = {}
+
+        has_slash_path = False
+
         if isinstance(entries, dict):
             for path, label in entries.items():
                 if isinstance(path, str) and isinstance(label, str):
-                    if path.startswith("/") or path == "":
-                        cleaned[code][path] = label
-        if not cleaned[code]:
-            cleaned[code] = {"": ""}
+                    if path.startswith("/") and path.strip():
+                        valid_paths[path] = label
+                        has_slash_path = True  # היה לפחות נתיב אמיתי
+
+        # אם לא היו נתיבים חוקיים בכלל — נשאיר "": ""
+        # אם כן היו נתיבים עם "/", נכניס "": "" גם
+        if not has_slash_path:
+            valid_paths[""] = ""
+
+        cleaned[code] = valid_paths
+
     return cleaned
 
-def truncate_lists(state: dict, max_services=10, max_paths_per_status=100) -> dict:
+def truncate_lists(state: dict, max_services=100, max_paths_per_status=100) -> dict:
     """
     מגביל את האורך של services ונתיבי web.
     """
@@ -2412,8 +3011,6 @@ def validate_state(state: dict) -> dict:
     state["web_directories_status"] = clean_web_directories(state["web_directories_status"])
     state = truncate_lists(state)
     return state
-
-
 <</mnt/linux-data/project/code/encoders/state_encoder.py>>
 import hashlib
 import json
@@ -2474,7 +3071,7 @@ class StateEncoder:
         for action in actions_history:
             if action in self.action_to_index:
                 idx = self.action_to_index[action]
-                actions_vector[idx] = 1.0
+                actions_vector[idx] += 1.0 # To count the number of time that command ran
 
         # Add action history to the flat dictionary
         for i, val in enumerate(actions_vector):
@@ -2524,6 +3121,9 @@ class StateEncoder:
             dict: Flattened key-value pairs.
         """
         items = {}
+
+        if prefix.endswith("vulnerabilities_found"):
+            return {}
 
         if isinstance(obj, dict):
             for k, v in obj.items():

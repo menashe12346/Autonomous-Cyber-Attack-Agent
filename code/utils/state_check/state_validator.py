@@ -9,8 +9,14 @@ def ensure_structure(state: dict) -> dict:
     """
     state.setdefault("target", {})
     state["target"].setdefault("ip", "")
-    state["target"].setdefault("os", "Unknown")
+    state["target"].setdefault("os", "")
     state["target"].setdefault("services", [])
+
+    # עבור כל שירות ברשימה, ודא שהפורט, הפרוטוקול והשירות קיימים, אחרת הסר את השירות
+    state["target"]["services"] = [
+        service for service in state["target"]["services"]
+        if service.get("port") and service.get("protocol") and service.get("service")
+    ]
 
     state.setdefault("web_directories_status", {})
     for code in EXPECTED_WEB_CODES:
@@ -47,7 +53,7 @@ def filter_invalid_services(services: list) -> list:
     מסנן שירותים פיקטיביים לפי פורטים או שמות בעייתיים.
     """
     suspicious_ports = {0, 1, 9999}
-    blocked_names = {"unknown", "none", "fake"}
+    blocked_names = {"none", "fake"}
 
     return [
         s for s in services
@@ -57,19 +63,34 @@ def filter_invalid_services(services: list) -> list:
 
 def clean_web_directories(web_dirs: dict) -> dict:
     """
-    מסיר ערכים לא חוקיים מתיקיית web_directories_status.
+    מנקה ומוודאת את מבנה web_directories_status:
+    - שומר רק נתיבים חוקיים שמתחילים ב-"/".
+    - מוסיף '"" : ""' רק אם היה לפחות נתיב עם '/'.
+    - תמיד מחזיר את כל חמשת הקטגוריות: 200, 401, 403, 404, 503.
     """
     cleaned = {}
-    for code in EXPECTED_WEB_CODES:
-        cleaned[code] = {}
+    expected_codes = ["200", "401", "403", "404", "503"]
+
+    for code in expected_codes:
         entries = web_dirs.get(code, {})
+        valid_paths = {}
+
+        has_slash_path = False
+
         if isinstance(entries, dict):
             for path, label in entries.items():
                 if isinstance(path, str) and isinstance(label, str):
-                    if path.startswith("/") or path == "":
-                        cleaned[code][path] = label
-        if not cleaned[code]:
-            cleaned[code] = {"": ""}
+                    if path.startswith("/") and path.strip():
+                        valid_paths[path] = label
+                        has_slash_path = True  # היה לפחות נתיב אמיתי
+
+        # אם לא היו נתיבים חוקיים בכלל — נשאיר "": ""
+        # אם כן היו נתיבים עם "/", נכניס "": "" גם
+        if not has_slash_path:
+            valid_paths[""] = ""
+
+        cleaned[code] = valid_paths
+
     return cleaned
 
 def truncate_lists(state: dict, max_services=100, max_paths_per_status=100) -> dict:
@@ -96,4 +117,3 @@ def validate_state(state: dict) -> dict:
     state["web_directories_status"] = clean_web_directories(state["web_directories_status"])
     state = truncate_lists(state)
     return state
-

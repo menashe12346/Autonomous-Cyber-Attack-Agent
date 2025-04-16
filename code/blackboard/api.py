@@ -1,5 +1,8 @@
 import time
 import copy
+import json
+
+from config import BLACKBOARD_PATH
 
 class BlackboardAPI:
     """
@@ -7,7 +10,7 @@ class BlackboardAPI:
     This class is used by agents to retrieve and modify the shared state.
     """
 
-    def __init__(self, blackboard_dict: dict):
+    def __init__(self, blackboard_dict: dict, json_path: str = BLACKBOARD_PATH):
         """
         Initialize the API with an external blackboard dictionary.
 
@@ -15,7 +18,14 @@ class BlackboardAPI:
             blackboard_dict (dict): A dictionary representing the shared state.
         """
         self.blackboard = blackboard_dict
-
+        self.json_path = json_path
+        self._save_to_file()
+    
+    def fill_state(self, actions_history: dict):
+        self.blackboard["actions_history"] = actions_history.copy()
+        self.blackboard["cpes"] = []
+        self.blackboard["vulnerabilities_found"] = []
+    
     def get_state_for_agent(self, agent_name: str) -> dict:
         """
         Return a deep copy of the current blackboard state for agent use.
@@ -28,28 +38,6 @@ class BlackboardAPI:
         """
         return copy.deepcopy(self.blackboard)
 
-    def update_runtime_behavior(self, info_dict: dict):
-        """
-        Update or merge runtime_behavior fields in the blackboard.
-
-        Args:
-            info_dict (dict): Runtime keys and values to update.
-        """
-        runtime = self.blackboard.setdefault("runtime_behavior", {})
-
-        for key, value in info_dict.items():
-            if isinstance(value, list):
-                existing = runtime.get(key, [])
-                runtime[key] = list(set(existing + value))
-            elif isinstance(value, dict):
-                existing = runtime.get(key, {})
-                if not isinstance(existing, dict):
-                    existing = {}
-                existing.update(value)
-                runtime[key] = existing
-            else:
-                runtime[key] = value
-
     def append_action_log(self, entry: dict):
         """
         Append an action entry to the action log with a timestamp.
@@ -59,6 +47,7 @@ class BlackboardAPI:
         """
         entry["timestamp"] = time.time()
         #self.blackboard.setdefault("actions_log", []).append(entry) Now for debuging
+        self._save_to_file()
 
     def record_reward(self, action: str, reward: float):
         """
@@ -74,6 +63,7 @@ class BlackboardAPI:
             "timestamp": time.time()
         }
         self.blackboard.setdefault("reward_log", []).append(entry)
+        self._save_to_file()
 
     def add_error(self, agent: str, action: str, error: str):
         """
@@ -91,6 +81,7 @@ class BlackboardAPI:
             "timestamp": time.time()
         }
         self.blackboard.setdefault("errors", []).append(entry)
+        self._save_to_file()
 
     def get_last_actions(self, agent: str, n: int = 5):
         """
@@ -119,15 +110,46 @@ class BlackboardAPI:
         for service in new_services:
             if service not in existing:
                 existing.append(service)
-
-    def update_exploit_metadata(self, exploit_data: dict):
+    
+    def update_state(self, agent_name: str, new_state: dict):
         """
-        Update the metadata block about the selected exploit.
+        Update the blackboard based on the agent name and the new state it provides.
 
         Args:
-            exploit_data (dict): Dictionary of exploit metadata to update.
+            agent_name (str): The name of the agent performing the update.
+            new_state (dict): The new partial state information to merge.
         """
-        self.blackboard["exploit_metadata"].update(exploit_data)
+        print(type(new_state))
+        if not isinstance(new_state, dict):
+            raise ValueError("new_state must be a dictionary")
+
+        # Example logic - call specific update methods based on agent type
+        if agent_name.lower() == "reconagent":
+            self._update_from_recon_agent(new_state)
+        elif agent_name.lower() == "vulnagent":
+            self._update_from_vuln_agent(new_state)
+        else:
+            raise ValueError(f"Unknown agent name: '{agent_name}'")
+
+        self._save_to_file()
+
+    def _update_from_recon_agent(self, new_state: dict):
+        """
+        Update fields relevant to ReconAgent.
+        """
+        if "target" in new_state:
+            self.blackboard.setdefault("target", {}).update(new_state["target"])
+        if "web_directories_status" in new_state:
+            self.blackboard["web_directories_status"] = new_state["web_directories_status"]
+
+    def _update_from_vuln_agent(self, new_state: dict):
+        """
+        Update fields relevant to VulnAgent.
+        """
+        if "cpes" in new_state:
+            self.blackboard["cpes"] = new_state["cpes"]
+        if "vulnerabilities_found" in new_state:
+            self.blackboard["vulnerabilities_found"] = new_state["vulnerabilities_found"]
 
     def overwrite_blackboard(self, new_state: dict):
         """
@@ -145,3 +167,11 @@ class BlackboardAPI:
 
         self.blackboard.clear()
         self.blackboard.update(new_state)
+        self._save_to_file()
+    
+    def _save_to_file(self):
+        try:
+            with open(self.json_path, "w", encoding="utf-8") as f:
+                json.dump(self.blackboard, f, indent=2)
+        except Exception as e:
+            print(f"[!] Failed to save blackboard to {self.json_path}: {e}")

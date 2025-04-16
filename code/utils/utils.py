@@ -1,39 +1,30 @@
-import json
 import re
+import json
+from utils.state_check.state_validator import validate_state
 
 def extract_json_block(text_input):
     """
-    Extracts the largest and most complete JSON block from a noisy text input.
-    Handles malformed JSON, stray text, markdown fences, escape codes, and unbalanced braces.
-    
-    Parameters:
-        text_input (str or List[str])
-    
-    Returns:
-        dict or None
+    Extracts the largest and most complete valid JSON block from noisy text.
+    It cleans the input, finds all JSON-like blocks, parses them, validates them,
+    and returns the best candidate.
     """
+
+    # === Step 1: Convert input to string ===
     if isinstance(text_input, list):
         text = "\n".join(text_input)
     else:
         text = str(text_input)
 
-    # 1. Remove ANSI escape codes
-    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
-
-    # 2. Remove Markdown-style ```json ... ``` wrappers
-    text = re.sub(r"```(?:json)?\s*({.*?})\s*```", r"\1", text, flags=re.DOTALL)
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-
-    # 3. Remove non-JSON explanation blocks (e.g., "The JSON structure provided is:")
+    # === Step 2: Initial cleaning (remove ANSI codes, markdown, LLM artifacts) ===
+    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)  # ANSI colors
+    text = re.sub(r"```(?:json)?\s*({.*?})\s*```", r"\1", text, flags=re.DOTALL)  # strip ```json
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)  # strip any code blocks
+    text = re.sub(r"(The given JSON structure is:|Here is the structure:|You were previously given.*?)\n", "", text, flags=re.IGNORECASE)
     text = re.sub(r"The JSON structure provided.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"(?i)(you were previously given|return ONLY ONE JSON).*?{", "{", text, flags=re.DOTALL)
+    text = re.sub(r",\s*([\]}])", r"\1", text)  # remove trailing commas
 
-    # 4. Remove repeated explanations of the structure
-    text = re.sub(r"(?i)(you were previously given|here is the structure|return ONLY ONE JSON).*?{", "{", text, flags=re.DOTALL)
-
-    # 5. Remove trailing commas before } or ]
-    text = re.sub(r",\s*([\]}])", r"\1", text)
-
-    # 6. Attempt to find all top-level {...} blocks with balanced braces
+    # === Step 3: Find candidate JSON blocks using brace matching ===
     matches = []
     stack = []
     start = None
@@ -50,62 +41,99 @@ def extract_json_block(text_input):
                     candidate = text[start:i + 1]
                     matches.append(candidate)
 
-    # 7. Try parsing candidates
+    # === Step 4: Attempt to parse each candidate JSON block ===
     valid_jsons = []
+
     for candidate in matches:
+        candidate = candidate.strip()
         try:
             obj = json.loads(candidate)
-            valid_jsons.append((candidate, obj))
-        except json.JSONDecodeError:
-            # Try to auto-fix
+            obj = one_line(obj)  # flatten
+            valid_jsons.append((json.dumps(obj), obj))
+        except json.JSONDecodeError as e:
+            print(f"[!] JSONDecodeError: {e} — attempting to fix...")
             try:
                 fixed = fix_malformed_json(candidate)
-                obj = json.loads(fixed)
-                valid_jsons.append((fixed, obj))
-            except:
+                obj = json.loads(validate_state(fixed))
+                obj = one_line(obj)  # flatten
+                valid_jsons.append((json.dumps(obj), obj))
+            except Exception as e_inner:
+                print(f"[!] Failed to fix JSON — {type(e_inner).__name__}: {e_inner}")
                 continue
+        except Exception as e:
+            print(f"[!] Unexpected error — {type(e).__name__}: {e}")
+            continue
 
+        # Try to flatten the JSON into one line (optional visual clean-up)
+        try:
+            obj = one_line(obj)
+        except:
+            pass
+
+        valid_jsons.append((json.dumps(obj), obj))
+    
     if not valid_jsons:
         print("❌ No valid JSON found.")
         return None
 
-    # 8. Return the one with the longest valid content
-    best_candidate = max(valid_jsons, key=lambda pair: len(json.dumps(pair[1])))
+
+    # === Step 5: Return the best valid JSON candidate ===
+
+    # Select the largest (most complete) candidate
+    best_candidate = max(valid_jsons, key=lambda pair: len(pair[0]))
+
+    # === Step 6: Validate the JSON structure ===
     is_valid, validation_errors = validate_json_structure(best_candidate[1])
     if not is_valid:
         print("❌ Invalid JSON structure:")
         for e in validation_errors:
             print(" -", e)
+
     return best_candidate[1]
 
 def fix_malformed_json(text):
     """
-    Attempts to fix common JSON syntax problems.
+    Attempts to fix common JSON syntax problems carefully.
+    Fixes only known issues to avoid breaking valid JSONs.
     """
+    import re
+
     # Remove ANSI escape codes
     text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
-    # Fix extra commas before brackets
-    text = re.sub(r",\s*}", "}", text)
-    text = re.sub(r",\s*]", "]", text)
+    # Remove stray broken key-value pairs like '"" : ""' with no comma
+    text = re.sub(r'"\s*"\s*:\s*"\s*"\s*(?!,)', '"": "",', text)
 
-    # Fix nested closing brackets
-    text = re.sub(r"}\s*}", "}}", text)
-    text = re.sub(r"]\s*]", "]]", text)
+    # Remove duplicate JSON blocks without comma between
+    text = re.sub(r'}\s*{', '}, {', text)
 
-    # Trim outside garbage
+    # Fix extra commas before closing
+    text = re.sub(r",\s*([\]}])", r"\1", text)
+
+    # Fix lines like "/path/: Status" → "/path/": "Status"
+    def fix_key_value_line(match):
+        key = match.group(1).strip()
+        value = match.group(2).strip()
+        if key and value and not key.endswith('"') and not value.startswith('"'):
+            return f'"{key}": "{value}"'
+        return match.group(0)  # leave unchanged
+
+    text = re.sub(r'"(/[^"]*?):\s*([^"]+?)"', fix_key_value_line, text)
+
+    # Trim garbage outside JSON
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1:
         text = text[start:end+1]
 
-    # Auto-balance unclosed brackets
+    # Auto-balance braces
     open_count = text.count('{')
     close_count = text.count('}')
     if open_count > close_count:
         text += '}' * (open_count - close_count)
 
     return text
+
 
 EXPECTED_TOP_KEYS = {"target", "web_directories_status"}
 EXPECTED_SERVICE_KEYS = {"port", "protocol", "service"}
