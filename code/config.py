@@ -20,7 +20,11 @@ WORDLISTS = {
 # LLM cache path
 LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.pkl"
 
-CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/all_cves_combined.json"
+# NVD cve dataset path
+CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/nvd_cve_dataset.json"
 
-#Blackboard path
+# Blackboard path
 BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
+
+# NVD files path
+NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"

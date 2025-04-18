@@ -1,4 +1,5 @@
-import os, tiktoken
+import os
+import tiktoken
 
 def count_tokens(text):
     enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
@@ -14,12 +15,16 @@ def print_all_python_files(start_dir, output_file):
         "Debug"
     }
 
+    skip_files = {
+        "blackboard_all.py",
+    }
+
     output = ''
     for root, dirs, files in os.walk(start_dir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        dirs[:] = [d for d in dirs if d not in skip_dirs]  # מונע חיפוש בתיקיות מסוימות
 
-        for file in files:
-            if file.endswith(".py"):
+        for file in files:  # לולאת חיפוש על כל הקבצים בתיקייה
+            if file not in skip_files and file.endswith(".py"):  # בדיקה אם הקובץ לא ברשימה
                 path = os.path.join(root, file)
                 try:
                     with open(path, 'r', encoding='utf-8') as f:

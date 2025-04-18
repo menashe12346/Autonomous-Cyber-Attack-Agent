@@ -188,17 +188,15 @@ def fill_json_structure(template_json, extracted_parts):
         if "os" in target_data and not target.get("os"):
             target["os"] = target_data["os"]
 
-        # Fill services only if it's not already present
-        if "services" in target_data and not target.get("services"):
-            target["services"] = target_data["services"]
-
         # Ensure all the services in the extracted data are added
         if "services" in target_data:
-            existing_services = {service["port"]: service for service in target.get("services", [])}
-            for service in target_data["services"]:
-                # Add each service only if it's not already added
-                if service["port"] not in existing_services:
-                    target["services"].append(service)
+            existing_services = {
+                (s["port"], s["protocol"], s["service"]) for s in target.get("services", [])
+            }
+        for service in target_data["services"]:
+            service_tuple = (service["port"], service["protocol"], service["service"])
+            if service_tuple not in existing_services:
+                target.setdefault("services", []).append(service)
 
     template_json["target"] = target
 
@@ -291,8 +289,8 @@ def clean_empty_directories_status(json_data):
     
     return json_data
 
-def fix_json(state: dict, text: str):
-    parts = extract_json_parts(text)
+def fix_json(state: dict, new_data):
+    parts = extract_json_parts(new_data)
     if parts:
         print("✅ JSON extracted successfully.")
         print_json_parts(parts)

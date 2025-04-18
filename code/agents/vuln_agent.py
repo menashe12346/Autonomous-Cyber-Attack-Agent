@@ -19,9 +19,11 @@ def load_cve_database(cve_path: str):
         data = json.load(f)
 
         if isinstance(data, list):
+            print("✅ CVE dataset Loaded successfully.")
             return data
 
         elif isinstance(data, dict) and "CVE_Items" in data:
+            print("✅ CVE dataset Loaded successfully.")
             return data["CVE_Items"]
 
         else:

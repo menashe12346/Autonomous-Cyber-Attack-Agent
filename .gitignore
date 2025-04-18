@@ -6,3 +6,4 @@ hf_models/
 llama-factory/
 all_cves_combined.json
 .python-version
+nvd_files/

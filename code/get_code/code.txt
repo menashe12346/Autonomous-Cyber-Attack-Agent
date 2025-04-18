@@ -21,13 +21,17 @@ WORDLISTS = {
 # LLM cache path
 LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.pkl"
 
-CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/all_cves_combined.json"
+# NVD cve dataset path
+CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/nvd_cve_dataset.json"
 
-#Blackboard path
+# Blackboard path
 BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
+
+# NVD files path
+NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"
 <</mnt/linux-data/project/code/main.py>>
 import torch
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -49,14 +53,18 @@ from encoders.action_encoder import ActionEncoder
 
 from tools.action_space import get_commands_for_agent
 
+from create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+
 def main():
 
     # LLM Model
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
 
+    # Download nvd cve dataset
+    download_nvd_cve(NVD_CVE_PATH)
+
     # Load cve dataset
     cve_items = load_cve_database(CVE_PATH)
-    print("✅ CVE dataset Loaded successfully.")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
@@ -358,8 +366,8 @@ class BaseAgent(ABC):
 
         parsed_info = self.check_state(parsed_info)
         print(type(parsed_info))
-        
-        self.blackboard_api.update_state(parsed_info, self.name)
+
+        self.blackboard_api.update_state(self.name, parsed_info)
 
         # Step 6: observe next state
         next_state = dict(self.get_state_raw())
@@ -464,14 +472,14 @@ class BaseAgent(ABC):
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
         responses = self.model.run([
-            one_line(PROMPT_1(json.dumps(self.get_state_raw(), indent=2))),
+            one_line(PROMPT_1(json.dumps(state, indent=2))),
             one_line(final_prompt)
         ])
         
         full_response = responses[1]
         print(f"full_response - {full_response}")
 
-        parsed = fix_json(str(full_response))
+        parsed = fix_json(self.last_state, str(full_response))
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
@@ -727,11 +735,13 @@ def load_cve_database(cve_path: str):
         data = json.load(f)
 
         if isinstance(data, list):
+            print("✅ CVE dataset Loaded successfully.")
             return data
 
         elif isinstance(data, dict) and "CVE_Items" in data:
+            print("✅ CVE dataset Loaded successfully.")
             return data["CVE_Items"]
-
+            
         else:
             raise ValueError("❌ Unsupported CVE format: expected list or dict with 'CVE_Items'")
 
@@ -1231,7 +1241,8 @@ if __name__ == "__main__":
     for cmd in commands:
         print(cmd)
 <</mnt/linux-data/project/code/get_code/get_code.py>>
-import os, tiktoken
+import os
+import tiktoken
 
 def count_tokens(text):
     enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
@@ -1247,12 +1258,16 @@ def print_all_python_files(start_dir, output_file):
         "Debug"
     }
 
+    skip_files = {
+        "blackboard_all.py",
+    }
+
     output = ''
     for root, dirs, files in os.walk(start_dir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        dirs[:] = [d for d in dirs if d not in skip_dirs]  # מונע חיפוש בתיקיות מסוימות
 
-        for file in files:
-            if file.endswith(".py"):
+        for file in files:  # לולאת חיפוש על כל הקבצים בתיקייה
+            if file not in skip_files and file.endswith(".py"):  # בדיקה אם הקובץ לא ברשימה
                 path = os.path.join(root, file)
                 try:
                     with open(path, 'r', encoding='utf-8') as f:
@@ -1273,7 +1288,6 @@ print_all_python_files(
     "/mnt/linux-data/project/code",
     "/mnt/linux-data/project/code/get_code/code.txt"
 )
-
 <</mnt/linux-data/project/code/orchestrator/scenario_orchestrator.py>>
 class ScenarioOrchestrator:
     """
@@ -1844,80 +1858,6 @@ def initialize_blackboard():
             "503": { "": "" }
         }
     }
-<</mnt/linux-data/project/code/blackboard/blackboard_all.py>>
-def initialize_blackboard():
-    return {
-        "attack_id": "",
-        "target": {
-            "ip": "",
-            "os": "",
-            "services": []
-        },
-        "exploit_metadata": {
-            "exploit_id": None,
-            "exploit_title": "",
-            "exploit_language": None,
-            "exploit_type": "",
-            "source": "",
-            "exploit_path": None
-        },
-        "exploit_code_raw": None,
-        "code_static_features": {
-            "functions": [],
-            "syscalls_used": [],
-            "payload_type": "",
-            "encoding_methods": [],
-            "obfuscation_level": "",
-            "external_dependencies": [],
-            "exploit_technique": ""
-        },
-        "connections_summary": {
-            "total_connections": None,
-            "total_packets": None,
-            "protocols": [],
-            "ports_involved": [],
-            "flags_observed": [],
-            "data_transferred_bytes": None,
-            "sessions": []
-        },
-        "payload_analysis": [],
-        "runtime_behavior": {
-            "shell_opened": {
-                "shell_type": "",
-                "session_type": "",
-                "shell_access_level": "",
-                "authentication_method": "",
-                "shell_session": {
-                    "commands_run": []
-                }
-            }
-        },
-        "timestamps": {
-            "first_packet": None,
-            "last_packet": None
-        },
-        "attack_impact": {
-            "success": None,
-            "access_level": "",
-            "shell_opened": None,
-            "shell_type": "",
-            "authentication_required": None,
-            "persistence_achieved": None,
-            "data_exfiltrated": [],
-            "sensitive_info_exposed": [],
-            "log_files_modified": [],
-            "detected_by_defenses": None,
-            "quality_score": None
-        },
-        "actions_log": [],
-        "errors": [],
-        "reward_log": [],
-        "exploits_attempted": [],
-        "explanation_of_attack": "",
-        "exploit_analysis_detailed": []
-    }
-
-
 <</mnt/linux-data/project/code/blackboard/api.py>>
 import time
 import copy
@@ -2040,6 +1980,7 @@ class BlackboardAPI:
             agent_name (str): The name of the agent performing the update.
             new_state (dict): The new partial state information to merge.
         """
+        print(type(new_state))
         if not isinstance(new_state, dict):
             raise ValueError("new_state must be a dictionary")
 
@@ -2095,6 +2036,131 @@ class BlackboardAPI:
                 json.dump(self.blackboard, f, indent=2)
         except Exception as e:
             print(f"[!] Failed to save blackboard to {self.json_path}: {e}")
+
+<</mnt/linux-data/project/code/create_cve_dataset/download_cve.py>>
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import requests
+from tqdm import tqdm
+import gzip
+import shutil
+from config import NVD_CVE_PATH
+
+# הגדרת הנתיב לתיקיית ההורדה
+download_dir = os.path.expanduser(NVD_CVE_PATH)
+os.makedirs(download_dir, exist_ok=True)
+
+# רשימת השנים להורדה
+years = list(range(2002, 2025))
+base_url = "https://nvd.nist.gov/feeds/json/cve/1.1"
+
+# פונקציית הורדה עם פס התקדמות
+def download_file(url, dest_path, json_dest_path):
+    # בדיקה אם קובץ ה־JSON כבר קיים
+    if os.path.exists(json_dest_path):
+        print(f"✅ File {os.path.basename(json_dest_path)} is exist, skiping...")
+        return  # אם קובץ ה־JSON קיים, לא נבצע הורדה מחדש
+
+    # אם הקובץ לא קיים, מבצעים את ההורדה
+    response = requests.get(url, stream=True)
+    total = int(response.headers.get('content-length', 0))
+    with open(dest_path, 'wb') as file, tqdm(
+        desc=os.path.basename(dest_path),
+        total=total,
+        unit='B',
+        unit_scale=True,
+        unit_divisor=1024,
+    ) as bar:
+        for data in response.iter_content(chunk_size=1024):
+            file.write(data)
+            bar.update(len(data))
+
+# הורדת קבצים לפי שנה
+for year in years:
+    filename = f"nvdcve-1.1-{year}.json.gz"
+    url = f"{base_url}/{filename}"
+    dest_path = os.path.join(download_dir, filename)
+    json_path = os.path.join(download_dir, f"nvdcve-1.1-{year}.json")  # נתיב ה־JSON שניצור
+    download_file(url, dest_path, json_path)
+
+# חילוץ כל קבצי gz
+for file in os.listdir(download_dir):
+    if file.endswith(".gz"):
+        gz_path = os.path.join(download_dir, file)
+        json_path = gz_path[:-3]  # נתיב ה־JSON שניצור מחילוץ ה־gz
+        
+        # אם קובץ ה־JSON כבר קיים, נדלג עליו
+        if not os.path.exists(json_path):
+            with gzip.open(gz_path, 'rb') as f_in:
+                with open(json_path, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            os.remove(gz_path)  # מחיקת קובץ ה-gz לאחר חילוץ
+        else:
+            print(f"✅ File {json_path} is exist, skiping...")
+
+print("✅ NVD dataset Downloaded successfully.")
+
+<</mnt/linux-data/project/code/create_cve_dataset/download_combine_nvd_cve.py>>
+import os
+import subprocess
+
+# הגדרת הנתיב לתיקיית ההורדה
+NVD_DOWNLOAD_SCRIPT = "create_cve_dataset/download_cve.py"  # שם הקובץ הראשון
+COMBINE_CVE_SCRIPT = "create_cve_dataset/combine_cve_files.py"    # שם הקובץ השני
+
+def download_nvd_cve(script_name):
+    """פונקציה להרצת סקריפט פייתון"""
+    try:
+        subprocess.check_call(["python", script_name])
+    except subprocess.CalledProcessError as e:
+        print(f"❌ שגיאה בהרצת הסקריפט {script_name}: {e}")
+
+# הרץ את הסקריפטים אחד אחרי השני
+download_nvd_cve(NVD_DOWNLOAD_SCRIPT)  # הרצת הסקריפט הראשון
+download_nvd_cve(COMBINE_CVE_SCRIPT)   # הרצת הסקריפט השני
+
+<</mnt/linux-data/project/code/create_cve_dataset/combine_cve_files.py>>
+import sys
+import os
+import json
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from config import NVD_CVE_PATH, CVE_PATH
+
+all_cves = []
+
+target_dir = NVD_CVE_PATH
+
+# בדיקה אם הקובץ קיים ב־CVE_PATH
+if os.path.exists(CVE_PATH):
+    print(f"✅ File nvd_cve_dataset.json is exist, skiping...")
+    exit() 
+
+# מעבר על כל הקבצים בתיקייה הנוכחית
+for filename in sorted(os.listdir(target_dir)):
+    if filename.endswith(".json"):
+        file_path = os.path.join(target_dir, filename)
+        
+        # בדיקה אם הקובץ כבר קיים לפני קריאתו
+        if not os.path.exists(file_path):
+            print(f"❌ הקובץ {filename} לא קיים בתיקייה {target_dir}.")
+            continue  # אם הקובץ לא קיים, נדלג עליו
+
+        with open(file_path, 'r') as f:
+            try:
+                data = json.load(f)
+                all_cves.extend(data.get("CVE_Items", []))
+            except json.JSONDecodeError:
+                print(f"שגיאה בקריאת הקובץ: {filename}")
+
+# שמירה לקובץ JSON חדש
+output_file = os.path.join(target_dir, "nvd_cve_dataset.json")
+with open(output_file, "w") as f:
+    json.dump(all_cves, f, indent=2)
+
+print(f"✅ NVD dataset Combined successfully: Total {len(all_cves)} CVEs")
 
 <</mnt/linux-data/project/code/utils/json_fixer.py>>
 import re
@@ -2257,7 +2323,7 @@ def print_json_parts(parts):
 
     print_dict(parts)
 
-def fill_json_structure(extracted_parts):
+def fill_json_structure(template_json, extracted_parts):
     """
     Fills the provided JSON template with extracted parts data, ensuring no overwriting of existing data
     and handling edge cases (e.g., malformed JSON, missing values).
@@ -2270,7 +2336,8 @@ def fill_json_structure(extracted_parts):
     A filled and corrected JSON structure
     """
     # Initialize a clean template for the JSON (or use the existing one)
-    template_json = initialize_blackboard()
+    if not template_json:
+        template_json = initialize_blackboard()
 
     # === Step 1: Fill "target" section ===
     target = template_json.get("target", {})
@@ -2389,7 +2456,7 @@ def clean_empty_directories_status(json_data):
     
     return json_data
 
-def fix_json(text: str):
+def fix_json(state: dict, text: str):
     parts = extract_json_parts(text)
     if parts:
         print("✅ JSON extracted successfully.")
@@ -2398,7 +2465,7 @@ def fix_json(text: str):
         print("❌ Failed to extract valid JSON.")
     
     # Fill the JSON structure
-    filled_json = fill_json_structure(parts)
+    filled_json = fill_json_structure(state, parts)
 
     # Print result
     print(json.dumps(filled_json, indent=2))
@@ -2880,7 +2947,7 @@ def correct_state(state: dict) -> dict:
     state["target"]["services"] = verified_services
 
     # OS detection
-    current_os = state["target"].get("os", "Unknown")
+    current_os = state["target"].get("os", "")
     new_os = detect_os_from_multiple_tools(ip, current_os)
     state["target"]["os"] = new_os
 

@@ -11,6 +11,7 @@ from utils.utils import remove_comments_and_empty_lines, extract_json_block, one
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
 from utils.json_fixer import fix_json
+from blackboard.blackboard import initialize_blackboard
 
 def remove_untrained_categories(state: dict, categories : set):
     for categorie in categories:
@@ -205,14 +206,14 @@ class BaseAgent(ABC):
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
         responses = self.model.run([
-            one_line(PROMPT_1(json.dumps(state, indent=2))),
+            one_line(PROMPT_1(json.dumps(initialize_blackboard(), indent=2))),
             one_line(final_prompt)
         ])
         
         full_response = responses[1]
         print(f"full_response - {full_response}")
 
-        parsed = fix_json(self.last_state, str(full_response))
+        parsed = fix_json(self.last_state, full_response)
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()

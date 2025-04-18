@@ -1,5 +1,6 @@
 import torch
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH
+import os
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -21,14 +22,56 @@ from encoders.action_encoder import ActionEncoder
 
 from tools.action_space import get_commands_for_agent
 
+from create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+
+import urllib.parse
+
+def strip_file_scheme(path):
+    if path.startswith("file://"):
+        return urllib.parse.urlparse(path).path
+    return path
+
+def check_llm_model_exists(min_size_gb=4):
+    """
+    מאמת שהקובץ קיים ושוקל לפחות 4GB. אחרת מעלה חריגה.
+
+    Args:
+        min_size_gb (int): גודל מינימלי בג'יגה־בייט (ברירת מחדל: 4).
+
+    Raises:
+        FileNotFoundError: אם הקובץ לא קיים.
+        ValueError: אם הקובץ קטן מ־4GB.
+    """
+    model_path = strip_file_scheme(MODEL_PATH)
+
+    if not os.path.isfile(model_path):
+        raise FileNotFoundError(f"❌ File not found: {model_path}, please check README.md on how to download")
+
+    size_bytes = os.path.getsize(model_path)
+    size_gb = size_bytes / (1024 ** 3)
+
+    if size_gb < min_size_gb:
+        raise ValueError(f"❌ file size is lower then {min_size_gb}GB ({size_gb:.2f}GB): {model_path}, maybe corrupted, remove the file and run program again")
+    
+    print(f"✅ File {os.path.basename(model_path)} ({size_gb:.2f}GB) exists")
+
 def main():
+
+    # Check mistral llm model exists
+    try:
+        check_llm_model_exists()
+    except Exception as e:
+        print(e)
+        exit(1)
 
     # LLM Model
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
 
+    # Download nvd cve dataset
+    download_nvd_cve(NVD_CVE_PATH)
+
     # Load cve dataset
     cve_items = load_cve_database(CVE_PATH)
-    print("✅ CVE dataset Loaded successfully.")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
