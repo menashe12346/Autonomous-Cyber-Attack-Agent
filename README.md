@@ -99,7 +99,8 @@ TO DO:
  4. Meta-Reinforcement Learning
  5. Communication-Based RL
  6. Hierarchical Parallel Multi-Agent RL
- 7. שילוב של Hierarchical Multi-Agent RL עם Meta-Reinforcement Learning ו־Self-Reflective Systems)
+ 7. ייצוג actions כגרף וביצוע GNN כלמידה
+ 8. שילוב של Hierarchical Multi-Agent RL עם Meta-Reinforcement Learning ו־Self-Reflective Systems)
 
  שלב 1: שימוש ב־state ריק למילוי
 
