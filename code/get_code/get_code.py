@@ -14,8 +14,8 @@ def print_all_python_files(start_dir, output_file):
         "hf_models",
         "Debug",
         "get_code",
-        "create_cve_dataset",
-	"exploitdb"
+        "create_datasets",
+	    "exploitdb",
     }
 
     skip_files = {

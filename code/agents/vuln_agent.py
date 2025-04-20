@@ -144,14 +144,7 @@ class VulnAgent(BaseAgent):
                             })["matched_cpes"].append(match_cpe)
                             break
 
-                        # Heuristic HTTP match
-                        if has_http and "http" in match_cpe:
-                            vuln_dict.setdefault(cve_id, {
-                                "cve": cve_id,
-                                "matched_cpes": [],
-                                "cvss": cvss
-                            })["matched_cpes"].append(match_cpe)
-                            break
+
 
             except Exception as e:
                 print(f"[!] Failed parsing CVE {item.get('cve', {}).get('CVE_data_meta', {}).get('ID', 'unknown')}: {e}")

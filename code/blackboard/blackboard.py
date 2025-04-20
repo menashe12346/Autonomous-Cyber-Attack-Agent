@@ -26,5 +26,10 @@ def initialize_blackboard():
             "403": { "": "" },
             "401": { "": "" },
             "503": { "": "" }
-        }
+        },
+
+        "actions_history": [],
+        "cpes": [],
+        "vulnerabilities_found": [],
+        "failed CVEs": []
     }
