@@ -78,39 +78,78 @@ class VulnAgent(BaseAgent):
         found_vulns = self.match_cves_to_cpes(possible_cpes)
 
         print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
+        self.blackboard_api.blackboard["cpes"] = possible_cpes
+
+        found_vulns = self.filter_top_vulnerabilities(found_vulns)
         self.blackboard_api.blackboard["vulnerabilities_found"] = found_vulns
+        print(f"[VulnAgent] Final selected top {len(found_vulns)} vulnerabilities:")
+        self.blackboard_api._save_to_file()
+    
+    def filter_top_vulnerabilities(self, matches, top_n=5):
+        """
+        Filters the top N vulnerabilities by CVSS base score (v3 if available).
+        """
+        def get_score(cve_id):
+            try:
+                item = next((entry for entry in self.cve_items if entry["cve"]["CVE_data_meta"]["ID"] == cve_id), None)
+                if not item:
+                    return 0
+                metrics = item.get("impact", {}).get("baseMetricV3", {})
+                return metrics.get("cvssV3", {}).get("baseScore", 0)
+            except:
+                return 0
+
+        enriched = [(match, get_score(match["cve"])) for match in matches]
+        enriched.sort(key=lambda x: x[1], reverse=True)
+        return [entry[0] for entry in enriched[:top_n]]
 
     def match_cves_to_cpes(self, possible_cpes):
         """
         Compare possible CPEs from current state to CVE database and return matching entries.
         Supports recursive search of cpe_match in nodes and nested children.
+        Optimized for speed.
         """
         vuln_dict = {}
+        
+        # Lower-case once for performance
+        normalized_cpes = {cpe.lower() for cpe in possible_cpes}
+        has_http = any("http" in cpe for cpe in normalized_cpes)
 
         for item in self.cve_items:
             try:
                 cve_id = item["cve"]["CVE_data_meta"]["ID"]
-                configurations = item.get("configurations", {})
-                nodes = configurations.get("nodes", [])
+                nodes = item.get("configurations", {}).get("nodes", [])
+                impact = item.get("impact", {})
+
+                # Pre-calculate CVSS
+                if "baseMetricV3" in impact:
+                    cvss = impact["baseMetricV3"].get("cvssV3", {}).get("baseScore", 0.0)
+                elif "baseMetricV2" in impact:
+                    cvss = impact["baseMetricV2"].get("cvssV2", {}).get("baseScore", 0.0)
+                else:
+                    cvss = 0.0
 
                 for node in nodes:
-                    all_cpe_matches = extract_all_cpe_matches(node)
-
-                    for match in all_cpe_matches:
+                    for match in extract_all_cpe_matches(node):
                         match_cpe = match.get("cpe23Uri", "").lower()
 
-                        for my_cpe in possible_cpes:
-                            my_cpe = my_cpe.lower()
+                        # Direct fnmatch
+                        if any(fnmatch.fnmatch(match_cpe, my_cpe) for my_cpe in normalized_cpes):
+                            vuln_dict.setdefault(cve_id, {
+                                "cve": cve_id,
+                                "matched_cpes": [],
+                                "cvss": cvss
+                            })["matched_cpes"].append(match_cpe)
+                            break
 
-                            # התאמה רגילה עם תווים כלליים
-                            if fnmatch.fnmatch(match_cpe, my_cpe):
-                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
-                                break
-
-                            # התאמה לפי מילות מפתח בהקשר של HTTP
-                            if "http" in my_cpe and "http" in match_cpe:
-                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
-                                break
+                        # Heuristic HTTP match
+                        if has_http and "http" in match_cpe:
+                            vuln_dict.setdefault(cve_id, {
+                                "cve": cve_id,
+                                "matched_cpes": [],
+                                "cvss": cvss
+                            })["matched_cpes"].append(match_cpe)
+                            break
 
             except Exception as e:
                 print(f"[!] Failed parsing CVE {item.get('cve', {}).get('CVE_data_meta', {}).get('ID', 'unknown')}: {e}")
@@ -118,42 +157,43 @@ class VulnAgent(BaseAgent):
 
         return list(vuln_dict.values())
 
+        
     def generate_possible_cpes(self, state_dict):
         """
         Generate all possible CPE 2.3 URIs from OS, services and web directories using a generic strategy.
         """
-        cpes = set()
         target = state_dict.get("target", {})
+        cpes = set()
 
         # === OS to CPE ===
-        os_raw = target.get("os", "").strip().lower()
+        os_raw = target.get("os", "")
         if os_raw:
-            vendor = os_raw.replace(" ", "_")
-            product = os_raw.replace(" ", "_")
-            cpes.add(f"cpe:2.3:o:{vendor}:{product}:*:*:*:*:*:*:*:*")
+            clean_os = os_raw.strip().lower().replace(" ", "_")
+            cpes.add(f"cpe:2.3:o:{clean_os}:{clean_os}:*:*:*:*:*:*:*:*")
 
         # === Services to CPE ===
-        services = target.get("services", [])
-        for s in services:
-            name = str(s.get("service", "")).strip().lower().replace(" ", "_")
-            if not name:
-                continue
-            vendor = product = name
-            cpes.update(self._generate_service_cpes(vendor, product))
+        cpes |= {
+            cpe
+            for s in target.get("services", [])
+            if (name := s.get("service", "").strip().lower().replace(" ", "_"))
+            for cpe in self._generate_service_cpes(name, name)
+        }
 
         # === Web Directories Heuristics ===
         dirs = state_dict.get("web_directories_status", {})
-        for code in ["200", "403"]:  # ננסה להוציא מזה מערכות קיימות
-            paths = dirs.get(code, {})
-            for path in paths:
-                dir_name = path.strip("/").lower()
-                if not dir_name or "/" in dir_name:
-                    continue  # נתעלם מתיקיות ריקות או עמוקות מדי
-                vendor = product = dir_name.replace("-", "_")
-                cpes.update(self._generate_service_cpes(vendor, product))
+        cpes |= {
+            cpe
+            for code in ("200", "403")
+            for path in dirs.get(code, {})
+            if (dir_name := path.strip("/").lower()) and "/" not in dir_name
+            for cpe in self._generate_service_cpes(
+                dir_name.replace("-", "_"), dir_name.replace("-", "_")
+            )
+        }
 
         print(f"[VulnAgent] Generated {len(cpes)} possible CPEs (OS + Services + Web Heuristics).")
         return list(cpes)
+
 
     def _generate_service_cpes(self, vendor, product):
         """

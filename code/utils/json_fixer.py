@@ -162,11 +162,11 @@ def fill_json_structure(template_json, extracted_parts):
     """
     Fills the provided JSON template with extracted parts data, ensuring no overwriting of existing data
     and handling edge cases (e.g., malformed JSON, missing values).
-    
+
     Arguments:
     template_json -- The initial JSON structure to be filled
     extracted_parts -- The dictionary containing the extracted parts data
-    
+
     Returns:
     A filled and corrected JSON structure
     """
@@ -180,23 +180,25 @@ def fill_json_structure(template_json, extracted_parts):
     if "target" in extracted_parts:
         target_data = extracted_parts["target"]
 
-        # Fill IP only if it's not already present
-        if "ip" in target_data and not target.get("ip"):
+        # Fill IP only if it's not already present and not empty
+        if "ip" in target_data and target_data["ip"] and not target.get("ip"):
             target["ip"] = target_data["ip"]
 
-        # Fill OS only if it's not already present
-        if "os" in target_data and not target.get("os"):
+        # Fill OS only if it's not already present and not empty
+        if "os" in target_data and target_data["os"] and not target.get("os"):
             target["os"] = target_data["os"]
 
         # Ensure all the services in the extracted data are added
-        if "services" in target_data:
+        if "services" in target_data and target_data["services"]:
             existing_services = {
                 (s["port"], s["protocol"], s["service"]) for s in target.get("services", [])
             }
-        for service in target_data["services"]:
-            service_tuple = (service["port"], service["protocol"], service["service"])
-            if service_tuple not in existing_services:
-                target.setdefault("services", []).append(service)
+            for service in target_data["services"]:
+                if not service.get("port") or not service.get("protocol") or not service.get("service"):
+                    continue  # skip incomplete or empty services
+                service_tuple = (service["port"], service["protocol"], service["service"])
+                if service_tuple not in existing_services:
+                    target.setdefault("services", []).append(service)
 
     template_json["target"] = target
 
@@ -210,21 +212,19 @@ def fill_json_structure(template_json, extracted_parts):
             if status not in web_directories_status:
                 web_directories_status[status] = {}
             for directory, value in directories.items():
-                # Remove unnecessary escape characters like "\"/admin\""
+                # Remove unnecessary escape characters like ""/admin""
                 directory = directory.strip('"')
                 value = value.strip('"')
 
                 # Add directory only if it doesn't already exist
-                if directory not in web_directories_status[status]:
+                if directory and directory not in web_directories_status[status]:
                     web_directories_status[status][directory] = value
 
     template_json["web_directories_status"] = web_directories_status
 
     # === Step 3: Correct malformed structures (handling edge cases) ===
-    # Loop over the JSON parts and fix missing or broken structures
     for section in ["target", "web_directories_status"]:
         if section in template_json:
-            # If any dictionary is empty (like empty services or empty directories), fill with defaults
             if section == "target":
                 if not template_json["target"].get("services"):
                     template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]

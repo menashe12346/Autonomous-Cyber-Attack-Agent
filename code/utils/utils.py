@@ -215,6 +215,13 @@ def one_line(text: str) -> str:
     """
     return ' '.join(line.strip() for line in text.strip().splitlines() if line).replace('  ', ' ')
 
+def run_command(cmd: str) -> str:
+    try:
+        result = subprocess.check_output(cmd.split(), timeout=10).decode()
+        return result
+    except:
+        return ""
+
 
 # Example debug run
 def main():

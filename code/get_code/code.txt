@@ -31,6 +31,7 @@ BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
 NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"
 <</mnt/linux-data/project/code/main.py>>
 import torch
+import os
 from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH
 
 from blackboard.blackboard import initialize_blackboard
@@ -55,7 +56,45 @@ from tools.action_space import get_commands_for_agent
 
 from create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
 
+import urllib.parse
+
+def strip_file_scheme(path):
+    if path.startswith("file://"):
+        return urllib.parse.urlparse(path).path
+    return path
+
+def check_llm_model_exists(min_size_gb=4):
+    """
+    מאמת שהקובץ קיים ושוקל לפחות 4GB. אחרת מעלה חריגה.
+
+    Args:
+        min_size_gb (int): גודל מינימלי בג'יגה־בייט (ברירת מחדל: 4).
+
+    Raises:
+        FileNotFoundError: אם הקובץ לא קיים.
+        ValueError: אם הקובץ קטן מ־4GB.
+    """
+    model_path = strip_file_scheme(MODEL_PATH)
+
+    if not os.path.isfile(model_path):
+        raise FileNotFoundError(f"❌ File not found: {model_path}, please check README.md on how to download")
+
+    size_bytes = os.path.getsize(model_path)
+    size_gb = size_bytes / (1024 ** 3)
+
+    if size_gb < min_size_gb:
+        raise ValueError(f"❌ file size is lower then {min_size_gb}GB ({size_gb:.2f}GB): {model_path}, maybe corrupted, remove the file and run program again")
+    
+    print(f"✅ File {os.path.basename(model_path)} ({size_gb:.2f}GB) exists")
+
 def main():
+
+    # Check mistral llm model exists
+    try:
+        check_llm_model_exists()
+    except Exception as e:
+        print(e)
+        exit(1)
 
     # LLM Model
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
@@ -278,6 +317,7 @@ from utils.utils import remove_comments_and_empty_lines, extract_json_block, one
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
 from utils.json_fixer import fix_json
+from blackboard.blackboard import initialize_blackboard
 
 def remove_untrained_categories(state: dict, categories : set):
     for categorie in categories:
@@ -471,15 +511,13 @@ class BaseAgent(ABC):
         inner_prompt = self.model.run([prompt_for_prompt])[0]
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        responses = self.model.run([
-            one_line(PROMPT_1(json.dumps(state, indent=2))),
-            one_line(final_prompt)
-        ])
-        
-        full_response = responses[1]
+        #responses = self.model.run([ one_line(PROMPT_1(json.dumps(initialize_blackboard(), indent=2))), one_line(final_prompt)])
+        responses = self.model.run([one_line(final_prompt)])
+
+        full_response = responses[0]
         print(f"full_response - {full_response}")
 
-        parsed = fix_json(self.last_state, str(full_response))
+        parsed = fix_json(self.last_state, full_response)
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
@@ -741,7 +779,7 @@ def load_cve_database(cve_path: str):
         elif isinstance(data, dict) and "CVE_Items" in data:
             print("✅ CVE dataset Loaded successfully.")
             return data["CVE_Items"]
-            
+
         else:
             raise ValueError("❌ Unsupported CVE format: expected list or dict with 'CVE_Items'")
 
@@ -794,7 +832,27 @@ class VulnAgent(BaseAgent):
         found_vulns = self.match_cves_to_cpes(possible_cpes)
 
         print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
+        found_vulns = self.filter_top_vulnerabilities(found_vulns)
         self.blackboard_api.blackboard["vulnerabilities_found"] = found_vulns
+        print(f"[VulnAgent] Final selected top {len(found_vulns)} vulnerabilities:")
+    
+    def filter_top_vulnerabilities(self, matches, top_n=5):
+        """
+        Filters the top N vulnerabilities by CVSS base score (v3 if available).
+        """
+        def get_score(cve_id):
+            try:
+                item = next((entry for entry in self.cve_items if entry["cve"]["CVE_data_meta"]["ID"] == cve_id), None)
+                if not item:
+                    return 0
+                metrics = item.get("impact", {}).get("baseMetricV3", {})
+                return metrics.get("cvssV3", {}).get("baseScore", 0)
+            except:
+                return 0
+
+        enriched = [(match, get_score(match["cve"])) for match in matches]
+        enriched.sort(key=lambda x: x[1], reverse=True)
+        return [entry[0] for entry in enriched[:top_n]]
 
     def match_cves_to_cpes(self, possible_cpes):
         """
@@ -820,12 +878,36 @@ class VulnAgent(BaseAgent):
 
                             # התאמה רגילה עם תווים כלליים
                             if fnmatch.fnmatch(match_cpe, my_cpe):
-                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
+                                impact = item.get("impact", {})
+                                cvss = 0.0
+
+                                if "baseMetricV3" in impact:
+                                    cvss = impact["baseMetricV3"].get("cvssV3", {}).get("baseScore", 0.0)
+                                elif "baseMetricV2" in impact:
+                                    cvss = impact["baseMetricV2"].get("cvssV2", {}).get("baseScore", 0.0)
+
+                                vuln_dict.setdefault(cve_id, {
+                                    "cve": cve_id,
+                                    "matched_cpes": [],
+                                    "cvss": cvss
+                                })["matched_cpes"].append(match_cpe)
                                 break
 
                             # התאמה לפי מילות מפתח בהקשר של HTTP
                             if "http" in my_cpe and "http" in match_cpe:
-                                vuln_dict.setdefault(cve_id, {"cve": cve_id, "matched_cpes": []})["matched_cpes"].append(match_cpe)
+                                impact = item.get("impact", {})
+                                cvss = 0.0
+
+                                if "baseMetricV3" in impact:
+                                    cvss = impact["baseMetricV3"].get("cvssV3", {}).get("baseScore", 0.0)
+                                elif "baseMetricV2" in impact:
+                                    cvss = impact["baseMetricV2"].get("cvssV2", {}).get("baseScore", 0.0)
+
+                                vuln_dict.setdefault(cve_id, {
+                                    "cve": cve_id,
+                                    "matched_cpes": [],
+                                    "cvss": cvss
+                                })["matched_cpes"].append(match_cpe)
                                 break
 
             except Exception as e:
@@ -833,7 +915,7 @@ class VulnAgent(BaseAgent):
                 continue
 
         return list(vuln_dict.values())
-
+    
     def generate_possible_cpes(self, state_dict):
         """
         Generate all possible CPE 2.3 URIs from OS, services and web directories using a generic strategy.
@@ -1007,6 +1089,8 @@ class AgentManager:
         for action in self.actions_history:
             print(f"  → {action}")
 
+<</mnt/linux-data/project/code/agents/exploit_agent.py>>
+
 <</mnt/linux-data/project/code/agents/llm_parser_agent.py>>
 # agents/llm_parser_agent.py
 
@@ -1175,16 +1259,16 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             #"curl http://{ip}/"
         ],
         "wget": [
-       #     "wget http://{ip} -O -"
+            #"wget http://{ip} -O -"
         ],
         "traceroute": [
           #  "traceroute {ip}"
         ],
         "whatweb": [
-         #   "whatweb http://{ip}"
+            #"whatweb http://{ip}"
         ],
         "gobuster": [
-          #  "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+           # "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ]
     },
 
@@ -1240,54 +1324,6 @@ if __name__ == "__main__":
     commands = get_commands_for_agent("recon", target_ip)
     for cmd in commands:
         print(cmd)
-<</mnt/linux-data/project/code/get_code/get_code.py>>
-import os
-import tiktoken
-
-def count_tokens(text):
-    enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
-    return len(enc.encode(text, disallowed_special=()))
-
-def print_all_python_files(start_dir, output_file):
-    skip_dirs = {
-        "llama.cpp",
-        "nous-hermes",
-        "__pycache__",
-        "llama-factory",
-        "hf_models",
-        "Debug"
-    }
-
-    skip_files = {
-        "blackboard_all.py",
-    }
-
-    output = ''
-    for root, dirs, files in os.walk(start_dir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]  # מונע חיפוש בתיקיות מסוימות
-
-        for file in files:  # לולאת חיפוש על כל הקבצים בתיקייה
-            if file not in skip_files and file.endswith(".py"):  # בדיקה אם הקובץ לא ברשימה
-                path = os.path.join(root, file)
-                try:
-                    with open(path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        snippet = f"<<{path}>>\n{content}\n"
-                        output += snippet
-                        print(snippet)
-                except Exception as e:
-                    print(f"[ERROR] Failed to read {path}: {e}")
-
-    with open(output_file, 'w', encoding='utf-8') as out_f:
-        out_f.write(output)
-
-    print(f"\n[Total Tokens (GPT-4o): {count_tokens(output)}]")
-    print(f"[Saved to: {output_file}]")
-
-print_all_python_files(
-    "/mnt/linux-data/project/code",
-    "/mnt/linux-data/project/code/get_code/code.txt"
-)
 <</mnt/linux-data/project/code/orchestrator/scenario_orchestrator.py>>
 class ScenarioOrchestrator:
     """
@@ -1663,6 +1699,25 @@ class RLModelTrainer:
         plt.grid(True)
         plt.show()
 
+<</mnt/linux-data/project/code/models/run_model.py>>
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+model_path = "/mnt/linux-data/project/code/models/hf_models/mistral"
+
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float32)  # לא float16 על CPU
+
+# קלט לדוגמה
+input_text = "Once upon a time"
+inputs = tokenizer(input_text, return_tensors="pt")
+
+# הפקת טקסט
+outputs = model.generate(**inputs, max_new_tokens=50)
+generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+print(generated_text)
+
 <</mnt/linux-data/project/code/models/llm/llama_interface.py>>
 import os
 import subprocess
@@ -1678,7 +1733,7 @@ class LlamaModel(BaseLLM):
     Supports single or multiple prompts with contextual memory.
     """
 
-    def __init__(self, llama_path, model_path, tokens=3500, threads=4, n_batch=8192, context_size=500):
+    def __init__(self, llama_path, model_path, tokens=3500, threads=2, n_batch=8192, context_size=500):
         self.llama_path = llama_path
         self.model_path = model_path
         self.tokens = str(tokens)
@@ -1730,6 +1785,7 @@ class LlamaModel(BaseLLM):
                 "-t", self.threads,
                 "--n-batch", self.n_batch,
                 "--ctx-size", self.context_size,
+                #--prompt-cache
             ]
 
             try:
@@ -1740,68 +1796,6 @@ class LlamaModel(BaseLLM):
                 responses.append("")
 
         return responses
-
-<</mnt/linux-data/project/code/models/llm/finetuner.py>>
-# models/llm/finetuner.py
-
-import os
-from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, Seq2SeqTrainer, Seq2SeqTrainingArguments, DataCollatorForSeq2Seq
-
-def finetune_parser_model(
-    model_name="t5-small",
-    dataset_path="/mnt/linux-data/project/code/datasets/parser_examples.jsonl",
-    output_dir="/mnt/linux-data/project/code/models/trained_models/parser-model",
-    max_input_length=512,
-    max_target_length=512,
-    epochs=5,
-    batch_size=8
-):
-    # Load base model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-
-    # Load dataset
-    raw_dataset = load_dataset("json", data_files=dataset_path, split="train")
-
-    # Tokenization
-    def preprocess(example):
-        input_enc = tokenizer(example["input"], max_length=max_input_length, truncation=True)
-        target_enc = tokenizer(example["output"], max_length=max_target_length, truncation=True)
-        input_enc["labels"] = target_enc["input_ids"]
-        return input_enc
-
-    tokenized_dataset = raw_dataset.map(preprocess, remove_columns=["input", "output"])
-
-    # Training arguments
-    training_args = Seq2SeqTrainingArguments(
-        output_dir=output_dir,
-        per_device_train_batch_size=batch_size,
-        num_train_epochs=epochs,
-        save_strategy="epoch",
-        logging_strategy="epoch",
-        evaluation_strategy="no",
-        save_total_limit=1,
-        fp16=False,
-        learning_rate=5e-5,
-        overwrite_output_dir=True,
-    )
-
-    data_collator = DataCollatorForSeq2Seq(tokenizer, model=model)
-
-    trainer = Seq2SeqTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=tokenized_dataset,
-        data_collator=data_collator,
-        tokenizer=tokenizer,
-    )
-
-    trainer.train()
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
-
-    print(f"✅ Fine-tuned model saved to {output_dir}")
 
 <</mnt/linux-data/project/code/models/llm/base_llm.py>>
 from abc import ABC, abstractmethod
@@ -2037,131 +2031,6 @@ class BlackboardAPI:
         except Exception as e:
             print(f"[!] Failed to save blackboard to {self.json_path}: {e}")
 
-<</mnt/linux-data/project/code/create_cve_dataset/download_cve.py>>
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import requests
-from tqdm import tqdm
-import gzip
-import shutil
-from config import NVD_CVE_PATH
-
-# הגדרת הנתיב לתיקיית ההורדה
-download_dir = os.path.expanduser(NVD_CVE_PATH)
-os.makedirs(download_dir, exist_ok=True)
-
-# רשימת השנים להורדה
-years = list(range(2002, 2025))
-base_url = "https://nvd.nist.gov/feeds/json/cve/1.1"
-
-# פונקציית הורדה עם פס התקדמות
-def download_file(url, dest_path, json_dest_path):
-    # בדיקה אם קובץ ה־JSON כבר קיים
-    if os.path.exists(json_dest_path):
-        print(f"✅ File {os.path.basename(json_dest_path)} is exist, skiping...")
-        return  # אם קובץ ה־JSON קיים, לא נבצע הורדה מחדש
-
-    # אם הקובץ לא קיים, מבצעים את ההורדה
-    response = requests.get(url, stream=True)
-    total = int(response.headers.get('content-length', 0))
-    with open(dest_path, 'wb') as file, tqdm(
-        desc=os.path.basename(dest_path),
-        total=total,
-        unit='B',
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as bar:
-        for data in response.iter_content(chunk_size=1024):
-            file.write(data)
-            bar.update(len(data))
-
-# הורדת קבצים לפי שנה
-for year in years:
-    filename = f"nvdcve-1.1-{year}.json.gz"
-    url = f"{base_url}/{filename}"
-    dest_path = os.path.join(download_dir, filename)
-    json_path = os.path.join(download_dir, f"nvdcve-1.1-{year}.json")  # נתיב ה־JSON שניצור
-    download_file(url, dest_path, json_path)
-
-# חילוץ כל קבצי gz
-for file in os.listdir(download_dir):
-    if file.endswith(".gz"):
-        gz_path = os.path.join(download_dir, file)
-        json_path = gz_path[:-3]  # נתיב ה־JSON שניצור מחילוץ ה־gz
-        
-        # אם קובץ ה־JSON כבר קיים, נדלג עליו
-        if not os.path.exists(json_path):
-            with gzip.open(gz_path, 'rb') as f_in:
-                with open(json_path, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-            os.remove(gz_path)  # מחיקת קובץ ה-gz לאחר חילוץ
-        else:
-            print(f"✅ File {json_path} is exist, skiping...")
-
-print("✅ NVD dataset Downloaded successfully.")
-
-<</mnt/linux-data/project/code/create_cve_dataset/download_combine_nvd_cve.py>>
-import os
-import subprocess
-
-# הגדרת הנתיב לתיקיית ההורדה
-NVD_DOWNLOAD_SCRIPT = "create_cve_dataset/download_cve.py"  # שם הקובץ הראשון
-COMBINE_CVE_SCRIPT = "create_cve_dataset/combine_cve_files.py"    # שם הקובץ השני
-
-def download_nvd_cve(script_name):
-    """פונקציה להרצת סקריפט פייתון"""
-    try:
-        subprocess.check_call(["python", script_name])
-    except subprocess.CalledProcessError as e:
-        print(f"❌ שגיאה בהרצת הסקריפט {script_name}: {e}")
-
-# הרץ את הסקריפטים אחד אחרי השני
-download_nvd_cve(NVD_DOWNLOAD_SCRIPT)  # הרצת הסקריפט הראשון
-download_nvd_cve(COMBINE_CVE_SCRIPT)   # הרצת הסקריפט השני
-
-<</mnt/linux-data/project/code/create_cve_dataset/combine_cve_files.py>>
-import sys
-import os
-import json
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from config import NVD_CVE_PATH, CVE_PATH
-
-all_cves = []
-
-target_dir = NVD_CVE_PATH
-
-# בדיקה אם הקובץ קיים ב־CVE_PATH
-if os.path.exists(CVE_PATH):
-    print(f"✅ File nvd_cve_dataset.json is exist, skiping...")
-    exit() 
-
-# מעבר על כל הקבצים בתיקייה הנוכחית
-for filename in sorted(os.listdir(target_dir)):
-    if filename.endswith(".json"):
-        file_path = os.path.join(target_dir, filename)
-        
-        # בדיקה אם הקובץ כבר קיים לפני קריאתו
-        if not os.path.exists(file_path):
-            print(f"❌ הקובץ {filename} לא קיים בתיקייה {target_dir}.")
-            continue  # אם הקובץ לא קיים, נדלג עליו
-
-        with open(file_path, 'r') as f:
-            try:
-                data = json.load(f)
-                all_cves.extend(data.get("CVE_Items", []))
-            except json.JSONDecodeError:
-                print(f"שגיאה בקריאת הקובץ: {filename}")
-
-# שמירה לקובץ JSON חדש
-output_file = os.path.join(target_dir, "nvd_cve_dataset.json")
-with open(output_file, "w") as f:
-    json.dump(all_cves, f, indent=2)
-
-print(f"✅ NVD dataset Combined successfully: Total {len(all_cves)} CVEs")
-
 <</mnt/linux-data/project/code/utils/json_fixer.py>>
 import re
 import json
@@ -2353,17 +2222,15 @@ def fill_json_structure(template_json, extracted_parts):
         if "os" in target_data and not target.get("os"):
             target["os"] = target_data["os"]
 
-        # Fill services only if it's not already present
-        if "services" in target_data and not target.get("services"):
-            target["services"] = target_data["services"]
-
         # Ensure all the services in the extracted data are added
         if "services" in target_data:
-            existing_services = {service["port"]: service for service in target.get("services", [])}
-            for service in target_data["services"]:
-                # Add each service only if it's not already added
-                if service["port"] not in existing_services:
-                    target["services"].append(service)
+            existing_services = {
+                (s["port"], s["protocol"], s["service"]) for s in target.get("services", [])
+            }
+        for service in target_data["services"]:
+            service_tuple = (service["port"], service["protocol"], service["service"])
+            if service_tuple not in existing_services:
+                target.setdefault("services", []).append(service)
 
     template_json["target"] = target
 
@@ -2456,8 +2323,8 @@ def clean_empty_directories_status(json_data):
     
     return json_data
 
-def fix_json(state: dict, text: str):
-    parts = extract_json_parts(text)
+def fix_json(state: dict, new_data):
+    parts = extract_json_parts(new_data)
     if parts:
         print("✅ JSON extracted successfully.")
         print_json_parts(parts)
@@ -2485,7 +2352,11 @@ Here is the structure:
 """
 
 def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
-  return f"""You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly. Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only). You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status". Include all real fileds found, with no limit each status key must exist with {{"": ""}} if empty Do not change "ip" — always leave it as-is. Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows"). In "services", add an entry for each service found: "port": numeric (e.g. 22, 80) "protocol": "tcp" or "udp" (lowercase) "service": service name (e.g. http, ssh) — lowercase If missing, leave value as "". In "web_directories_status", for each status (200, 401, 403, 404, 503): Map any discovered paths (like "/admin") to their message (or use "" if no message). All five keys must appear, even if empty. If none found, keep {{ "": "" }}. Do not invent or guess data. Do not rename, add, or remove any fields. Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. All response should be one line. Instructions for this specific command: {Custom_prompt} Here is the new data: {command_output} Before returning your answer: Compare it to the original structure character by character Return ONLY ONE JSON — no explanation, no formatting, no comments"""
+  return f"""You are about to receive a specific JSON structure. You must remember it exactly as-is. Do not explain, summarize, or transform it in any way. Just memorize it internally — you will be asked to use it later. All response should be one line. Here is the structure: {{ "target": {{ "ip": "", "os": "", "services": [ {{ "port": "", "protocol": "", "service": "" }}, {{ "port": "", "protocol": "", "service": "" }}, {{ "port": "", "protocol": "", "service": "" }} ] }}, "web_directories_status": {{ "404": {{ "": "" }}, "200": {{ "": "" }}, "403": {{ "": "" }}, "401": {{ "": "" }}, "503": {{ "": "" }} }} }},
+You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly. Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize protocol or service names (use lowercase only). You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status". Include all real fileds found, with no limit each status key must exist with {{ "{{" }}"": ""{{ }}" }} if empty. Do not change "ip" — always leave it as-is. Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows"). In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp" (lowercase), "service": service name (e.g. http, ssh) — lowercase. If missing, leave value as "". In "web_directories_status", for each status (200, 401, 403, 404, 503): Map any discovered paths (like "/admin") to their message (or use "" if no message). All five keys must appear, even if empty. If none found, keep {{ "{{" }}"": ""{{ }}" }}. Do not invent or guess data. Do not rename, add, or remove any fields. Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. All response should be one line.
+Instructions for this specific command: {Custom_prompt}
+Here is the new data: {command_output}
+Before returning your answer: Compare it to the original structure character by character. Return ONLY ONE JSON — no explanation, no formatting, no comments."""
 
 """
 You were previously given a specific JSON structure. You MUST now return ONLY that same structure, filled correctly.

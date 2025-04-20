@@ -10,6 +10,7 @@ from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
 from agents.agent_manager import AgentManager
 from agents.recon_agent import ReconAgent
 from agents.vuln_agent import VulnAgent, load_cve_database
+from agents.exploit_agent import ExploitAgent
 
 from orchestrator.scenario_orchestrator import ScenarioOrchestrator
 
@@ -128,8 +129,19 @@ def main():
             cve_items=cve_items
         )
 
+        # --- Create exploit Agent ---
+        exploit_agent = ExploitAgent(
+            blackboard_api=bb_api,
+            policy_model=policy_model,
+            replay_buffer=replay_buffer,
+            state_encoder=state_encoder,
+            action_encoder=action_encoder,
+            command_cache=command_cache,
+            model=model
+        )
+
         # --- Register Agents ---
-        agents = [recon_agent, vuln_agent]
+        agents = [recon_agent, vuln_agent, exploit_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 

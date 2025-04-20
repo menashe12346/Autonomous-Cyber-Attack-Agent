@@ -4,17 +4,11 @@ import json
 from utils.utils import remove_comments_and_empty_lines
 from config import TARGET_IP
 from utils.state_check.state_validator import clean_web_directories
-
-def run_command(cmd: str) -> str:
-    try:
-        result = subprocess.check_output(cmd.split(), timeout=10).decode()
-        return remove_comments_and_empty_lines(result)
-    except:
-        return ""
+from utils.utils import run_command
 
 def check_port_with_nmap(ip: str, port: str) -> str:
     output = run_command(f"nmap -sV -p {port} {ip}")
-    #print(f"[DEBUG] nmap output for port {port}:\n{output}")
+    print(f"[DEBUG] nmap output for port {port}:\n{output}")
 
     for line in output.splitlines():
         # בדוק שהפורט פתוח, גם אם אין שם שירות

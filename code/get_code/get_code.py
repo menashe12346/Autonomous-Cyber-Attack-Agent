@@ -12,11 +12,15 @@ def print_all_python_files(start_dir, output_file):
         "__pycache__",
         "llama-factory",
         "hf_models",
-        "Debug"
+        "Debug",
+        "get_code",
+        "create_cve_dataset",
+
     }
 
     skip_files = {
         "blackboard_all.py",
+        "prompts",
     }
 
     output = ''

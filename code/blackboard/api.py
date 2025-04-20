@@ -142,7 +142,7 @@ class BlackboardAPI:
         if "web_directories_status" in new_state:
             self.blackboard["web_directories_status"] = new_state["web_directories_status"]
 
-    def _update_from_vuln_agent(self, new_state: dict):
+    def update_cpe_cve(self, new_state: dict):
         """
         Update fields relevant to VulnAgent.
         """
@@ -150,6 +150,7 @@ class BlackboardAPI:
             self.blackboard["cpes"] = new_state["cpes"]
         if "vulnerabilities_found" in new_state:
             self.blackboard["vulnerabilities_found"] = new_state["vulnerabilities_found"]
+        self._save_to_file()
 
     def overwrite_blackboard(self, new_state: dict):
         """

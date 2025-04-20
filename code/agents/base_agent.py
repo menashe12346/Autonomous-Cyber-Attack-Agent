@@ -13,9 +13,10 @@ from utils.state_check.state_correctness import correct_state
 from utils.json_fixer import fix_json
 from blackboard.blackboard import initialize_blackboard
 
-def remove_untrained_categories(state: dict, categories : set):
-    for categorie in categories:
-        state.pop(categorie, None)  
+def remove_untrained_categories(state: dict, trained_categories : set):
+    keys_to_remove = [key for key in state if key not in trained_categories]
+    for key in keys_to_remove:
+        state.pop(key, None)
 
 class BaseAgent(ABC):
     """
@@ -195,8 +196,8 @@ class BaseAgent(ABC):
             print("\033[93m[CACHE] Using cached LLM result.\033[0m")
             return cached
 
-        untrained_categories = {"actions_history","vulnerabilities_found", "cpes"}
-        remove_untrained_categories(state, untrained_categories)
+        trained_categories = {"target","web_directories_status"}
+        remove_untrained_categories(state, trained_categories)
         
         # [DEBUG]
         print(f"state full: {state}")
@@ -205,12 +206,10 @@ class BaseAgent(ABC):
         inner_prompt = self.model.run([prompt_for_prompt])[0]
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        responses = self.model.run([
-            one_line(PROMPT_1(json.dumps(initialize_blackboard(), indent=2))),
-            one_line(final_prompt)
-        ])
-        
-        full_response = responses[1]
+        #responses = self.model.run([ one_line(PROMPT_1(json.dumps(initialize_blackboard(), indent=2))), one_line(final_prompt)])
+        responses = self.model.run([one_line(final_prompt)])
+
+        full_response = responses[0]
         print(f"full_response - {full_response}")
 
         parsed = fix_json(self.last_state, full_response)
