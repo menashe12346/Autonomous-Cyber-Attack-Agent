@@ -1,6 +1,6 @@
 import torch
 import os
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -23,7 +23,9 @@ from encoders.action_encoder import ActionEncoder
 
 from tools.action_space import get_commands_for_agent
 
-from create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
+from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploit_dataset
 
 import urllib.parse
 
@@ -69,7 +71,13 @@ def main():
     model = LlamaModel(LLAMA_RUN, MODEL_PATH)
 
     # Download nvd cve dataset
-    download_nvd_cve(NVD_CVE_PATH)
+    download_nvd_cve(NVD_CVE_PATH, CVE_PATH)
+
+    # Download exploitdb dataset
+    download_exploitdb(DATASETS_PATH)
+
+    # Create cve exploit dataset
+    create_cve_exploit_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
 
     # Load cve dataset
     cve_items = load_cve_database(CVE_PATH)

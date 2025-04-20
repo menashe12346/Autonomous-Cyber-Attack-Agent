@@ -28,3 +28,12 @@ BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
 
 # NVD files path
 NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"
+
+# Datasets path
+DATASETS_PATH = f"{PROJECT_PATH}/project/code/datasets"
+
+# ExploitDB dataset path
+CVE_EXPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset"
+
+# ExploitDB files exploits
+EXPLOITDB_FILES_EXPLOITS_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/files_exploits.csv"

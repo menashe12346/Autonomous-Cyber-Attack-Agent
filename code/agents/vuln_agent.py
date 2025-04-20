@@ -3,6 +3,8 @@ import re
 import fnmatch
 import sys
 import os
+import orjson
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from config import TARGET_IP, LLAMA_RUN, MODEL_PATH, CVE_PATH
@@ -10,13 +12,13 @@ from agents.base_agent import BaseAgent
 
 def load_cve_database(cve_path: str):
     """
-    Loads and normalizes the CVE database from the given JSON file.
+    Loads and normalizes the CVE database using orjson (faster).
 
     Returns:
         List[dict]: List of CVE items (parsed and ready).
     """
-    with open(cve_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    with open(cve_path, "rb") as f:  # שימי לב ל־rb
+        data = orjson.loads(f.read())
 
         if isinstance(data, list):
             print("✅ CVE dataset Loaded successfully.")

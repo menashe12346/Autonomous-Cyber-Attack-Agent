@@ -2,7 +2,83 @@
   "target": {
     "ip": "192.168.56.101",
     "os": "Linux",
-    "services": []
+    "services": [
+      {
+        "port": "21",
+        "protocol": "tcp",
+        "service": "ftp"
+      },
+      {
+        "port": "22",
+        "protocol": "tcp",
+        "service": "ssh"
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "telnet"
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "smtp"
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "domain"
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http"
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "rpcbind"
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn"
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login"
+      },
+      {
+        "port": "514",
+        "protocol": "tcp",
+        "service": "shell"
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "nfs"
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ftp"
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "mysql"
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "postgresql"
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "vnc"
+      }
+    ]
   },
   "web_directories_status": {
     "200": {
@@ -23,7 +99,85 @@
   },
   "actions_history": [],
   "cpes": [
-    "cpe:2.3:o:linux:linux:*:*:*:*:*:*:*:*"
+    "cpe:2.3:a:smtp:smtp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:netbios-ssn:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:smtp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:netbios-ssn:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:linux:linux:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:postgresql:*:*:*:*:*:*:*:*"
   ],
-  "vulnerabilities_found": []
+  "vulnerabilities_found": [
+    {
+      "cve": "CVE-2007-0158",
+      "matched_cpes": [
+        "cpe:2.3:a:acme:thttpd:2007:*:*:*:*:*:*:*"
+      ],
+      "cvss": 9.8
+    },
+    {
+      "cve": "CVE-2013-4366",
+      "matched_cpes": [
+        "cpe:2.3:a:apache:httpclient:4.3:beta1:*:*:*:*:*:*"
+      ],
+      "cvss": 9.8
+    },
+    {
+      "cve": "CVE-2013-4743",
+      "matched_cpes": [
+        "cpe:2.3:a:static_http_server_project:static_http_server:1.0:*:*:*:*:*:*:*"
+      ],
+      "cvss": 9.8
+    },
+    {
+      "cve": "CVE-2014-125079",
+      "matched_cpes": [
+        "cpe:2.3:a:pontifex.http_project:pontifex.http:*:*:*:*:*:*:*:*"
+      ],
+      "cvss": 9.8
+    },
+    {
+      "cve": "CVE-2015-0244",
+      "matched_cpes": [
+        "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*"
+      ],
+      "cvss": 9.8
+    }
+  ]
 }

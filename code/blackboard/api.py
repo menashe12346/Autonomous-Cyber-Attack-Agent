@@ -128,6 +128,8 @@ class BlackboardAPI:
             self._update_from_recon_agent(new_state)
         elif agent_name.lower() == "vulnagent":
             self._update_from_vuln_agent(new_state)
+        elif agent_name.lower() == "exploitagent":
+            self._update_from_exploit_agent(new_state)
         else:
             raise ValueError(f"Unknown agent name: '{agent_name}'")
 
@@ -141,8 +143,9 @@ class BlackboardAPI:
             self.blackboard.setdefault("target", {}).update(new_state["target"])
         if "web_directories_status" in new_state:
             self.blackboard["web_directories_status"] = new_state["web_directories_status"]
+        self._save_to_file()
 
-    def update_cpe_cve(self, new_state: dict):
+    def _update_from_vuln_agent(self):
         """
         Update fields relevant to VulnAgent.
         """
@@ -150,6 +153,12 @@ class BlackboardAPI:
             self.blackboard["cpes"] = new_state["cpes"]
         if "vulnerabilities_found" in new_state:
             self.blackboard["vulnerabilities_found"] = new_state["vulnerabilities_found"]
+        self._save_to_file()
+
+    def _update_from_exploit_agent(self, new_state: dict):
+        """
+        Update fields relevant to VulnAgent.
+        """
         self._save_to_file()
 
     def overwrite_blackboard(self, new_state: dict):

@@ -15,7 +15,7 @@ def print_all_python_files(start_dir, output_file):
         "Debug",
         "get_code",
         "create_cve_dataset",
-
+	"exploitdb"
     }
 
     skip_files = {
