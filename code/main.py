@@ -1,6 +1,6 @@
 import torch
 import os
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -26,6 +26,8 @@ from tools.action_space import get_commands_for_agent
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
 from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
 from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploit_dataset
+from create_datasets.create_exploit_dataset.create_metasploit_dataset import create_metasploit_dataset
+from create_datasets.create_exploit_dataset.download_metasploit import download_metasploit
 
 import urllib.parse
 
@@ -76,8 +78,14 @@ def main():
     # Download exploitdb dataset
     download_exploitdb(DATASETS_PATH)
 
+    # Download metasploit
+    download_metasploit(METASPLOIT_PATH)
+
     # Create cve exploit dataset
     create_cve_exploit_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
+
+    # Create metasploit dataset
+    create_metasploit_dataset(METASPLOIT_DATASET)
 
     # Load cve dataset
     cve_items = load_cve_database(CVE_PATH)

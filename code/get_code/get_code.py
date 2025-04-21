@@ -16,6 +16,7 @@ def print_all_python_files(start_dir, output_file):
         "get_code",
         "create_datasets",
 	    "exploitdb",
+        "metasploit-framework",
     }
 
     skip_files = {

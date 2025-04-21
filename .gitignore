@@ -8,3 +8,5 @@ all_cves_combined.json
 .python-version
 nvd_files/
 exploitdb/
+metasploit-framework/
+metasploit_dataset.json

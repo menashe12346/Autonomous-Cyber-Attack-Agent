@@ -37,3 +37,10 @@ CVE_EXPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_
 
 # ExploitDB files exploits
 EXPLOITDB_FILES_EXPLOITS_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/files_exploits.csv"
+
+# Metasploit dataset
+METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit_dataset.json"
+
+# Metasploit path
+METASPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit-framework"
+
