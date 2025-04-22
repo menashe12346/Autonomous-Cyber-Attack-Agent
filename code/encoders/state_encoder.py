@@ -108,7 +108,7 @@ class StateEncoder:
         """
         items = {}
 
-        if prefix.endswith("vulnerabilities_found"):
+        if prefix.endswith("vulnerabilities_found") or prefix.endswith("cpes"):
             return {}
 
         if isinstance(obj, dict):
@@ -116,9 +116,18 @@ class StateEncoder:
                 full_key = f"{prefix}.{k}" if prefix else k
                 items.update(self._flatten_state(v, full_key))
         elif isinstance(obj, list):
-            for i, v in enumerate(obj):
-                full_key = f"{prefix}[{i}]"
-                items.update(self._flatten_state(v, full_key))
+            if prefix.endswith("failed_CVEs"):
+                for i, cve in enumerate(obj[:5]):  # מגבילים ל־5 CVEs
+                    if isinstance(cve, str) and cve.startswith("CVE-"):
+                        digits = ''.join(filter(str.isdigit, cve))
+                        if digits:
+                            key = f"failed_cve_idx_{i}"
+                            print(f"[DEBUG] Found failed CVE {cve} → {digits} → {value} → saved as '{key}'")
+                            items[key] = float(int(digits))  # נשלח לנרמול אח"כ
+            else:
+                for i, v in enumerate(obj):
+                    full_key = f"{prefix}[{i}]"
+                    items.update(self._flatten_state(v, full_key))
         elif isinstance(obj, bool):
             items[prefix] = 1.0 if obj else 0.0
         elif isinstance(obj, numbers.Number):
@@ -148,6 +157,10 @@ class StateEncoder:
                 return min(value / 3.0, 1.0)
             elif "action_history" in key:
                 return float(value)
+            elif "failed_cve_idx" in key:
+                norm = min(value / 99999999.0, 1.0)
+                print(f"[DEBUG] Normalizing {key}: raw={value}, normalized={norm}")
+                return norm
             elif any(field in key for field in ["service", "web_directories_status", "os"]):
                 return min(value / 1e6, 1.0)
             else:

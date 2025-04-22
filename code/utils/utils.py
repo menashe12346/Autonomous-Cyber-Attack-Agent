@@ -1,6 +1,10 @@
 import subprocess
 import re
 import json
+import os
+import orjson
+import csv
+
 from utils.state_check.state_validator import validate_state
 
 def extract_json_block(text_input):
@@ -223,6 +227,32 @@ def run_command(cmd: str) -> str:
     except:
         return ""
 
+def load_dataset(cve_path: str):
+    """
+    Loads and normalizes the dataset. Supports both JSON (via orjson) and CSV (via csv.DictReader).
+
+    Args:
+        cve_path (str): Path to the dataset file (JSON or CSV)
+
+    Returns:
+        List[dict]: Loaded dataset
+    """
+    ext = os.path.splitext(cve_path)[-1].lower()
+
+    if ext == ".json":
+        with open(cve_path, "rb") as f:
+            content = f.read()
+            if not content.strip():
+                raise ValueError(f"[!] Dataset file is empty: {cve_path}")
+            return orjson.loads(content)
+
+    elif ext == ".csv":
+        with open(cve_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            return list(reader)
+
+    else:
+        raise ValueError(f"[!] Unsupported file extension: {ext}")
 
 # Example debug run
 def main():

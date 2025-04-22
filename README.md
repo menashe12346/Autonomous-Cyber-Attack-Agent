@@ -24,18 +24,8 @@
 ### 👉 For Arch Linux:
 
 sudo pacman -Syu --needed base-devel cmake git python-pip
-
-
-
-
-### 👉 For Ubuntu/Debian:
-
-sudo apt update && sudo apt install -y build-essential cmake git python3-pip
-
+pip install pexpect
 pip install huggingface_hub
-
-
-
 
 ### ─────────────────────────────────────────────
 

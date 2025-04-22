@@ -145,7 +145,7 @@ class BlackboardAPI:
             self.blackboard["web_directories_status"] = new_state["web_directories_status"]
         self._save_to_file()
 
-    def _update_from_vuln_agent(self):
+    def _update_from_vuln_agent(self, new_state: dict):
         """
         Update fields relevant to VulnAgent.
         """
@@ -157,8 +157,12 @@ class BlackboardAPI:
 
     def _update_from_exploit_agent(self, new_state: dict):
         """
-        Update fields relevant to VulnAgent.
+        Update fields relevant to VulnAgent. 
         """
+        if "shell" in new_state:
+            self.blackboard["shell"] = new_state["shell"]
+        if "failed_CVEs" in new_state:
+            self.blackboard["failed_CVEs"] = new_state["failed_CVEs"]
         self._save_to_file()
 
     def overwrite_blackboard(self, new_state: dict):

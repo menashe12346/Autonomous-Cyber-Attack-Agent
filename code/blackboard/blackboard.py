@@ -31,5 +31,9 @@ def initialize_blackboard():
         "actions_history": [],
         "cpes": [],
         "vulnerabilities_found": [],
-        "failed CVEs": []
+        "failed_CVEs": [],
+        "attack_impact": {
+            "success": False,
+            "shell_opened": False
+        }
     }

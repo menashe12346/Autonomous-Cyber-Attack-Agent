@@ -3,7 +3,7 @@ PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
 NUM_EPISODES = 100
-MAX_STEPS_PER_EPISODE = 5
+MAX_STEPS_PER_EPISODE = 20
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -33,10 +33,13 @@ NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"
 DATASETS_PATH = f"{PROJECT_PATH}/project/code/datasets"
 
 # ExploitDB dataset path
-CVE_EXPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset"
+CVE_EXPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset.csv"
 
 # ExploitDB files exploits
 EXPLOITDB_FILES_EXPLOITS_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/files_exploits.csv"
+
+# ExploitDB dataset
+EXPLOITDB_DATASET_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset.csv"
 
 # Metasploit dataset
 METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit_dataset.json"

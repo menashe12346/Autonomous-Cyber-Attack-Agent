@@ -1,6 +1,6 @@
 import torch
 import os
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -9,7 +9,7 @@ from replay_buffer.Prioritized_Replay_Buffer import PrioritizedReplayBuffer
 
 from agents.agent_manager import AgentManager
 from agents.recon_agent import ReconAgent
-from agents.vuln_agent import VulnAgent, load_cve_database
+from agents.vuln_agent import VulnAgent
 from agents.exploit_agent import ExploitAgent
 
 from orchestrator.scenario_orchestrator import ScenarioOrchestrator
@@ -22,6 +22,8 @@ from encoders.state_encoder import StateEncoder
 from encoders.action_encoder import ActionEncoder
 
 from tools.action_space import get_commands_for_agent
+
+from utils.utils import load_dataset
 
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
 from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
@@ -84,11 +86,20 @@ def main():
     # Create cve exploit dataset
     create_cve_exploit_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
 
+    # Load metasploit dataset
+    metasploit_dataset = load_dataset(METASPLOIT_DATASET)
+    print(f"✅ Metasploit dataset Loaded Successfully")
+
+    # Load exploitdb dataset
+    exploitdb_dataset = load_dataset(EXPLOITDB_DATASET_PATH)
+    print(f"✅ ExploitDB dataset Loaded Successfully")
+
     # Create metasploit dataset
-    create_metasploit_dataset(METASPLOIT_DATASET)
+    #create_metasploit_dataset(METASPLOIT_DATASET)
 
     # Load cve dataset
-    cve_items = load_cve_database(CVE_PATH)
+    cve_items = load_dataset(CVE_PATH)
+    print(f"✅ CVE dataset Loaded Successfully")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
@@ -153,7 +164,9 @@ def main():
             state_encoder=state_encoder,
             action_encoder=action_encoder,
             command_cache=command_cache,
-            model=model
+            model=model,
+            metasploit_dataset=metasploit_dataset,
+            exploitdb_dataset=exploitdb_dataset
         )
 
         # --- Register Agents ---

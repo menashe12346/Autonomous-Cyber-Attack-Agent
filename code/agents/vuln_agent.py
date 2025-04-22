@@ -10,27 +10,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from config import TARGET_IP, LLAMA_RUN, MODEL_PATH, CVE_PATH
 from agents.base_agent import BaseAgent
 
-def load_cve_database(cve_path: str):
-    """
-    Loads and normalizes the CVE database using orjson (faster).
-
-    Returns:
-        List[dict]: List of CVE items (parsed and ready).
-    """
-    with open(cve_path, "rb") as f:  # שימי לב ל־rb
-        data = orjson.loads(f.read())
-
-        if isinstance(data, list):
-            print("✅ CVE dataset Loaded successfully.")
-            return data
-
-        elif isinstance(data, dict) and "CVE_Items" in data:
-            print("✅ CVE dataset Loaded successfully.")
-            return data["CVE_Items"]
-
-        else:
-            raise ValueError("❌ Unsupported CVE format: expected list or dict with 'CVE_Items'")
-
 def extract_all_cpe_matches(node):
     """
     Recursively extract all 'cpe_match' entries from a node and its children.
