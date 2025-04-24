@@ -1,6 +1,6 @@
 import torch
 import os
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH, EXPLOIT_DATASET
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -27,10 +27,10 @@ from utils.utils import load_dataset
 
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
 from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
-from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploit_dataset
+from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploitdb_dataset
 from create_datasets.create_exploit_dataset.create_metasploit_dataset import create_metasploit_dataset
 from create_datasets.create_exploit_dataset.download_metasploit import download_metasploit
-
+from create_datasets.create_exploit_dataset.create_full_exploit_dataset import merge_exploit_datasets
 import urllib.parse
 
 def strip_file_scheme(path):
@@ -84,7 +84,10 @@ def main():
     download_metasploit(METASPLOIT_PATH)
 
     # Create cve exploit dataset
-    create_cve_exploit_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
+    create_cve_exploitdb_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
+
+    # Create metasploit dataset
+    create_metasploit_dataset(METASPLOIT_DATASET)
 
     # Load metasploit dataset
     metasploit_dataset = load_dataset(METASPLOIT_DATASET)
@@ -94,12 +97,12 @@ def main():
     exploitdb_dataset = load_dataset(EXPLOITDB_DATASET_PATH)
     print(f"✅ ExploitDB dataset Loaded Successfully")
 
-    # Create metasploit dataset
-    #create_metasploit_dataset(METASPLOIT_DATASET)
-
     # Load cve dataset
     cve_items = load_dataset(CVE_PATH)
     print(f"✅ CVE dataset Loaded Successfully")
+
+    full_exploit_dataset = merge_exploit_datasets(metasploit_dataset, exploitdb_dataset, EXPLOIT_DATASET)
+    print(f"✅ Full exploit dataset Loaded Successfully")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
@@ -166,7 +169,8 @@ def main():
             command_cache=command_cache,
             model=model,
             metasploit_dataset=metasploit_dataset,
-            exploitdb_dataset=exploitdb_dataset
+            exploitdb_dataset=exploitdb_dataset,
+            full_exploit_dataset=full_exploit_dataset
         )
 
         # --- Register Agents ---

@@ -47,3 +47,4 @@ METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploi
 # Metasploit path
 METASPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit-framework"
 
+EXPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/full_exploit_dataset.json"

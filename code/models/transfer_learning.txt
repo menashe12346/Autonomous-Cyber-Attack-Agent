@@ -1,0 +1,17 @@
+ python3 train.py \
+                 --stage sft \
+                 --model_name_or_path /mnt/linux-data/project/code/models/hf_models/mistral \
+                 --finetuning_type lora \
+                 --template default \
+                 --dataset_dir /mnt/linux-data/project/code/models/nous-hermes \
+                 --dataset json_structured_dataset \
+                 --cutoff_len 1024 \
+                 --output_dir /mnt/linux-data/project/code/models/nous-hermes/json-aware-model \
+                 --per_device_train_batch_size 2 \
+                 --gradient_accumulation_steps 4 \
+                 --num_train_epochs 3 \
+                 --learning_rate 5e-5 \
+                 --logging_steps 1 \
+                 --save_steps 100 \
+                 --report_to none \
+                 --do_train

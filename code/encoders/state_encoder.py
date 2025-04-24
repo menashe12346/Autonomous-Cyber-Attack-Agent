@@ -122,7 +122,7 @@ class StateEncoder:
                         digits = ''.join(filter(str.isdigit, cve))
                         if digits:
                             key = f"failed_cve_idx_{i}"
-                            print(f"[DEBUG] Found failed CVE {cve} → {digits} → {value} → saved as '{key}'")
+                            #print(f"[DEBUG] Found failed CVE {cve} → {digits} → {value} → saved as '{key}'")
                             items[key] = float(int(digits))  # נשלח לנרמול אח"כ
             else:
                 for i, v in enumerate(obj):

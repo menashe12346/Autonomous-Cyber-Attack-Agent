@@ -66,7 +66,7 @@ class VulnAgent(BaseAgent):
         print(f"[VulnAgent] Final selected top {len(found_vulns)} vulnerabilities:")
         self.blackboard_api._save_to_file()
     
-    def filter_top_vulnerabilities(self, matches, top_n=5):
+    def filter_top_vulnerabilities(self, matches, top_n=900):
         """
         Filters the top N vulnerabilities by CVSS base score (v3 if available).
         """
