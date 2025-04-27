@@ -5,25 +5,36 @@ from utils.utils import remove_comments_and_empty_lines
 from config import TARGET_IP
 from utils.state_check.state_validator import clean_web_directories
 from utils.utils import run_command
+from utils.state_check.correctness_cache import CorrectnessCache
+
+cache = CorrectnessCache()
 
 def check_port_with_nmap(ip: str, port: str) -> str:
+    key = f"port_open:{ip}:{port}"
+    cached_result = cache.get(key)
+    if cached_result is not None:
+        return cached_result
+
     output = run_command(f"nmap -sV -p {port} {ip}")
     print(f"[DEBUG] nmap output for port {port}:\n{output}")
 
     for line in output.splitlines():
-        # בדוק שהפורט פתוח, גם אם אין שם שירות
         if re.match(rf"^{port}/tcp\s+open", line):
             match = re.match(rf"^{port}/tcp\s+open\s+(\S+)", line)
-            if match:
-                return match.group(1).lower()
-            else:
-                print(f"[!] Could not determine service on open port {port}/tcp — marking as 'unknown'")
-                return "unknown"
+            service = match.group(1).lower() if match else "unknown"
+            cache.set(key, service)
+            return service
 
     print(f"[!] Port {port}/tcp is not open — skipping.")
+    cache.set(key, None)
     return None
 
 def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
+    key = f"os_detection:{ip}"
+    cached_result = cache.get(key)
+    if cached_result is not None:
+        return cached_result
+
     tools = [
         f"whatweb http://{ip}",
         f"curl -I http://{ip}",
@@ -46,49 +57,47 @@ def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
             os_candidates.append("Linux")
 
     if os_candidates:
-        if "Linux" in os_candidates:
-            return "Linux"
-        return os_candidates[0]
+        final_os = "Linux" if "Linux" in os_candidates else os_candidates[0]
+    else:
+        final_os = current_os
 
-    return current_os
+    cache.set(key, final_os)
+    return final_os
 
 EXPECTED_CODES = ["200", "401", "403", "404", "503"]
-
 def verify_web_directories(ip: str, web_dirs: dict) -> dict:
-    """
-    מאמת נתיבי Web מול השרת וממקם כל נתיב בקטגוריית הסטטוס האמיתית בלבד.
-    בנוסף, מסיר "" ריקים אם קיימים נתיבים תקניים.
-    """
     verified = {code: {} for code in EXPECTED_CODES}
 
     for code, entries in web_dirs.items():
         for path in entries:
             full_url = f"http://{ip}{path}"
-            try:
-                response = subprocess.check_output(
-                    ["curl", "-i", "-s", full_url],
-                    timeout=5
-                ).decode()
+            key = f"url_check:{full_url}"
+            cached_result = cache.get(key)
 
-                # מציאת שורת ה־HTTP
-                first_line = next((line for line in response.splitlines() if line.startswith("HTTP/")), "")
-                parts = first_line.strip().split(" ", 2)
-                status_code = parts[1] if len(parts) > 1 else "404"
-                reason = parts[2] if len(parts) > 2 else ""
+            if cached_result is None:
+                try:
+                    response = subprocess.check_output(
+                        ["curl", "-i", "-s", full_url],
+                        timeout=5
+                    ).decode()
 
-                # ניקוי הקוד
-                status_code = status_code.strip()
-                reason = reason.strip()
+                    first_line = next((line for line in response.splitlines() if line.startswith("HTTP/")), "")
+                    parts = first_line.strip().split(" ", 2)
+                    status_code = parts[1] if len(parts) > 1 else "404"
+                    reason = parts[2] if len(parts) > 2 else ""
 
-                if status_code in verified:
-                    verified[status_code][path] = reason
-                else:
-                    verified["404"][path] = reason or "Unknown"
+                    cached_result = (status_code.strip(), reason.strip())
+                except Exception:
+                    cached_result = ("404", "Error or Timeout")
 
-            except Exception:
-                verified["404"][path] = "Error or Timeout"
+                cache.set(key, cached_result)
 
-    # הסרת "" מיותר ויישור סופי של המבנה
+            status_code, reason = cached_result
+            if status_code in verified:
+                verified[status_code][path] = reason
+            else:
+                verified["404"][path] = reason or "Unknown"
+
     verified = clean_web_directories(verified)
     return verified
 

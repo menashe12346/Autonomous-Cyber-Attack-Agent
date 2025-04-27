@@ -84,7 +84,6 @@ class BaseAgent(ABC):
         # Step 2: select action
         action = self.choose_action(encoded_state)
         self.last_action = action
-        self.actions_history.append(action)
 
         print(f"\n[+] Agent: {self.name}")
         print(f"    Current state: {str(state)[:8]}...")
@@ -121,6 +120,8 @@ class BaseAgent(ABC):
         # Step 7: reward and update model
         reward = self.get_reward(encoded_state, action, encoded_next_state)
         print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
+
+        self.actions_history.append(action)
 
         experience = {
             "state": encoded_state,

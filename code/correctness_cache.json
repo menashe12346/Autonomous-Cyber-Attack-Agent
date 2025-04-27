@@ -1,0 +1,29 @@
+{
+  "port_open:192.168.56.101:21": "ftp",
+  "port_open:192.168.56.101:22": "ssh",
+  "port_open:192.168.56.101:23": "telnet",
+  "port_open:192.168.56.101:25": "smtp",
+  "port_open:192.168.56.101:53": "domain",
+  "port_open:192.168.56.101:80": "http",
+  "port_open:192.168.56.101:111": "rpcbind",
+  "port_open:192.168.56.101:445": "netbios-ssn",
+  "port_open:192.168.56.101:512": "exec",
+  "port_open:192.168.56.101:1099": null,
+  "port_open:192.168.56.101:1524": "bindshell",
+  "port_open:192.168.56.101:2049": "nfs",
+  "port_open:192.168.56.101:2121": "ftp",
+  "port_open:192.168.56.101:3306": "mysql",
+  "port_open:192.168.56.101:5432": "postgresql",
+  "port_open:192.168.56.101:5900": "vnc",
+  "port_open:192.168.56.101:6000": "x11",
+  "port_open:192.168.56.101:6667": "irc",
+  "os_detection:192.168.56.101": "Linux",
+  "url_check:http://192.168.56.101": [
+    "200",
+    "OK"
+  ],
+  "port_open:192.168.56.101:139": null,
+  "port_open:192.168.56.101:513": "login",
+  "port_open:192.168.56.101:8009": null,
+  "port_open:192.168.56.101:8180": null
+}

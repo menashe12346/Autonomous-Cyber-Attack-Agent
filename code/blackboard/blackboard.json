@@ -49,16 +49,6 @@
         "service": "exec"
       },
       {
-        "port": "513",
-        "protocol": "tcp",
-        "service": "login?"
-      },
-      {
-        "port": "1099",
-        "protocol": "tcp",
-        "service": "java-rmi"
-      },
-      {
         "port": "1524",
         "protocol": "tcp",
         "service": "bindshell"
@@ -97,6 +87,46 @@
         "port": "6667",
         "protocol": "tcp",
         "service": "irc"
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn"
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login"
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ftp"
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "x11"
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn"
+      },
+      {
+        "port": "1524",
+        "protocol": "tcp",
+        "service": "bindshell"
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ftp"
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "x11"
       }
     ]
   },
@@ -117,7 +147,10 @@
       "": ""
     }
   },
-  "actions_history": [],
+  "actions_history": [
+    "nmap 192.168.56.101",
+    "nmap 192.168.56.101"
+  ],
   "cpes": [],
   "vulnerabilities_found": [],
   "failed_CVEs": []

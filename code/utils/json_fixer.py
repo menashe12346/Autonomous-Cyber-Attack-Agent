@@ -117,13 +117,18 @@ def extract_web_directories_status(text_after_web):
             pos += 1  # if no status matched, move forward
 
     return wds
+    
 def extract_os_from_target(text):
     """
     Extracts OS from a clean piece of text (already trimmed at services).
     Accepts only letters, digits, spaces, dots, dashes.
+    Ignores leading/trailing quotes and colons.
     """
-    print(text)
     after_os = text.lstrip()
+
+    # הסר תווים לא חוקיים מההתחלה
+    while after_os and after_os[0] in [':', ' ', '\'', '"']:
+        after_os = after_os[1:]
 
     os_value = ''
     idx = 0
@@ -134,6 +139,7 @@ def extract_os_from_target(text):
             idx += 1
         else:
             break  # ברגע שמגיעים לתו לא חוקי - עוצרים
+
     return os_value.strip() if os_value else None
 
 def cut_text_until_word(text, stop_word):
@@ -469,7 +475,62 @@ state = """
 """
 
 new_data = """
-target'''osLinuxservices' 'port '21, 'protocoltcp', 'service': 'ftpport': '22', 'protocol': 'tcp', 'service': 'ssh'}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet'}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp'}, {'port': '53', 'protocol': 'tcp', 'service': 'domain'}, {'port': '80', 'protocol': 'tcp', 'service': 'http'}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind'}, {'port': '445', 'protocol': 'tcp', 'service': 'netbios-ssn'}, {'port': '512', 'protocol': 'tcp', 'service': 'exec'}, {'port': '513', 'protocol': 'tcp', 'service': 'login'}, {'port': '1099', 'protocol': 'tcp', 'service': 'java-rmi'}, {'port': '1524', 'protocol': 'tcp', 'service': 'bindshell'}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs'}, {'port': '2121', 'protocol': 'tcp', 'service': 'ftp'}, {'port': '3306', 'protocol': 'tcp', 'service': 'mysql'}, {'port': '5432', 'protocol': 'tcp', 'service': 'postgresql'}, {'port': '5900', 'protocol': 'tcp', 'service': 'vnc'}, {'port': '6000', 'protocol': 'tcp', 'service': 'x11'}, {'port': '6667', 'protocol': 'tcp', 'service': 'ircweb_directories_status': {'200': {'abc': '123'}, '401': {'aaa': '111403': {'': ''},  ''}, '503': {'nn': 'dfg
+{
+  "target": {
+    "ip": "192.168.56.101",
+    "os": "Linux",
+    "services": [
+      {"port": "21", "protocol": "tcp", "service": "ftp"},
+      {"port": "22", "protocol": "tcp", "service": "ssh"},
+      {"port": "23", "protocol": "tcp", "service": "telnet"},
+      {"port": "25", "protocol": "tcp", "service": "smtp"},
+      {"port": "53", "protocol": "tcp", "service": "domain"},
+      {"port": "80", "protocol": "tcp", "service": "http"},
+      {"port": "111", "protocol": "tcp", "service": "rpcbind"},
+      {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
+      {"port": "445", "protocol": "tcp", "service": "microsoft-ds"},
+      {"port": "512", "protocol": "tcp", "service": "exec"},
+      {"port": "513", "protocol": "tcp", "service": "login"},
+      {"port": "1099", "protocol": "tcp", "service": "rmiregistry"},
+      {"port": "1524", "protocol": "tcp", "service": "ingreslock"},
+      {"port": "2049", "protocol": "tcp", "service": "nfs"},
+      {"port": "2121", "protocol": "tcp", "service": "ccproxy-ftp"},
+      {"port": "3306", "protocol": "tcp", "service": "mysql"},
+      {"port": "5432", "protocol": "tcp", "service": "postgresql"},
+      {"port": "5900", "protocol": "tcp", "service": "vnc"},
+      {"port": "6000", "protocol": "tcp", "service": "X11"},
+      {"port": "6667", "protocol": "tcp", "service": "irc"},
+      {"port": "8009", "protocol": "tcp", "service": "ajp13"},
+      {"port": "8180", "protocol": "tcp", "service": "unknown"}
+    ]
+  },
+  "web_directories_status": {
+    "200": {
+      "/": "",
+      "/admin": "",
+      "/login": "",
+      "/public": ""
+    },
+    "400": {
+      "": ""
+    },
+    "401": {
+      "": ""
+    },
+    "403": {
+      "": ""
+    },
+    "404": {
+      "": ""
+    },
+    "500": {
+      "": ""
+    },
+    "503": {
+      "": ""
+    }
+  }
+}
 """
 
 if __name__ == "__main__":

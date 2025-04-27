@@ -2,7 +2,7 @@ import json
 import hashlib
 from agents.base_agent import BaseAgent
 from tools.action_space import get_commands_for_agent
-
+from collections import Counter
 
 class ReconAgent(BaseAgent):
     """
@@ -122,16 +122,20 @@ class ReconAgent(BaseAgent):
             prev_dict = self.state_encoder.encoded_to_state.get(prev_key, {})
             next_dict = self.state_encoder.encoded_to_state.get(next_key, {})
 
-            actions_history = prev_dict.get("actions_history", [])
-            print(actions_history)
-
-            # Repeated action penalty
+            # (1) קבל את כל ההיסטוריה
+            actions_history = self.actions_history.copy()
+            count = 0
+            
+            # (2) בדוק האם action כבר הופיע
             if action in actions_history:
-                reward -= 0.5
-                reasons.append("Repeated action -0.5")
+                count = actions_history.count(action)
+                if count >= 1:
+                    penalty = -0.5 * count
+                    reward += penalty
+                    reasons.append(f"Action repeated {count} times {penalty}")
             else:
                 reward += 0.2
-                reasons.append("New action +0.2")
+                reasons.append("First time action +0.2")
 
             # New services discovered
             prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
