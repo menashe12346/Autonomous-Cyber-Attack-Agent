@@ -13,10 +13,20 @@ from utils.state_check.state_correctness import correct_state
 from utils.json_fixer import fix_json
 from blackboard.blackboard import initialize_blackboard
 
-def remove_untrained_categories(state: dict, trained_categories : set):
+def remove_untrained_categories(state: dict, trained_categories: dict):
+    # מחיקת קטגוריות ראשיות לא מאומנות
     keys_to_remove = [key for key in state if key not in trained_categories]
     for key in keys_to_remove:
         state.pop(key, None)
+
+    # סינון שדות פנימיים בתוך קטגוריות
+    for key, allowed_fields in trained_categories.items():
+        if allowed_fields is None:
+            continue  # שמור הכל בקטגוריה זו
+        if key in state and isinstance(state[key], dict):
+            inner_keys_to_remove = [inner_key for inner_key in state[key] if inner_key not in allowed_fields]
+            for inner_key in inner_keys_to_remove:
+                state[key].pop(inner_key, None)
 
 class BaseAgent(ABC):
     """
@@ -196,7 +206,10 @@ class BaseAgent(ABC):
             print("\033[93m[CACHE] Using cached LLM result.\033[0m")
             return cached
 
-        trained_categories = {"target","web_directories_status"}
+        trained_categories = {
+            "target": {"os", "services"},  # מתוך target ניקח רק os ו-services
+            "web_directories_status": None  # כל מה שבתוך web_directories_status מותר
+        }
         remove_untrained_categories(state, trained_categories)
         
         # [DEBUG]

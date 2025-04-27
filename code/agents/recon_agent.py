@@ -123,6 +123,7 @@ class ReconAgent(BaseAgent):
             next_dict = self.state_encoder.encoded_to_state.get(next_key, {})
 
             actions_history = prev_dict.get("actions_history", [])
+            print(actions_history)
 
             # Repeated action penalty
             if action in actions_history:

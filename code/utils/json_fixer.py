@@ -1,148 +1,326 @@
 import re
 import json
+import os
+import sys
+import ast
 
-from blackboard.blackboard import initialize_blackboard
+EXPECTED_STRUCTURE = {
+    "target": {
+        "os": None,
+        "services": None
+    },
+    "web_directories_status": {
+        "200": None,
+        "401": None,
+        "403": None,
+        "404": None,
+        "503": None
+    }
+}
 
-def fix_malformed_json(text):
+def find_missing_categories(parsed_parts, expected_structure):
+    missing = {}
+
+    for key, subfields in expected_structure.items():
+        if key not in parsed_parts:
+            missing[key] = "entire category missing"
+        else:
+            if isinstance(subfields, dict):
+                for subkey in subfields:
+                    if subkey not in parsed_parts[key]:
+                        missing.setdefault(key, []).append(subkey)
+
+    return missing
+
+def extract_json_parts(new_data):
     """
-    Attempts to fix common JSON syntax problems carefully.
-    Fixes only known issues to avoid breaking valid JSONs.
+    Scans the text and extracts parts starting when encountering 'target' or 'web_directories_status'.
+    Passes only the specific block after each key to its extractor.
     """
-    # Remove ANSI escape codes (if any)
-    text = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
-
-    # Fix cases where the status code key is missing quotation marks (e.g., "200": {/": "OK"})
-    text = re.sub(r'"(\d{3})"\s*{(/\s*":\s*")', r'"\1": {"\2', text)
-
-    # Fix missing closing quotation mark and colon for some cases like:
-    # "200": /": "OK", --> "200": {"/": "OK"}
-    text = re.sub(r'"/\s*":\s*([a-zA-Z0-9\s]+)"', r'"/": "\1"', text)
-
-    # Handle cases where missing quotation marks or incorrect symbols
-    text = re.sub(r'(\d{3}):\s*{/\s*":\s*', r'"\1": {"', text)
-
-    # Ensure that strings have quotes (add if missing)
-    text = re.sub(r'([a-zA-Z0-9_\-/]+)\s*:', r'"\1":', text)
-
-    # Fix lines like "/path/: Status" → "/path/": "Status"
-    def fix_key_value_line(match):
-        key = match.group(1).strip()
-        value = match.group(2).strip()
-        if key and value and not key.endswith('"') and not value.startswith('"'):
-            return f'"{key}": "{value}"'
-        return match.group(0)  # leave unchanged
-
-    text = re.sub(r'"(/[^"]*?):\s*([^"]+?)"', fix_key_value_line, text)
-
-    # Remove stray broken key-value pairs like '"" : ""' with no comma
-    text = re.sub(r'"\s*"\s*:\s*"\s*"\s*(?!,)', '"": "",', text)
-
-    # Remove duplicate JSON blocks without comma between
-    text = re.sub(r'}\s*{', '}, {', text)
-
-    # Fix extra commas before closing
-    text = re.sub(r",\s*([\]}])", r"\1", text)
-
-    # Trim garbage outside JSON
-    start = text.find('{')
-    end = text.rfind('}')
-    if start != -1 and end != -1:
-        text = text[start:end+1]
-
-    # Auto-balance braces if needed
-    open_count = text.count('{')
-    close_count = text.count('}')
-    if open_count > close_count:
-        text += '}' * (open_count - close_count)
-
-    return text
-
-def extract_json_parts(noisy_text):
-    """
-    Extracts the different parts of the JSON structure from the noisy text.
-    It finds specific values under 'target', 'os', 'ip', and 'web_directories_status' structure.
-    :param noisy_text: The noisy text to extract information from.
-    :return: A dictionary with extracted parts.
-    """
-    # First, fix any malformed JSON
-    fixed_text = fix_malformed_json(noisy_text)
-    
     parts = {}
 
-    # Extracting "target" -> "ip"
-    ip = extract_value_from_text(fixed_text, "ip", value_type="number")
-    if ip:
-        parts["target"] = {"ip": ip}
+    text = new_data.replace('\n', ' ').replace('\r', ' ').strip()
 
-    # Extracting "target" -> "os"
-    os = extract_value_from_text(fixed_text, "os", value_type="string")
-    if os:
-        if "target" not in parts:
-            parts["target"] = {}
-        parts["target"]["os"] = os
+    pos = 0
+    while pos < len(text):
+        # Search for target
+        if text[pos:].startswith('target'):
+            target_after = text[pos + len('target'):]
+            target_text = cut_text_until_word(target_after, 'web_directories_status')
+            parts['target'] = extract_target_data(target_text)
+            pos += len('target')
+            break
+        pos += 1  # move forward character by character
 
-    # Extracting "target" -> "services"
+    pos = 0
+    while pos < len(target_after):
+        # Search for web_directories_status
+        if target_after[pos:].startswith('web_directories_status'):
+            wds_text = target_after[pos + len('web_directories_status'):]
+            parts['web_directories_status'] = extract_web_directories_status(wds_text)
+            pos += len('web_directories_status')
+            break
+        pos += 1  # move forward character by character
+
+    missing = find_missing_categories(parts, EXPECTED_STRUCTURE)
+    return parts, missing
+
+
+def extract_target_data(target_text):
+    #print(target_text)
+    target_data = {}
+
+    pos = 0
+    while pos < len(target_text):
+        if target_text[pos:].startswith('os'):
+            after_os = target_text[pos + len('os'):]
+            os_text = cut_text_until_word(after_os, 'services')  # משתמשים בפונקציה החכמה
+            os_data = extract_os_from_target(os_text)
+            if os_data:
+                target_data['os'] = os_data
+            pos += len('os')
+            break
+        pos += 1
+
+    pos = 0
+    while pos < len(after_os):
+        if after_os[pos:].startswith('services'):
+            services_data = extract_services_from_target(after_os[pos + len('services'):])
+            if services_data:
+                target_data['services'] = services_data
+            pos += len('services')
+            break
+        pos += 1
+
+    return target_data
+
+def extract_web_directories_status(text_after_web):
+    """
+    Extracts the web_directories_status section.
+    Scans for status codes like 200, 401, 403, 404, 503, and collects their associated directories.
+    """
+    wds = {}
+    pos = 0
+
+    while pos < len(text_after_web):
+        subtext = text_after_web[pos:]
+
+        # Look for each possible HTTP status code
+        for status_code in ['200', '401', '403', '404', '503']:
+            if subtext.startswith(status_code):
+                status_block = extract_status_block(subtext, status_code)
+                if status_block is not None:
+                    wds[status_code] = status_block
+                pos += len(status_code)
+                break  # found a match, restart checking
+        else:
+            pos += 1  # if no status matched, move forward
+
+    return wds
+def extract_os_from_target(text):
+    """
+    Extracts OS from a clean piece of text (already trimmed at services).
+    Accepts only letters, digits, spaces, dots, dashes.
+    """
+    print(text)
+    after_os = text.lstrip()
+
+    os_value = ''
+    idx = 0
+    while idx < len(after_os):
+        c = after_os[idx]
+        if c.isalnum() or c in [' ', '.', '-']:
+            os_value += c
+            idx += 1
+        else:
+            break  # ברגע שמגיעים לתו לא חוקי - עוצרים
+    return os_value.strip() if os_value else None
+
+def cut_text_until_word(text, stop_word):
+    """
+    Scans character by character through 'text', and stops exactly when 'stop_word' starts.
+    
+    Args:
+        text (str): The input text to scan.
+        stop_word (str): The word that signals to stop collecting.
+
+    Returns:
+        str: The collected text up until (but not including) the stop_word.
+    """
+    collected = ''
+    idx = 0
+    while idx < len(text):
+        if text[idx:].startswith(stop_word):
+            break
+        collected += text[idx]
+        idx += 1
+    return collected
+
+
+def extract_services_from_target(text_after_services):
+    """
+    Extracts the services from the text after 'services'.
+    Finds sequential triplets of (port, protocol, service) even if messy.
+    """
     services = []
-    service_matches = re.findall(r'"port": "(.*?)", "protocol": "(.*?)", "service": "(.*?)"', fixed_text)
-    for match in service_matches:
-        port, protocol, service = match
-        services.append({"port": port, "protocol": protocol, "service": service})
+    pos = 0
+    current_service = {}
 
-    if services:
-        if "target" not in parts:
-            parts["target"] = {}
-        parts["target"]["services"] = services
+    while pos < len(text_after_services):
+        subtext = text_after_services[pos:]
 
-    # Extracting "web_directories_status"
-    web_directories_status = {}
-    status_matches = re.findall(r'"(\d{3})": {(.*?)}', fixed_text)
-    for status, directories in status_matches:
-        directories_dict = {}
-        directories_list = re.findall(r'"(/.*?)": "(.*?)"', directories)
-        for dir_path, status_text in directories_list:
-            # Fixing missing " or :
-            if not dir_path.startswith('"'):
-                dir_path = '"' + dir_path
-            if not dir_path.endswith('"'):
-                dir_path = dir_path + '"'
-            if not status_text.startswith('"'):
-                status_text = '"' + status_text
-            if not status_text.endswith('"'):
-                status_text = status_text + '"'
-            directories_dict[dir_path] = status_text
-        web_directories_status[status] = directories_dict
+        # Find port
+        if subtext.startswith('port'):
+            port_value, jump = extract_value_after_key(subtext, 'port', next_keys=['protocol', 'service'])
+            if port_value:
+                current_service['port'] = port_value
+            pos += jump
+            continue
 
-    if web_directories_status:
-        parts["web_directories_status"] = web_directories_status
+        # Find protocol
+        if subtext.startswith('protocol'):
+            protocol_value, jump = extract_value_after_key(subtext, 'protocol', next_keys=['port', 'service'])
+            if protocol_value:
+                current_service['protocol'] = protocol_value
+            pos += jump
+            continue
 
-    return parts
+        # Find service
+        if subtext.startswith('service'):
+            service_value, jump = extract_value_after_key(subtext, 'service', next_keys=['port', 'protocol'])
+            if service_value:
+                current_service['service'] = service_value
 
-def extract_value_from_text(text, start_keyword, value_type="string"):
+            # אחרי שהשגנו את שלושתם -> הוסף
+            if all(k in current_service for k in ('port', 'protocol', 'service')):
+                services.append(current_service)
+                current_service = {}
+
+            pos += jump
+            continue
+
+        pos += 1
+
+    return services
+
+def extract_value_after_key(text, key_name, next_keys=None):
     """
-    Extracts value after a keyword in the text.
-    :param text: The input text to search in.
-    :param start_keyword: The keyword to search for.
-    :param value_type: Type of value to extract ("string", "number").
-    :return: Extracted value.
+    Extracts the value after a key, stopping immediately if a next key starts.
     """
-    pattern = re.compile(rf"{start_keyword}[^a-zA-Z0-9]*([a-zA-Z0-9\s\.]*)")
-    match = re.search(pattern, text)
-    if match:
-        value = match.group(1).strip()
-        if value_type == "number":
-            # Extract the number only
-            number_match = re.match(r"[\d.]+", value)
-            if number_match:
-                return number_match.group(0)
-            else:
-                return None
-        return value
-    return None
+    key_pos = text.find(key_name)
+    if key_pos == -1:
+        return None, len(key_name)
+
+    after_key = text[key_pos + len(key_name):].lstrip()
+
+    # דילג על רעשים
+    while after_key and after_key[0] in [':', ' ', '\'', '"', '{', '}']:
+        after_key = after_key[1:]
+
+    value = ''
+    idx = 0
+    while idx < len(after_key):
+        subtext = after_key[idx:]
+
+        # ❗ בדוק כל הזמן אם התחלנו מילת next_key
+        if next_keys:
+            for k in next_keys:
+                if subtext.startswith(k):
+                    return value.strip(), key_pos + len(key_name) + idx
+
+        c = after_key[idx]
+        if c.isalnum() or c in ['-', '.', '/']:
+            value += c
+            idx += 1
+        else:
+            break  # פיסוק - עצור
+
+    return value.strip(), key_pos + len(key_name) + idx
+
+def extract_status_block(text_after_status, status_code):
+    """
+    Extracts all directories and their statuses after a given HTTP status code.
+    Stops when '}' or a new status code appears.
+    """
+    after_status = text_after_status[len(status_code):].lstrip()
+
+    while after_status and after_status[0] in [':', '{', ' ', '\'', '"']:
+        after_status = after_status[1:]
+
+    directories = {}
+    pos = 0
+    inside_block = True
+    status_codes = ['200', '401', '403', '404', '503']
+
+    while pos < len(after_status) and inside_block:
+        while pos < len(after_status) and after_status[pos] in [':', ' ', '\'', '"', ',']:
+            pos += 1
+        
+        if pos >= len(after_status):
+            break
+
+        # בדוק אם מתחיל קוד סטטוס חדש
+        for code in status_codes:
+            if after_status[pos:].startswith(code):
+                inside_block = False
+                break
+        if not inside_block:
+            break
+
+        if after_status[pos] == '}':
+            inside_block = False
+            break
+
+        # קריאת path
+        path = ''
+        while pos < len(after_status):
+            subtext = after_status[pos:]
+            if any(subtext.startswith(code) for code in status_codes):
+                inside_block = False
+                break
+            c = after_status[pos]
+            if c == ':':
+                pos += 1
+                break
+            if c not in ['\'', '"', ',', '{', '}']:
+                path += c
+            pos += 1
+        path = path.strip()
+
+        # ⬇️⬇️⬇️ עכשיו מייד אחרי path — קוראים את value!!
+
+        # דלג על רווחים וגרשיים
+        while pos < len(after_status) and after_status[pos] in [' ', ':', '\'', '"', '{']:
+            pos += 1
+
+        # קריאת value
+        value = ''
+        while pos < len(after_status):
+            subtext = after_status[pos:]
+            if any(subtext.startswith(code) for code in status_codes):
+                inside_block = False
+                break
+            if after_status[pos] in [',', '}', '\'', '"', ':']:
+                break
+            value += after_status[pos]
+            pos += 1
+        value = value.strip()
+
+        if path:
+            directories[path] = value
+
+        # דילוג אחרי value
+        while pos < len(after_status) and after_status[pos] in [' ', ',', ':', '\'', '"']:
+            pos += 1
+        if pos < len(after_status) and after_status[pos] == '}':
+            inside_block = False
+            break
+
+    if not directories:
+        return {"": ""}
+    return directories
 
 def print_json_parts(parts):
-    """
-    Recursively prints the contents of the JSON parts dictionary in a structured way.
-    """
     def print_dict(d, indent=0):
         for key, value in d.items():
             if isinstance(value, dict):
@@ -159,148 +337,140 @@ def print_json_parts(parts):
     print_dict(parts)
 
 def fill_json_structure(template_json, extracted_parts):
-    """
-    Fills the provided JSON template with extracted parts data, ensuring no overwriting of existing data
-    and handling edge cases (e.g., malformed JSON, missing values).
-
-    Arguments:
-    template_json -- The initial JSON structure to be filled
-    extracted_parts -- The dictionary containing the extracted parts data
-
-    Returns:
-    A filled and corrected JSON structure
-    """
-    # Initialize a clean template for the JSON (or use the existing one)
-    if not template_json:
-        template_json = initialize_blackboard()
-
-    # === Step 1: Fill "target" section ===
     target = template_json.get("target", {})
 
     if "target" in extracted_parts:
         target_data = extracted_parts["target"]
-
-        # Fill IP only if it's not already present and not empty
         if "ip" in target_data and target_data["ip"] and not target.get("ip"):
             target["ip"] = target_data["ip"]
-
-        # Fill OS only if it's not already present and not empty
         if "os" in target_data and target_data["os"] and not target.get("os"):
             target["os"] = target_data["os"]
-
-        # Ensure all the services in the extracted data are added
         if "services" in target_data and target_data["services"]:
             existing_services = {
                 (s["port"], s["protocol"], s["service"]) for s in target.get("services", [])
             }
             for service in target_data["services"]:
                 if not service.get("port") or not service.get("protocol") or not service.get("service"):
-                    continue  # skip incomplete or empty services
+                    continue
                 service_tuple = (service["port"], service["protocol"], service["service"])
                 if service_tuple not in existing_services:
                     target.setdefault("services", []).append(service)
 
     template_json["target"] = target
 
-    # === Step 2: Fill "web_directories_status" section ===
     web_directories_status = template_json.get("web_directories_status", {})
 
     if "web_directories_status" in extracted_parts:
         wds_data = extracted_parts["web_directories_status"]
-
         for status, directories in wds_data.items():
             if status not in web_directories_status:
                 web_directories_status[status] = {}
             for directory, value in directories.items():
-                # Remove unnecessary escape characters like ""/admin""
                 directory = directory.strip('"')
                 value = value.strip('"')
-
-                # Add directory only if it doesn't already exist
                 if directory and directory not in web_directories_status[status]:
                     web_directories_status[status][directory] = value
 
     template_json["web_directories_status"] = web_directories_status
 
-    # === Step 3: Correct malformed structures (handling edge cases) ===
     for section in ["target", "web_directories_status"]:
-        if section in template_json:
-            if section == "target":
-                if not template_json["target"].get("services"):
-                    template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]
-            if section == "web_directories_status":
-                for status in ["200", "401", "403", "404", "503"]:
-                    if status not in template_json["web_directories_status"]:
-                        template_json["web_directories_status"][status] = {}
+        if section == "target" and not template_json["target"].get("services"):
+            template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]
+        if section == "web_directories_status":
+            for status in ["200", "401", "403", "404", "503"]:
+                if status not in template_json["web_directories_status"]:
+                    template_json["web_directories_status"][status] = {}
 
-    # === Step 4: Remove empty services and empty directories ===
     final_json = remove_empty_services(template_json)
     final_json = clean_empty_directories_status(final_json)
 
     return final_json
 
 def remove_empty_services(template_json):
-    """
-    Removes any services with empty values in the "services" list inside "target".
-    
-    Arguments:
-    template_json -- The JSON structure that contains the "target" section
-    
-    Returns:
-    The updated JSON structure with empty services removed
-    """
-    # Check if the 'target' and 'services' keys exist
     if "target" in template_json and "services" in template_json["target"]:
-        # Filter out any service where any of the fields are empty
         template_json["target"]["services"] = [
             service for service in template_json["target"]["services"]
             if service.get("port") and service.get("protocol") and service.get("service")
         ]
-    
     return template_json
 
 def clean_empty_directories_status(json_data):
-    """
-    This function checks the 'web_directories_status' section in the full JSON data.
-    If there are no directories (empty dictionary), it ensures that the entry with an empty key (": "") is present.
-    If there are directories, it removes the entry with the empty key if it exists, and removes any additional occurrences of it.
-    
-    Arguments:
-    json_data -- The full JSON data containing 'web_directories_status' among other parts
-    
-    Returns:
-    json_data -- The updated JSON data with cleaned 'web_directories_status'
-    """
-    
-    # Check if 'web_directories_status' exists in the json_data
     if "web_directories_status" in json_data:
         web_directories_status = json_data["web_directories_status"]
-        
-        # Loop over each status in web_directories_status
         for status, directories in web_directories_status.items():
-            # Remove any occurrences of "": "" from the directories
             if "" in directories:
-                del directories[""]  # Remove the empty key entry
-
-            # If the status contains directories, we don't need to add an empty key
-            if not directories:  # If no directories exist
-                # Ensure that the empty key "" is present if no directories
-                directories[""] = ""  # Add the empty key with empty value
-    
+                del directories[""]
+            if not directories:
+                directories[""] = ""
     return json_data
 
+
 def fix_json(state: dict, new_data):
-    parts = extract_json_parts(new_data)
+    parts, missing = extract_json_parts(new_data)
     if parts:
         print("✅ JSON extracted successfully.")
         print_json_parts(parts)
     else:
         print("❌ Failed to extract valid JSON.")
     
-    # Fill the JSON structure
+    if missing:
+        print("❗ Missing categories/subfields detected:")
+        print(json.dumps(missing, indent=2))
+
     filled_json = fill_json_structure(state, parts)
-
-    # Print result
     print(json.dumps(filled_json, indent=2))
-
     return filled_json
+
+state = """
+{
+  "target": {
+    "ip": "192.168.56.101",
+    "os": "",
+    "services": [
+      {
+        "port": "",
+        "protocol": "",
+        "service": ""
+      },
+      {
+        "port": "",
+        "protocol": "",
+        "service": ""
+      },
+      {
+        "port": "",
+        "protocol": "",
+        "service": ""
+      }
+    ]
+  },
+  "web_directories_status": {
+    "404": {
+      "": ""
+    },
+    "200": {
+      "": ""
+    },
+    "403": {
+      "": ""
+    },
+    "401": {
+      "": ""
+    },
+    "503": {
+      "": ""
+    }
+  },
+  "actions_history": [],
+  "cpes": [],
+  "vulnerabilities_found": [],
+  "failed_CVEs": []
+}
+"""
+
+new_data = """
+target'''osLinuxservices' 'port '21, 'protocoltcp', 'service': 'ftpport': '22', 'protocol': 'tcp', 'service': 'ssh'}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet'}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp'}, {'port': '53', 'protocol': 'tcp', 'service': 'domain'}, {'port': '80', 'protocol': 'tcp', 'service': 'http'}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind'}, {'port': '445', 'protocol': 'tcp', 'service': 'netbios-ssn'}, {'port': '512', 'protocol': 'tcp', 'service': 'exec'}, {'port': '513', 'protocol': 'tcp', 'service': 'login'}, {'port': '1099', 'protocol': 'tcp', 'service': 'java-rmi'}, {'port': '1524', 'protocol': 'tcp', 'service': 'bindshell'}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs'}, {'port': '2121', 'protocol': 'tcp', 'service': 'ftp'}, {'port': '3306', 'protocol': 'tcp', 'service': 'mysql'}, {'port': '5432', 'protocol': 'tcp', 'service': 'postgresql'}, {'port': '5900', 'protocol': 'tcp', 'service': 'vnc'}, {'port': '6000', 'protocol': 'tcp', 'service': 'x11'}, {'port': '6667', 'protocol': 'tcp', 'service': 'ircweb_directories_status': {'200': {'abc': '123'}, '401': {'aaa': '111403': {'': ''},  ''}, '503': {'nn': 'dfg
+"""
+
+if __name__ == "__main__":
+    fix_json(json.loads(state), new_data)

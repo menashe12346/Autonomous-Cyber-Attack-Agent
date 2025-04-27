@@ -174,7 +174,7 @@ def main():
         )
 
         # --- Register Agents ---
-        agents = [recon_agent, vuln_agent, exploit_agent]
+        agents = [recon_agent] # , vuln_agent, exploit_agent
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
