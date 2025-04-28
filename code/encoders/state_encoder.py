@@ -3,6 +3,7 @@ import json
 import torch
 import numbers
 import numpy as np
+import hashlib
 
 class StateEncoder:
     """
@@ -77,23 +78,42 @@ class StateEncoder:
         vector = torch.tensor(encoded_values, dtype=torch.float32)
 
         # Store reverse mapping for debug and reward tracking
-        vector_key = str(vector.tolist())
-        self.encoded_to_state[vector_key] = state
+        vector_key = self._vector_to_key(vector)
+        if vector_key not in self.encoded_to_state:
+            self.encoded_to_state[vector_key] = state
 
         print(f"[Encoder] Encoded vector of length {len(encoded_values)} (state + history)")
         return vector
 
-    def decode(self, vector_key: str) -> dict:
+    def decode(self, vector: torch.Tensor) -> dict:
         """
         Retrieves the original state dictionary corresponding to a previously encoded vector.
 
         Args:
-            vector_key (str): The stringified vector key.
+            vector (torch.Tensor): The encoded vector.
 
         Returns:
             dict: The original blackboard state (if exists).
         """
+        vector_key = self._vector_to_key(vector)
         return self.encoded_to_state.get(vector_key, {})
+    
+    def _vector_to_key(self, vector: torch.Tensor) -> str:
+        """
+        Generates a stable and unique key from a torch tensor
+        by hashing its raw bytes. Ensures compatibility across CPU/GPU.
+
+        Args:
+            vector (torch.Tensor): Input tensor to hash.
+
+        Returns:
+            str: A unique hash key representing the tensor.
+        """
+        if vector.is_cuda:
+            vector = vector.cpu()
+        vector_bytes = vector.numpy().tobytes()
+        return hashlib.md5(vector_bytes).hexdigest()
+
 
     def _flatten_state(self, obj, prefix='') -> dict:
         """

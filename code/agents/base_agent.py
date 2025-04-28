@@ -49,8 +49,9 @@ class BaseAgent(ABC):
         self.epsilon = epsilon
         self.actions_history = []
         self.last_state = None
+        self.encoded_last_state = None
         self.last_action = None
-        self.llm_cache = LLMCache(state_encoder=state_encoder)
+        self.llm_cache = LLMCache()
         self.command_llm_cache = CommandLLMCache()
  
     @abstractmethod
@@ -79,6 +80,8 @@ class BaseAgent(ABC):
         state = dict(self.get_state_raw())
         encoded_state = self.state_encoder.encode(state, self.actions_history)
         self.last_state = state
+        self.encoded_last_state = encoded_state
+        print(f"encoded_state: {encoded_state}")
 
         # [DEBUG]
         print(f"last state: {json.dumps(state, indent=2)}")
@@ -108,10 +111,7 @@ class BaseAgent(ABC):
 
         # Step 5: parse, validate and update blackboard
         parsed_info = self.parse_output(cleaned_output)
-        print(f"parsed_info - {parsed_info}")
-
-        parsed_info = self.check_state(parsed_info)
-        print(type(parsed_info))
+        #print(f"parsed_info - {parsed_info}")
 
         self.blackboard_api.update_state(self.name, parsed_info)
 
@@ -121,9 +121,9 @@ class BaseAgent(ABC):
 
         # Step 7: reward and update model
         reward = self.get_reward(encoded_state, action, encoded_next_state)
-        print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
+        #print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
-        #self.actions_history.append(action)
+        self.actions_history.append(action)
 
         experience = {
             "state": encoded_state,
@@ -209,7 +209,7 @@ class BaseAgent(ABC):
 
         state = self.get_state_raw()
 
-        cached = self.llm_cache.get(state, self.last_action)
+        cached = self.llm_cache.get(self.last_action)
         if cached:
             print("\033[93m[CACHE] Using cached LLM result.\033[0m")
             return cached
@@ -219,9 +219,6 @@ class BaseAgent(ABC):
             "web_directories_status": None
         }
         remove_untrained_categories(state, trained_categories)
-
-        # [DEBUG]
-        print(f"state full: {state}")
 
         cached_inner_prompt = self.command_llm_cache.get(self.last_action)
         if cached_inner_prompt:
@@ -250,12 +247,14 @@ class BaseAgent(ABC):
         print(f"full_response - {full_response}")
 
         parsed = fix_json(self.last_state, full_response)
+        parsed = self.check_state(parsed)
+
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
 
         if parsed:
-            self.llm_cache.set(state, self.last_action, parsed)
+            self.llm_cache.set(self.last_action, parsed)
 
         return parsed
 

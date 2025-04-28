@@ -95,9 +95,7 @@ def verify_web_directories(ip: str, web_dirs: dict) -> dict:
             status_code, reason = cached_result
             if status_code in verified:
                 verified[status_code][path] = reason
-            else:
-                verified["404"][path] = reason or "Unknown"
-
+                
     verified = clean_web_directories(verified)
     return verified
 

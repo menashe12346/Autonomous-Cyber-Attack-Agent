@@ -8,6 +8,7 @@ from config import EXPECTED_STATUS_CODES, VALID_PROTOCOLS
 from blackboard.blackboard import initialize_blackboard
 
 EXPECTED_STRUCTURE = initialize_blackboard()
+EXPECTED_STRUCTURE["target"].pop("ip",None)
 
 def find_missing_categories(parsed_parts, expected_structure):
     missing = {}
@@ -55,7 +56,6 @@ def extract_json_parts(new_data):
 
     missing = find_missing_categories(parts, EXPECTED_STRUCTURE)
     return parts, missing
-
 
 def extract_target_data(target_text):
     #print(target_text)

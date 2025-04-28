@@ -1,56 +1,60 @@
-import os
-import pickle
-
 from config import LLM_CACHE_PATH
+import os
+import json
+from typing import Dict, Any, List
 
 class LLMCache:
     """
-    Caches LLM outputs to avoid redundant processing for identical state-action pairs.
+    Simple cache: stores action -> parsed result.
     """
 
-    def __init__(self, cache_file=LLM_CACHE_PATH, state_encoder=None):
+    def __init__(self, cache_file: str = LLM_CACHE_PATH):
         self.cache_file = cache_file
-        self.state_encoder = state_encoder
         self.cache = self._load_cache()
 
-    def _load_cache(self):
-        """
-        Loads the cache from disk if it exists.
-        """
+    def _load_cache(self) -> List[Dict[str, Any]]:
         if os.path.exists(self.cache_file):
-            with open(self.cache_file, "rb") as f:
-                return pickle.load(f)
-        return {}
+            with open(self.cache_file, "r", encoding="utf-8") as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    print("[!] Cache file is corrupted. Starting fresh.")
+                    return []
+        return []
 
-    def _save_cache(self):
-        """
-        Saves the current cache dictionary to disk.
-        """
-        with open(self.cache_file, "wb") as f:
-            pickle.dump(self.cache, f)
+    def _save_cache(self) -> None:
+        os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
+        with open(self.cache_file, "w", encoding="utf-8") as f:
+            json.dump(self.cache, f, indent=2, ensure_ascii=False)
 
-    def _get_key(self, state_dict, actions_history, action_str):
+    def get(self, action: str) -> Any:
         """
-        Generates a unique key for the cache based on:
-        - the encoded state (including action history)
-        - the current action string
+        Looks for an exact action.
+        Returns parsed result if found, else None.
         """
-        vector = self.state_encoder.encode(state_dict, actions_history)
-        vector_key = str(vector.tolist())
-        return f"{vector_key}||{action_str}"
+        for entry in self.cache:
+            if entry["action"] == action:
+                return entry["parsed"]
+        return None
 
-    def get(self, state_dict, action_str, actions_history=[]):
+    def set(self, action: str, parsed: Any) -> None:
         """
-        Retrieves a cached result based on the state, history, and action.
-        Returns None if no cached result exists.
+        Saves a new (action, parsed) entry if it does not exist yet.
         """
-        key = self._get_key(state_dict, actions_history, action_str)
-        return self.cache.get(key)
+        if not self.get(action):
+            self.cache.append({
+                "action": action,
+                "parsed": parsed
+            })
+            self._save_cache()
 
-    def set(self, state_dict, action_str, value, actions_history=[]):
+    def debug_print(self):
         """
-        Stores a result in the cache for a specific state and action.
+        Prints all entries in the cache for debugging.
         """
-        key = self._get_key(state_dict, actions_history, action_str)
-        self.cache[key] = value
-        self._save_cache()
+        print("\n=== Cache Entries ===")
+        for entry in self.cache:
+            print(f"Action: {entry['action']}")
+            print(f"Parsed: {json.dumps(entry['parsed'], indent=2)}")
+            print("---------------------")
+        print("======================\n")

@@ -9,7 +9,7 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             #"ping -c 1 {ip}"
         ],
         "nmap": [
-            #"nmap -F {ip}",
+            "nmap -F {ip}",
             "nmap {ip}"
         ],
         "curl": [
@@ -26,7 +26,7 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             #"whatweb http://{ip}"
         ],
         "gobuster": [
-           # "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ]
     },
 

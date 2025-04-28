@@ -18,7 +18,7 @@ WORDLISTS = {
 }
 
 # LLM cache path
-LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.pkl"
+LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.json"
 
 # command LLM cache path
 COMMAND_LLM_PATH = f"{PROJECT_PATH}/project/code/Cache/command_llm_cache.pkl"
@@ -69,7 +69,7 @@ VALID_PROTOCOLS = {"tcp", "udp"}
 
 # סטטוסים מצופים לדפי Web
 EXPECTED_STATUS_CODES = [
-    "200", "301", "302", "307", "401", "403", "404", "500", "502", "503", "504"
+    "200", "301", "302", "307", "401", "403", "500", "502", "503", "504"
 ]
 
 # מבנה ברירת מחדל ל-web_directories_status

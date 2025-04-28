@@ -302,5 +302,62 @@
   "url_check:http://192.168.56.101/counter": [
     "404",
     "Not Found"
+  ],
+  "url_check:http://192.168.56.101/contact.html": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/under_construction": [
+    "404",
+    "Not Found"
+  ],
+  "port_open:192.168.56.101:5901": null,
+  "url_check:http://192.168.56.101/phpMyAdmin/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/phpinfo.php": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/phpinfo": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/test/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/twiki/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/dav/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/.htaccess": [
+    "403",
+    "Forbidden"
+  ],
+  "url_check:http://192.168.56.101/.hta": [
+    "403",
+    "Forbidden"
+  ],
+  "url_check:http://192.168.56.101/.htpasswd": [
+    "403",
+    "Forbidden"
+  ],
+  "url_check:http://192.168.56.101/cgi-bin/": [
+    "403",
+    "Forbidden"
+  ],
+  "url_check:http://192.168.56.101/dav": [
+    "301",
+    "Moved Permanently"
+  ],
+  "url_check:http://192.168.56.101/server-status": [
+    "403",
+    "Forbidden"
   ]
 }

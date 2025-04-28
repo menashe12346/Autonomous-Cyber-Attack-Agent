@@ -140,7 +140,8 @@ class ReconAgent(BaseAgent):
             prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
             next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
             new_services = next_services - prev_services
-
+            print(f"prev_dirs: {prev_services}")
+            print(f"next_dirs: {next_services}")
             for port, protocol, service in new_services:
                 if port:  # אם יש פורט פתוח
                     reward += 1.0
@@ -162,8 +163,6 @@ class ReconAgent(BaseAgent):
                     if path.strip()  # מתעלם ממחרוזות ריקות
                 )
 
-            print(f"prev_dirs: {prev_dirs}")
-            print(f"next_dirs: {next_dirs}")
             new_dirs = next_dirs - prev_dirs
             reward += 0.5 * len(new_dirs)
             if new_dirs:
