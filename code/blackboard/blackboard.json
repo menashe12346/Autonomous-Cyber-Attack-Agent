@@ -1,137 +1,36 @@
 {
   "target": {
     "ip": "192.168.56.101",
-    "os": "Linux",
+    "os": "",
     "services": [
       {
-        "port": "21",
-        "protocol": "tcp",
-        "service": "ftp"
+        "port": "",
+        "protocol": "",
+        "service": ""
       },
       {
-        "port": "22",
-        "protocol": "tcp",
-        "service": "ssh"
+        "port": "",
+        "protocol": "",
+        "service": ""
       },
       {
-        "port": "23",
-        "protocol": "tcp",
-        "service": "telnet"
-      },
-      {
-        "port": "25",
-        "protocol": "tcp",
-        "service": "smtp"
-      },
-      {
-        "port": "53",
-        "protocol": "tcp",
-        "service": "domain"
-      },
-      {
-        "port": "80",
-        "protocol": "tcp",
-        "service": "http"
-      },
-      {
-        "port": "111",
-        "protocol": "tcp",
-        "service": "rpcbind"
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "netbios-ssn"
-      },
-      {
-        "port": "512",
-        "protocol": "tcp",
-        "service": "exec"
-      },
-      {
-        "port": "1524",
-        "protocol": "tcp",
-        "service": "bindshell"
-      },
-      {
-        "port": "2049",
-        "protocol": "tcp",
-        "service": "nfs"
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ftp"
-      },
-      {
-        "port": "3306",
-        "protocol": "tcp",
-        "service": "mysql"
-      },
-      {
-        "port": "5432",
-        "protocol": "tcp",
-        "service": "postgresql"
-      },
-      {
-        "port": "5900",
-        "protocol": "tcp",
-        "service": "vnc"
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "x11"
-      },
-      {
-        "port": "6667",
-        "protocol": "tcp",
-        "service": "irc"
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "netbios-ssn"
-      },
-      {
-        "port": "513",
-        "protocol": "tcp",
-        "service": "login"
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ftp"
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "x11"
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "netbios-ssn"
-      },
-      {
-        "port": "1524",
-        "protocol": "tcp",
-        "service": "bindshell"
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ftp"
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "x11"
+        "port": "",
+        "protocol": "",
+        "service": ""
       }
     ]
   },
   "web_directories_status": {
     "200": {
+      "": ""
+    },
+    "301": {
+      "": ""
+    },
+    "302": {
+      "": ""
+    },
+    "307": {
       "": ""
     },
     "401": {
@@ -143,15 +42,17 @@
     "404": {
       "": ""
     },
+    "500": {
+      "": ""
+    },
+    "502": {
+      "": ""
+    },
     "503": {
       "": ""
+    },
+    "504": {
+      "": ""
     }
-  },
-  "actions_history": [
-    "nmap 192.168.56.101",
-    "nmap 192.168.56.101"
-  ],
-  "cpes": [],
-  "vulnerabilities_found": [],
-  "failed_CVEs": []
+  }
 }

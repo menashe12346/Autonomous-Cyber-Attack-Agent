@@ -1,62 +1,14 @@
-def initialize_blackboard():
-    """
-    Returns a new initialized blackboard dictionary with empty/default values.
+from config import DEFAULT_TARGET_STRUCTURE, DEFAULT_WEB_DIRECTORIES_STATUS
 
-    Structure includes:
-    - target information (IP, OS, services)
-    - web directory status categorized by HTTP status codes
-    - action history (agent logs, to be extended by API)
+def initialize_blackboard(target_ip: str = ""):
+    blackboard = {}
+    initialize_target(blackboard, target_ip)
+    initialize_web_directories_status(blackboard)
+    return blackboard
 
-    Returns:
-        dict: Initialized blackboard structure
-    """
-    return {
-        "target": {
-            "ip": "",
-            #"is_up": "",
-            #"hostname": "",
-            "os": "",
-            #"kernel_version": "",
-            "services": [
-                {"port": "", "protocol": "", "service": ""},
-                {"port": "", "protocol": "", "service": ""},
-                {"port": "", "protocol": "", "service": ""}
-            ],
-            #"dns_records": []
-        },
-        "web_directories_status": {
-            "200": {
-            "": ""
-            },
-            "401": {
-            "": ""
-            },
-            "403": {
-            "": ""
-            },
-            "404": {
-            "": ""
-            },
-            "503": {
-            "": ""
-            }
-        },
-        "actions_history": [],
-        "cpes": [],
-        "vulnerabilities_found": [],
-        "failed_CVEs": []
-    }
+def initialize_target(blackboard, target_ip):
+    blackboard["target"] = DEFAULT_TARGET_STRUCTURE.copy()
+    blackboard["target"]["ip"] = target_ip or ""
 
-         """
-            "200": { "": "" },
-            "301": { "": "" },
-            "302": { "": "" },
-            "307": { "": "" },
-            "401": { "": "" },
-            "403": { "": "" },
-            "404": { "": "" },
-            "500": { "": "" }
-            "502": { "": "" }
-            "503": { "": "" }
-            "504": { "": "" }
-            """
+def initialize_web_directories_status(blackboard):
+    blackboard["web_directories_status"] = DEFAULT_WEB_DIRECTORIES_STATUS.copy()

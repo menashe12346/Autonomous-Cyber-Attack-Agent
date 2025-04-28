@@ -1,5 +1,7 @@
 import torch
 import os
+import urllib.parse
+
 from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH, EXPLOIT_DATASET
 
 from blackboard.blackboard import initialize_blackboard
@@ -31,7 +33,6 @@ from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset impor
 from create_datasets.create_exploit_dataset.create_metasploit_dataset import create_metasploit_dataset
 from create_datasets.create_exploit_dataset.download_metasploit import download_metasploit
 from create_datasets.create_exploit_dataset.create_full_exploit_dataset import merge_exploit_datasets
-import urllib.parse
 
 def strip_file_scheme(path):
     if path.startswith("file://"):
@@ -113,9 +114,8 @@ def main():
     state_encoder = StateEncoder(action_space=action_space)
 
     # Policy Model
-    state_size = 128
     action_size = len(action_space)
-    policy_model = PolicyModel(state_size=state_size, action_size=action_size)
+    policy_model = PolicyModel(state_size=1024, action_size=action_size)
 
     # Move to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -138,8 +138,8 @@ def main():
         print(f"\n========== EPISODE {episode + 1} ==========")
 
         # --- Initialize Blackboard ---
-        blackboard_dict = initialize_blackboard()
-        blackboard_dict["target"]["ip"] = TARGET_IP
+        blackboard_dict = initialize_blackboard(TARGET_IP)
+        #blackboard_dict["target"]["ip"] = TARGET_IP
         bb_api = BlackboardAPI(blackboard_dict)
 
         # --- Create Recon Agent ---

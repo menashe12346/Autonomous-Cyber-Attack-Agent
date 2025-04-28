@@ -10,7 +10,7 @@ class StateEncoder:
     suitable for use as input to neural networks.
     """
 
-    def __init__(self, action_space: list, max_features: int = 128):
+    def __init__(self, action_space: list, max_features: int = 1024):
         """
         Args:
             action_space (list): List of all valid action strings.
@@ -133,7 +133,11 @@ class StateEncoder:
         elif isinstance(obj, numbers.Number):
             items[prefix] = float(obj)
         elif isinstance(obj, str):
-            items[prefix] = self.base100_encode(obj)
+            # אם המחרוזת היא רק מספרים (למשל "445")
+            if obj.isdigit():
+                items[prefix] = float(obj)
+            else:
+                items[prefix] = self.base100_encode(obj)
         else:
             items[prefix] = 0.0
 
@@ -166,3 +170,75 @@ class StateEncoder:
             else:
                 return min(value / 1e6, 1.0)
         return 0.0
+
+def main():
+    # Define two different blackboard states
+    state1 = {
+        "target": {
+            "ip": "",
+            "os": "",
+            "services": [
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "445", "protocol": "tcp", "service": "smb"},
+            ]
+        },
+        "web_directories_status": {
+            "200": {"": ""},
+            "404": {"": ""}
+        },
+        "actions_history": ["nmap 192.168.1.20", "gobuster 192.168.1.20"]
+    }
+
+    state2 = {
+        "target": {
+            "ip": "",
+            "os": "",
+            "services": [
+                {"port": "", "protocol": "", "service": ""},
+                {"port": "666", "protocol": "tcp", "service": "smb"},
+            ]
+        },
+        "web_directories_status": {
+            "200": {"": ""},
+            "403": {"": ""}
+        },
+        "actions_history": ["nmap 192.168.1.20", "gobuster 192.168.1.20"]
+    }
+
+    # Define action space
+    action_space = [
+        "nmap 192.168.1.10",
+        "gobuster 192.168.1.10",
+        "nmap 192.168.1.20",
+        "gobuster 192.168.1.20"
+    ]
+    #torch.set_printoptions(threshold=torch.inf)
+    # Create StateEncoder instance
+    encoder = StateEncoder(action_space=action_space, max_features=1024)
+
+    # Encode the states
+    encoded_state1 = encoder.encode(state1, state1["actions_history"])
+    encoded_state2 = encoder.encode(state2, state2["actions_history"])
+
+    # Print the encoded vectors
+    print("\n=== Encoded State 1 ===")
+    print(encoded_state1)
+
+    print("\n=== Encoded State 2 ===")
+    print(encoded_state2)
+
+    # Calculate and print the difference
+    difference = (encoded_state2 - encoded_state1).abs()
+    print("\n=== Difference (absolute) ===")
+    print(difference)
+
+    # Optional: Highlight only where differences are nonzero
+    nonzero_indices = torch.nonzero(difference).squeeze().tolist()
+    if isinstance(nonzero_indices, int):
+        nonzero_indices = [nonzero_indices]
+
+    print("\n=== Indices with Differences ===")
+    print(nonzero_indices)
+
+if __name__ == "__main__":
+    main()

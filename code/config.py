@@ -20,6 +20,9 @@ WORDLISTS = {
 # LLM cache path
 LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.pkl"
 
+# command LLM cache path
+COMMAND_LLM_PATH = f"{PROJECT_PATH}/project/code/Cache/command_llm_cache.pkl"
+
 # NVD cve dataset path
 CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/nvd_cve_dataset.json"
 
@@ -48,3 +51,26 @@ METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploi
 METASPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit-framework"
 
 EXPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/full_exploit_dataset.json"
+
+# STATE CONFIGURATION #
+
+# מבנה ה-Target
+DEFAULT_TARGET_STRUCTURE = {
+    "ip": "",
+    "os": "",
+    "services": [
+        {"port": "", "protocol": "", "service": ""},
+        {"port": "", "protocol": "", "service": ""},
+        {"port": "", "protocol": "", "service": ""}
+    ]
+}
+
+VALID_PROTOCOLS = {"tcp", "udp"}
+
+# סטטוסים מצופים לדפי Web
+EXPECTED_STATUS_CODES = [
+    "200", "301", "302", "307", "401", "403", "404", "500", "502", "503", "504"
+]
+
+# מבנה ברירת מחדל ל-web_directories_status
+DEFAULT_WEB_DIRECTORIES_STATUS = {code: {"": ""} for code in EXPECTED_STATUS_CODES}

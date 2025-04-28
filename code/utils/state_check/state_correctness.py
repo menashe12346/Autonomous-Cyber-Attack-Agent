@@ -2,7 +2,7 @@ import subprocess
 import re
 import json
 from utils.utils import remove_comments_and_empty_lines
-from config import TARGET_IP
+from config import TARGET_IP, EXPECTED_STATUS_CODES
 from utils.state_check.state_validator import clean_web_directories
 from utils.utils import run_command
 from utils.state_check.correctness_cache import CorrectnessCache
@@ -64,7 +64,7 @@ def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
     cache.set(key, final_os)
     return final_os
 
-EXPECTED_CODES = ["200", "401", "403", "404", "503"]
+EXPECTED_CODES = EXPECTED_STATUS_CODES
 def verify_web_directories(ip: str, web_dirs: dict) -> dict:
     verified = {code: {} for code in EXPECTED_CODES}
 

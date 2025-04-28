@@ -1,7 +1,5 @@
 import re
-
-VALID_PROTOCOLS = {"tcp", "udp"}
-EXPECTED_WEB_CODES = ["200", "401", "403", "404", "503"]
+from config import EXPECTED_STATUS_CODES, VALID_PROTOCOLS
 
 def ensure_structure(state: dict) -> dict:
     """
@@ -19,7 +17,7 @@ def ensure_structure(state: dict) -> dict:
     ]
 
     state.setdefault("web_directories_status", {})
-    for code in EXPECTED_WEB_CODES:
+    for code in EXPECTED_STATUS_CODES:
         state["web_directories_status"].setdefault(code, {"": ""})
 
     return state
@@ -69,9 +67,8 @@ def clean_web_directories(web_dirs: dict) -> dict:
     - תמיד מחזיר את כל חמשת הקטגוריות: 200, 401, 403, 404, 503.
     """
     cleaned = {}
-    expected_codes = ["200", "401", "403", "404", "503"]
 
-    for code in expected_codes:
+    for code in EXPECTED_STATUS_CODES:
         entries = web_dirs.get(code, {})
         valid_paths = {}
 
@@ -98,7 +95,7 @@ def truncate_lists(state: dict, max_services=100, max_paths_per_status=100) -> d
     מגביל את האורך של services ונתיבי web.
     """
     state["target"]["services"] = state["target"]["services"][:max_services]
-    for code in EXPECTED_WEB_CODES:
+    for code in EXPECTED_STATUS_CODES:
         entries = state["web_directories_status"].get(code, {})
         limited = dict(list(entries.items())[:max_paths_per_status])
         state["web_directories_status"][code] = limited

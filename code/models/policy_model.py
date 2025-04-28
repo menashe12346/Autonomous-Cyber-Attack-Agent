@@ -8,14 +8,14 @@ class PolicyModel(nn.Module):
     Maps input state vectors to Q-values for each action.
     """
 
-    def __init__(self, state_size, action_size, hidden_sizes=[128, 64], learning_rate=1e-3, gamma=0.99):
+    def __init__(self, state_size, action_size, hidden_sizes=[512, 256, 128], learning_rate=1e-3, gamma=0.99):
         """
         Initialize the Q-network.
 
         Args:
             state_size (int): Size of the input state vector.
             action_size (int): Number of possible actions.
-            hidden_sizes (list): List of hidden layer sizes (default: [128, 64]).
+            hidden_sizes (list): List of hidden layer sizes (default: [512, 256, 128]).
             learning_rate (float): Learning rate for the optimizer.
             gamma (float): Discount factor for future rewards.
         """
@@ -25,9 +25,16 @@ class PolicyModel(nn.Module):
         self.action_size = action_size
         self.gamma = gamma
 
-        self.fc1 = nn.Linear(state_size, hidden_sizes[0])
-        self.fc2 = nn.Linear(hidden_sizes[0], hidden_sizes[1])
-        self.output = nn.Linear(hidden_sizes[1], action_size)
+        # Dynamically build hidden layers
+        layers = []
+        input_dim = state_size
+        for hidden_dim in hidden_sizes:
+            layers.append(nn.Linear(input_dim, hidden_dim))
+            layers.append(nn.ReLU())
+            input_dim = hidden_dim
+        layers.append(nn.Linear(input_dim, action_size))
+
+        self.network = nn.Sequential(*layers)
 
         self.loss_fn = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -48,9 +55,7 @@ class PolicyModel(nn.Module):
         if state_vector.ndim == 1:
             state_vector = state_vector.unsqueeze(0)  # Add batch dimension
 
-        x = F.relu(self.fc1(state_vector))
-        x = F.relu(self.fc2(x))
-        return self.output(x)  # Raw Q-values
+        return self.network(state_vector)  # Raw Q-values
 
     def predict_best_action(self, state_vector):
         """
@@ -64,7 +69,7 @@ class PolicyModel(nn.Module):
         """
         with torch.no_grad():
             q_values = self.forward(state_vector)
-            return torch.argmax(q_values).item()
+            return torch.argmax(q_values, dim=1).item()
 
     def update(self, experience):
         """
@@ -76,10 +81,15 @@ class PolicyModel(nn.Module):
         Returns:
             tuple: (predicted_q_value, loss_value)
         """
-        state = experience["state"].clone().detach().unsqueeze(0)
+        state = experience["state"]
         action = torch.tensor([experience["action"]], dtype=torch.long)
         reward = torch.tensor([experience["reward"]], dtype=torch.float32)
-        next_state = experience["next_state"].clone().detach().unsqueeze(0)
+        next_state = experience["next_state"]
+
+        if state.ndim == 1:
+            state = state.unsqueeze(0)
+        if next_state.ndim == 1:
+            next_state = next_state.unsqueeze(0)
 
         # Q(s, a)
         q_values = self.forward(state)
@@ -91,7 +101,6 @@ class PolicyModel(nn.Module):
 
         # TD Target
         td_target = reward + self.gamma * max_next_q_value
-        td_target = td_target.view(-1)
 
         # Loss = MSE(Q, TD_target)
         loss = self.loss_fn(q_value, td_target)

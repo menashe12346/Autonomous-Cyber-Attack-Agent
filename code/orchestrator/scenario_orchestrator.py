@@ -1,3 +1,5 @@
+from blackboard.blackboard import initialize_blackboard
+
 class ScenarioOrchestrator:
     """
     Manages the execution of a penetration testing scenario.
@@ -39,24 +41,7 @@ class ScenarioOrchestrator:
         self.active = True
 
         # Initialize target structure
-        self.blackboard.blackboard["target"] = {
-            "ip": self.target,
-            "os": "",
-            "services": [
-                {"port": "", "protocol": "", "service": ""},
-                {"port": "", "protocol": "", "service": ""},
-                {"port": "", "protocol": "", "service": ""}
-            ]
-        }
-
-        # Initialize web directory status with all status codes
-        self.blackboard.blackboard["web_directories_status"] = {
-            "404": { "": "" },
-            "200": { "": "" },
-            "403": { "": "" },
-            "401": { "": "" },
-            "503": { "": "" }
-        }
+        self.blackboard.blackboard = initialize_blackboard(self.target)
 
         print(f"[+] Starting scenario: {self.scenario_name}")
 

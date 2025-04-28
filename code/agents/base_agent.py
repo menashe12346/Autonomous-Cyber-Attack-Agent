@@ -5,13 +5,14 @@ import torch
 from abc import ABC, abstractmethod
 
 from Cache.llm_cache import LLMCache
+from Cache.commandLLM_cache import CommandLLMCache
 
 from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
-from utils.utils import remove_comments_and_empty_lines, extract_json_block, one_line
+from utils.utils import remove_comments_and_empty_lines, one_line
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
+from utils.state_check.state_sorting import sort_state
 from utils.json_fixer import fix_json
-from blackboard.blackboard import initialize_blackboard
 
 def remove_untrained_categories(state: dict, trained_categories: dict):
     # מחיקת קטגוריות ראשיות לא מאומנות
@@ -50,7 +51,8 @@ class BaseAgent(ABC):
         self.last_state = None
         self.last_action = None
         self.llm_cache = LLMCache(state_encoder=state_encoder)
-
+        self.command_llm_cache = CommandLLMCache()
+ 
     @abstractmethod
     def should_run(self) -> bool:
         """
@@ -121,7 +123,7 @@ class BaseAgent(ABC):
         reward = self.get_reward(encoded_state, action, encoded_next_state)
         print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
-        self.actions_history.append(action)
+        #self.actions_history.append(action)
 
         experience = {
             "state": encoded_state,
@@ -195,11 +197,16 @@ class BaseAgent(ABC):
 
         self.command_cache[action] = output
         return output
-
-    def parse_output(self, command_output: str) -> dict:
+        
+    def parse_output(self, command_output: str, retries: int = 3) -> dict:
         """
         Parse command output using the LLM. Use cache if available.
+        Retry recursively if the model response is too short.
         """
+        if retries == 0:
+            print("[✗] Reached maximum retries. Returning last known good state.")
+            return self.get_state_raw()
+
         state = self.get_state_raw()
 
         cached = self.llm_cache.get(state, self.last_action)
@@ -208,28 +215,45 @@ class BaseAgent(ABC):
             return cached
 
         trained_categories = {
-            "target": {"os", "services"},  # מתוך target ניקח רק os ו-services
-            "web_directories_status": None  # כל מה שבתוך web_directories_status מותר
+            "target": {"os", "services"},
+            "web_directories_status": None
         }
         remove_untrained_categories(state, trained_categories)
-        
+
         # [DEBUG]
         print(f"state full: {state}")
 
-        prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-        inner_prompt = self.model.run([prompt_for_prompt])[0]
+        cached_inner_prompt = self.command_llm_cache.get(self.last_action)
+        if cached_inner_prompt:
+            inner_prompt = cached_inner_prompt
+            print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
+        else:
+            prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
+            inner_prompt = self.model.run([prompt_for_prompt])[0]
+            self.command_llm_cache.set(self.last_action, inner_prompt)
+
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        #responses = self.model.run([ one_line(PROMPT_1(json.dumps(initialize_blackboard(), indent=2))), one_line(final_prompt)])
         responses = self.model.run([one_line(final_prompt)])
 
-        full_response = responses[0]
+        if responses and isinstance(responses, list) and len(responses) > 0:
+            full_response = responses[0].strip()
+            if len(full_response) >= 20:
+                print(f"[✓] Model returned valid response with {len(full_response)} characters.")
+            else:
+                print(f"[✗] Response too short ({len(full_response)} characters). Retrying... (retries left: {retries-1})")
+                return self.parse_output(command_output, retries=retries-1)
+        else:
+            print("[✗] Model run failed or empty response. Retrying...")
+            return self.parse_output(command_output, retries=retries-1)
+
         print(f"full_response - {full_response}")
 
         parsed = fix_json(self.last_state, full_response)
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
+
         if parsed:
             self.llm_cache.set(state, self.last_action, parsed)
 
@@ -265,5 +289,8 @@ class BaseAgent(ABC):
         if not isinstance(new_state, dict):
             print(f"[!] Warning: Invalid state type received. Converting to dictionary...")
             new_state = dict(new_state)
+        
+        new_state = sort_state(new_state)
+        print(f"sort_state: {new_state}")
 
         return new_state

@@ -4,19 +4,10 @@ import os
 import sys
 import ast
 
-EXPECTED_STRUCTURE = {
-    "target": {
-        "os": None,
-        "services": None
-    },
-    "web_directories_status": {
-        "200": None,
-        "401": None,
-        "403": None,
-        "404": None,
-        "503": None
-    }
-}
+from config import EXPECTED_STATUS_CODES, VALID_PROTOCOLS
+from blackboard.blackboard import initialize_blackboard
+
+EXPECTED_STRUCTURE = initialize_blackboard()
 
 def find_missing_categories(parsed_parts, expected_structure):
     missing = {}
@@ -106,7 +97,7 @@ def extract_web_directories_status(text_after_web):
         subtext = text_after_web[pos:]
 
         # Look for each possible HTTP status code
-        for status_code in ['200', '401', '403', '404', '503']:
+        for status_code in EXPECTED_STATUS_CODES:
             if subtext.startswith(status_code):
                 status_block = extract_status_block(subtext, status_code)
                 if status_block is not None:
@@ -256,7 +247,7 @@ def extract_status_block(text_after_status, status_code):
     directories = {}
     pos = 0
     inside_block = True
-    status_codes = ['200', '401', '403', '404', '503']
+    status_codes = EXPECTED_STATUS_CODES
 
     while pos < len(after_status) and inside_block:
         while pos < len(after_status) and after_status[pos] in [':', ' ', '\'', '"', ',']:
@@ -383,7 +374,7 @@ def fill_json_structure(template_json, extracted_parts):
         if section == "target" and not template_json["target"].get("services"):
             template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]
         if section == "web_directories_status":
-            for status in ["200", "401", "403", "404", "503"]:
+            for status in EXPECTED_STATUS_CODES:
                 if status not in template_json["web_directories_status"]:
                     template_json["web_directories_status"][status] = {}
 
@@ -427,111 +418,111 @@ def fix_json(state: dict, new_data):
     print(json.dumps(filled_json, indent=2))
     return filled_json
 
-state = """
-{
-  "target": {
-    "ip": "192.168.56.101",
-    "os": "",
-    "services": [
-      {
-        "port": "",
-        "protocol": "",
-        "service": ""
-      },
-      {
-        "port": "",
-        "protocol": "",
-        "service": ""
-      },
-      {
-        "port": "",
-        "protocol": "",
-        "service": ""
-      }
-    ]
-  },
-  "web_directories_status": {
-    "404": {
-      "": ""
-    },
-    "200": {
-      "": ""
-    },
-    "403": {
-      "": ""
-    },
-    "401": {
-      "": ""
-    },
-    "503": {
-      "": ""
-    }
-  },
-  "actions_history": [],
-  "cpes": [],
-  "vulnerabilities_found": [],
-  "failed_CVEs": []
-}
-"""
-
-new_data = """
-{
-  "target": {
-    "ip": "192.168.56.101",
-    "os": "Linux",
-    "services": [
-      {"port": "21", "protocol": "tcp", "service": "ftp"},
-      {"port": "22", "protocol": "tcp", "service": "ssh"},
-      {"port": "23", "protocol": "tcp", "service": "telnet"},
-      {"port": "25", "protocol": "tcp", "service": "smtp"},
-      {"port": "53", "protocol": "tcp", "service": "domain"},
-      {"port": "80", "protocol": "tcp", "service": "http"},
-      {"port": "111", "protocol": "tcp", "service": "rpcbind"},
-      {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
-      {"port": "445", "protocol": "tcp", "service": "microsoft-ds"},
-      {"port": "512", "protocol": "tcp", "service": "exec"},
-      {"port": "513", "protocol": "tcp", "service": "login"},
-      {"port": "1099", "protocol": "tcp", "service": "rmiregistry"},
-      {"port": "1524", "protocol": "tcp", "service": "ingreslock"},
-      {"port": "2049", "protocol": "tcp", "service": "nfs"},
-      {"port": "2121", "protocol": "tcp", "service": "ccproxy-ftp"},
-      {"port": "3306", "protocol": "tcp", "service": "mysql"},
-      {"port": "5432", "protocol": "tcp", "service": "postgresql"},
-      {"port": "5900", "protocol": "tcp", "service": "vnc"},
-      {"port": "6000", "protocol": "tcp", "service": "X11"},
-      {"port": "6667", "protocol": "tcp", "service": "irc"},
-      {"port": "8009", "protocol": "tcp", "service": "ajp13"},
-      {"port": "8180", "protocol": "tcp", "service": "unknown"}
-    ]
-  },
-  "web_directories_status": {
-    "200": {
-      "/": "",
-      "/admin": "",
-      "/login": "",
-      "/public": ""
-    },
-    "400": {
-      "": ""
-    },
-    "401": {
-      "": ""
-    },
-    "403": {
-      "": ""
-    },
-    "404": {
-      "": ""
-    },
-    "500": {
-      "": ""
-    },
-    "503": {
-      "": ""
-    }
-  }
-}
-"""
-
 if __name__ == "__main__":
+
+    state = """
+        {
+        "target": {
+            "ip": "192.168.56.101",
+            "os": "",
+            "services": [
+            {
+                "port": "",
+                "protocol": "",
+                "service": ""
+            },
+            {
+                "port": "",
+                "protocol": "",
+                "service": ""
+            },
+            {
+                "port": "",
+                "protocol": "",
+                "service": ""
+            }
+            ]
+        },
+        "web_directories_status": {
+            "404": {
+            "": ""
+            },
+            "200": {
+            "": ""
+            },
+            "403": {
+            "": ""
+            },
+            "401": {
+            "": ""
+            },
+            "503": {
+            "": ""
+            }
+        },
+        "actions_history": [],
+        "cpes": [],
+        "vulnerabilities_found": [],
+        "failed_CVEs": []
+        }
+        """
+
+    new_data = """
+    {
+    "target": {
+        "ip": "192.168.56.101",
+        "os": "Linux",
+        "services": [
+        {"port": "21", "protocol": "tcp", "service": "ftp"},
+        {"port": "22", "protocol": "tcp", "service": "ssh"},
+        {"port": "23", "protocol": "tcp", "service": "telnet"},
+        {"port": "25", "protocol": "tcp", "service": "smtp"},
+        {"port": "53", "protocol": "tcp", "service": "domain"},
+        {"port": "80", "protocol": "tcp", "service": "http"},
+        {"port": "111", "protocol": "tcp", "service": "rpcbind"},
+        {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
+        {"port": "445", "protocol": "tcp", "service": "microsoft-ds"},
+        {"port": "512", "protocol": "tcp", "service": "exec"},
+        {"port": "513", "protocol": "tcp", "service": "login"},
+        {"port": "1099", "protocol": "tcp", "service": "rmiregistry"},
+        {"port": "1524", "protocol": "tcp", "service": "ingreslock"},
+        {"port": "2049", "protocol": "tcp", "service": "nfs"},
+        {"port": "2121", "protocol": "tcp", "service": "ccproxy-ftp"},
+        {"port": "3306", "protocol": "tcp", "service": "mysql"},
+        {"port": "5432", "protocol": "tcp", "service": "postgresql"},
+        {"port": "5900", "protocol": "tcp", "service": "vnc"},
+        {"port": "6000", "protocol": "tcp", "service": "X11"},
+        {"port": "6667", "protocol": "tcp", "service": "irc"},
+        {"port": "8009", "protocol": "tcp", "service": "ajp13"},
+        {"port": "8180", "protocol": "tcp", "service": "unknown"}
+        ]
+    },
+    "web_directories_status": {
+        "200": {
+        "/": "",
+        "/admin": "",
+        "/login": "",
+        "/public": ""
+        },
+        "400": {
+        "": ""
+        },
+        "401": {
+        "": ""
+        },
+        "403": {
+        "": ""
+        },
+        "404": {
+        "": ""
+        },
+        "500": {
+        "": ""
+        },
+        "503": {
+        "": ""
+        }
+    }
+    }
+    """
     fix_json(json.loads(state), new_data)

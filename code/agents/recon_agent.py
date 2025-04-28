@@ -124,9 +124,8 @@ class ReconAgent(BaseAgent):
 
             # (1) קבל את כל ההיסטוריה
             actions_history = self.actions_history.copy()
-            count = 0
-            
-            # (2) בדוק האם action כבר הופיע
+
+            # (2) ענישה או תגמול על חזרה
             if action in actions_history:
                 count = actions_history.count(action)
                 if count >= 1:
@@ -137,40 +136,41 @@ class ReconAgent(BaseAgent):
                 reward += 0.2
                 reasons.append("First time action +0.2")
 
-            # New services discovered
+            # (3) תגמול על גילוי שירותים חדשים (כולל פורטים פתוחים גם אם service ריק)
             prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
             next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
             new_services = next_services - prev_services
-            reward += 1.0 * len(new_services)
-            if new_services:
-                reasons.append(f"{len(new_services)} new services discovered +{1.0 * len(new_services):.1f}")
 
-            # New ports discovered
-            prev_ports = set(prev_dict.get("target", {}).get("open_ports", []))
-            next_ports = set(next_dict.get("target", {}).get("open_ports", []))
-            new_ports = next_ports - prev_ports
-            reward += 0.5 * len(new_ports)
-            if new_ports:
-                reasons.append(f"{len(new_ports)} new open ports +{0.5 * len(new_ports):.1f}")
+            for port, protocol, service in new_services:
+                if port:  # אם יש פורט פתוח
+                    reward += 1.0
+                    reasons.append(f"New open port {port}/{protocol} (service: {service or 'unknown'}) +1.0")
 
-            # New shell opened
-            prev_shell = prev_dict.get("runtime_behavior", {}).get("shell_opened", {})
-            next_shell = next_dict.get("runtime_behavior", {}).get("shell_opened", {})
+            # (4) תגמול על גילוי נתיבי web directories חדשים
+            prev_dirs = set()
+            next_dirs = set()
 
-            if not prev_shell.get("shell_type") and next_shell.get("shell_type"):
-                reward += 5.0
-                reasons.append("New shell opened +5.0")
+            for status_code in prev_dict.get("web_directories_status", {}):
+                prev_dirs.update(
+                    path for path in prev_dict["web_directories_status"].get(status_code, {}).keys()
+                    if path.strip()  # מתעלם ממחרוזות ריקות
+                )
 
-            # Privilege escalation
-            levels = {"": 0, "user": 1, "root": 2}
-            prev_level = prev_shell.get("shell_access_level", "")
-            next_level = next_shell.get("shell_access_level", "")
-            if levels.get(next_level, 0) > levels.get(prev_level, 0):
-                reward += 3.0
-                reasons.append(f"Privilege escalation from {prev_level} to {next_level} +3.0")
+            for status_code in next_dict.get("web_directories_status", {}):
+                next_dirs.update(
+                    path for path in next_dict["web_directories_status"].get(status_code, {}).keys()
+                    if path.strip()  # מתעלם ממחרוזות ריקות
+                )
 
-            # Useless repetition penalty
-            if not new_services and not new_ports and not next_shell.get("shell_type"):
+            print(f"prev_dirs: {prev_dirs}")
+            print(f"next_dirs: {next_dirs}")
+            new_dirs = next_dirs - prev_dirs
+            reward += 0.5 * len(new_dirs)
+            if new_dirs:
+                reasons.append(f"{len(new_dirs)} new web directories discovered +{0.5 * len(new_dirs):.1f}")
+
+            # (5) ענישה אם לא היה גילוי חדש בכלל
+            if not new_services and not new_dirs:
                 if action in actions_history:
                     reward -= 1.0
                     reasons.append("No new discoveries and repeated action -1.0")
@@ -178,8 +178,7 @@ class ReconAgent(BaseAgent):
             # Debug summary
             print(f"[Reward Debug] Action: {action}")
             print(f"[Reward Debug] New services: {len(new_services)}")
-            print(f"[Reward Debug] New ports: {len(new_ports)}")
-            print(f"[Reward Debug] Shell opened: {next_shell.get('shell_type')}")
+            print(f"[Reward Debug] New web directories: {len(new_dirs)}")
             print(f"[Reward Debug] Total reward: {reward:.4f}")
 
             print("\n[Reward Summary]")

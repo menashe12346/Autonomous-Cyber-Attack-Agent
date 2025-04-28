@@ -1,0 +1,306 @@
+{
+  "port_open:192.168.56.101:21": "ftp",
+  "port_open:192.168.56.101:22": "ssh",
+  "port_open:192.168.56.101:23": "telnet",
+  "port_open:192.168.56.101:25": "smtp",
+  "port_open:192.168.56.101:53": "domain",
+  "port_open:192.168.56.101:80": "http",
+  "port_open:192.168.56.101:111": "rpcbind",
+  "port_open:192.168.56.101:445": "netbios-ssn",
+  "port_open:192.168.56.101:512": "exec",
+  "port_open:192.168.56.101:1524": "bindshell",
+  "port_open:192.168.56.101:2049": "nfs",
+  "port_open:192.168.56.101:2121": "ftp",
+  "port_open:192.168.56.101:3306": "mysql",
+  "port_open:192.168.56.101:5432": "postgresql",
+  "port_open:192.168.56.101:5900": "vnc",
+  "port_open:192.168.56.101:6000": "x11",
+  "port_open:192.168.56.101:6667": "irc",
+  "os_detection:192.168.56.101": "Linux",
+  "url_check:http://192.168.56.101": [
+    "200",
+    "OK"
+  ],
+  "port_open:192.168.56.101:139": null,
+  "port_open:192.168.56.101:513": "login",
+  "port_open:192.168.56.101:1099": "java-rmi",
+  "port_open:192.168.56.101:8009": null,
+  "port_open:192.168.56.101:8180": null,
+  "url_check:http://192.168.56.101/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/admin": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/login": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/public": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/private": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/restricted": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/missing": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/maintenance": [
+    "404",
+    "Not Found"
+  ],
+  "port_open:192.168.56.101:514": "shell",
+  "url_check:http://192.168.56.101/unauthorized": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/forbidden": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/notfound": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/service-unavailable": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/status": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/login.php": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/not_found": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/under_maintenance": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/index.php": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/service_unavailable": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/bin": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/cgi-bin": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/error": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/includes": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/index.html": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/js": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/logout": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/mysql": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/pics": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/scripts": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/styles": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/test": [
+    "301",
+    "Moved Permanently"
+  ],
+  "url_check:http://192.168.56.101/upload": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/secure": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/main": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/requires_auth": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/limited": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/protected": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/errors": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/images": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/lib": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/under-maintenance": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/config": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/data": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/files": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/log": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/uploads": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/vendor": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/views": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/www": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/confidential": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/about": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/contact": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/secret": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/secured": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/maintenance.html": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/help": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/admin/protected": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/api/restricted": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/admin/dashboard": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/api/private": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/api": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/assets": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/css": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/favicon.ico": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/index": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/home": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/register": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/logs": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/backup": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/counter": [
+    "404",
+    "Not Found"
+  ]
+}
