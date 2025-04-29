@@ -189,7 +189,7 @@ class ReconAgent(BaseAgent):
                 print(f" - {r}")
             print(f"Total reward: {reward:.4f}\n")
 
-            return reward/10
+            return reward/4
 
         except Exception as e:
             print(f"[!] Reward computation failed: {e}")

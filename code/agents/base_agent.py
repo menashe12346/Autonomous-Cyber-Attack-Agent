@@ -3,6 +3,7 @@ import subprocess
 import json
 import torch
 from abc import ABC, abstractmethod
+import numpy as np
 
 from Cache.llm_cache import LLMCache
 from Cache.commandLLM_cache import CommandLLMCache
@@ -56,6 +57,8 @@ class BaseAgent(ABC):
         self.llm_cache = LLMCache()
         self.command_llm_cache = CommandLLMCache()
         self.episode_total_reward = 0.0
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # <-- חדש
  
     @abstractmethod
     def should_run(self) -> bool:
@@ -155,14 +158,32 @@ class BaseAgent(ABC):
     def choose_action(self, state_vector):
         """
         ε-greedy policy: choose random action with probability ε, else best predicted action.
+        Also prints all predicted Q-values for analysis.
         """
+        # הפוך את state_vector ל־Tensor אם צריך
+        if not isinstance(state_vector, torch.Tensor):
+            state_tensor = torch.tensor(state_vector, dtype=torch.float32).unsqueeze(0)
+        else:
+            state_tensor = state_vector.unsqueeze(0) if state_vector.ndim == 1 else state_vector
+
+        state_tensor = state_tensor.to(next(self.policy_model.parameters()).device)
+
+        # חיזוי Q-values
+        with torch.no_grad():
+            q_values = self.policy_model.forward(state_tensor).cpu().numpy().flatten()
+
+        # הדפסה של כל הערכים
+        print("\n[✓] Q-value predictions:")
+        for action, q in zip(self.action_space, q_values):
+            print(f"  {action:70s} => Q = {q:.4f}")
+
+        # בחירת פעולה
         if random.random() < self.epsilon:
             action_index = random.randint(0, len(self.action_space) - 1)
         else:
-            action_index = self.policy_model.predict_best_action(state_vector)
+            action_index = int(np.argmax(q_values))
 
         return self.action_space[action_index]
-
 
     def decay_epsilon(self):
         """

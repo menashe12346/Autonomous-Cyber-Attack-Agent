@@ -3,7 +3,7 @@ PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
 NUM_EPISODES = 500
-MAX_STEPS_PER_EPISODE = 4
+MAX_STEPS_PER_EPISODE = 10
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -64,7 +64,25 @@ DEFAULT_TARGET_STRUCTURE = {
         {"port": "", "protocol": "", "service": ""}
     ]
 }
-
+"""
+DEFAULT_TARGET_STRUCTURE = {
+    "ip": "",
+    "os": {
+        "name": "",
+        "distribution": {
+            "name": "",
+            "version": ""
+        },
+        "kernel": "",
+        "architecture": "",
+    }
+    "services": [
+        {"port": "", "protocol": "", "service": ""},
+        {"port": "", "protocol": "", "service": ""},
+        {"port": "", "protocol": "", "service": ""}
+    ]
+}
+"""
 VALID_PROTOCOLS = {"tcp", "udp"}
 
 # סטטוסים מצופים לדפי Web
