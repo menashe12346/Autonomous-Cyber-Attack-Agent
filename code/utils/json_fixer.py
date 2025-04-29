@@ -4,7 +4,7 @@ import os
 import sys
 import ast
 
-from config import EXPECTED_STATUS_CODES, VALID_PROTOCOLS
+from config import EXPECTED_STATUS_CODES
 from blackboard.blackboard import initialize_blackboard
 
 EXPECTED_STRUCTURE = initialize_blackboard()

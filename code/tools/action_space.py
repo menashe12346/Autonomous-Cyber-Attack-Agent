@@ -9,7 +9,7 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             #"ping -c 1 {ip}"
         ],
         "nmap": [
-            "nmap -F {ip}",
+            #"nmap -F {ip}",
             "nmap {ip}"
         ],
         "curl": [

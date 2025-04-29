@@ -27,7 +27,7 @@ Do NOT rename fields, add another keys, nest or restructure fileds, remove or re
 You MUST return JSON with exactly two top-level keys: "target" and "web_directories_status". 
 Include all real fileds found.
 with no limit each status key must exist with {{ "{{" }}"": ""{{ }}" }}. 
-Fill "os" only if the OS is clearly mentioned (e.g. "Linux", "Ubuntu", "Windows"). 
+The "os" field includes nSame (e.g. "Linux"), distribution with name (e.g. "Ubuntu") and version (e.g. "20.04"), kernel (e.g. "5.15.0-85-generic"), and architecture (e.g. "x86_64")
 In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp" (lowercase), "service": service name (e.g. http, ssh) — lowercase, If missing, leave value as "". 
 In "web_directories_status", for each status ({EXPECTED_STATUS_CODES}): Map any discovered paths (like "/admin") to their message (or use "" if no message). All {len(EXPECTED_STATUS_CODES)} keys must appear, even if empty.
 Do not invent or guess data.

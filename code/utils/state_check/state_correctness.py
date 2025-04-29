@@ -3,13 +3,12 @@ import re
 import json
 from utils.utils import remove_comments_and_empty_lines
 from config import TARGET_IP, EXPECTED_STATUS_CODES
-from utils.state_check.state_validator import clean_web_directories
 from utils.utils import run_command
 from utils.state_check.correctness_cache import CorrectnessCache
 
 cache = CorrectnessCache()
 
-def check_port_with_nmap(ip: str, port: str) -> str:
+def correct_port(ip: str, port: str) -> str:
     key = f"port_open:{ip}:{port}"
     cached_result = cache.get(key)
     if cached_result is not None:
@@ -29,7 +28,7 @@ def check_port_with_nmap(ip: str, port: str) -> str:
     cache.set(key, None)
     return None
 
-def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
+def correct_os(ip: str, current_os: str) -> str:
     key = f"os_detection:{ip}"
     cached_result = cache.get(key)
     if cached_result is not None:
@@ -64,9 +63,8 @@ def detect_os_from_multiple_tools(ip: str, current_os: str) -> str:
     cache.set(key, final_os)
     return final_os
 
-EXPECTED_CODES = EXPECTED_STATUS_CODES
-def verify_web_directories(ip: str, web_dirs: dict) -> dict:
-    verified = {code: {} for code in EXPECTED_CODES}
+def correct_web_directories(ip: str, web_dirs: dict) -> dict:
+    verified = {code: {} for code in EXPECTED_STATUS_CODES}
 
     for code, entries in web_dirs.items():
         for path in entries:
@@ -96,7 +94,6 @@ def verify_web_directories(ip: str, web_dirs: dict) -> dict:
             if status_code in verified:
                 verified[status_code][path] = reason
                 
-    verified = clean_web_directories(verified)
     return verified
 
 def correct_state(state: dict) -> dict:

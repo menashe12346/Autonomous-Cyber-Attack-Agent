@@ -2,7 +2,7 @@ import torch
 import os
 import urllib.parse
 
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH, EXPLOIT_DATASET
+from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH, EXPLOIT_DATASET, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -28,11 +28,14 @@ from tools.action_space import get_commands_for_agent
 from utils.utils import load_dataset
 
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+
 from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
 from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploitdb_dataset
 from create_datasets.create_exploit_dataset.create_metasploit_dataset import create_metasploit_dataset
 from create_datasets.create_exploit_dataset.download_metasploit import download_metasploit
 from create_datasets.create_exploit_dataset.create_full_exploit_dataset import merge_exploit_datasets
+
+from create_datasets_create_os_datasets.distrowatch import download_os_linux_dataset
 
 def strip_file_scheme(path):
     if path.startswith("file://"):
@@ -90,6 +93,9 @@ def main():
     # Create metasploit dataset
     create_metasploit_dataset(METASPLOIT_DATASET)
 
+    # Download and Create os Linux dataset
+    download_os_linux_dataset()
+
     # Load metasploit dataset
     metasploit_dataset = load_dataset(METASPLOIT_DATASET)
     print(f"✅ Metasploit dataset Loaded Successfully")
@@ -104,6 +110,12 @@ def main():
 
     full_exploit_dataset = merge_exploit_datasets(metasploit_dataset, exploitdb_dataset, EXPLOIT_DATASET)
     print(f"✅ Full exploit dataset Loaded Successfully")
+
+    os_linux_dataset = load_dataset(OS_LINUX_DATASET)
+    print(f"✅ OS Linux dataset Loaded Successfully")
+
+    os_linux_kernel_dataset = load_dataset(OS_LINUX_KERNEL_DATASET)
+    print(f"✅ OS Linux Kernel dataset Loaded Successfully")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)

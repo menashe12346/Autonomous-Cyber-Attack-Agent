@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 500
-MAX_STEPS_PER_EPISODE = 10
+NUM_EPISODES = 250
+MAX_STEPS_PER_EPISODE = 3
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -50,45 +50,37 @@ METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploi
 # Metasploit path
 METASPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit-framework"
 
-EXPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/full_exploit_dataset.json"
+EXPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/exploit_datasets/full_exploit_dataset.json"
+
+OS_LINUX_DATASET= f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_dataset.json"
+
+OS_LINUX_KERNEL_DATASET = f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_kernel_dataset.json"
+
+TEMPORARY_DISTROWATCH_FILES = f"{PROJECT_PATH}/project/code/datasets/os_datasets/temporary_DistroWatch_files"
 
 # STATE CONFIGURATION #
-
-# מבנה ה-Target
-DEFAULT_TARGET_STRUCTURE = {
-    "ip": "",
-    "os": "",
-    "services": [
-        {"port": "", "protocol": "", "service": ""},
-        {"port": "", "protocol": "", "service": ""},
-        {"port": "", "protocol": "", "service": ""}
-    ]
-}
-"""
-DEFAULT_TARGET_STRUCTURE = {
-    "ip": "",
-    "os": {
-        "name": "",
-        "distribution": {
-            "name": "",
-            "version": ""
-        },
-        "kernel": "",
-        "architecture": "",
-    }
-    "services": [
-        {"port": "", "protocol": "", "service": ""},
-        {"port": "", "protocol": "", "service": ""},
-        {"port": "", "protocol": "", "service": ""}
-    ]
-}
-"""
-VALID_PROTOCOLS = {"tcp", "udp"}
 
 # סטטוסים מצופים לדפי Web
 EXPECTED_STATUS_CODES = [
     "200", "301", "302", "307", "401", "403", "500", "502", "503", "504"
 ]
 
-# מבנה ברירת מחדל ל-web_directories_status
-DEFAULT_WEB_DIRECTORIES_STATUS = {code: {"": ""} for code in EXPECTED_STATUS_CODES}
+DEFAULT_STATE_STRUCTURE = {
+    "target": {
+        "ip": "",
+        "os": {
+            "name": "",
+            "distribution": {
+                "name": "", "version": ""
+            },
+            "kernel": "",
+            "architecture": ""
+        },
+        "services": [
+            {"port": "", "protocol": "", "service": ""},
+            {"port": "", "protocol": "", "service": ""},
+            {"port": "", "protocol": "", "service": ""}
+        ]
+    },
+    "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
+}

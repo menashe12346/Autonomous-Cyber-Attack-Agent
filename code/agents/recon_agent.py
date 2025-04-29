@@ -170,12 +170,61 @@ class ReconAgent(BaseAgent):
                 reasons.append(f"{len(new_dirs)} new web directories discovered +{0.1 * len(new_dirs):.1f}")
 
             # (5) גילוי OS חדש
-            prev_os = (prev_dict.get("target", {}).get("os") or "").strip().lower()
-            next_os = (next_dict.get("target", {}).get("os") or "").strip().lower()
+            prev_os = prev_dict.get("target", {}).get("os", {})
+            next_os = next_dict.get("target", {}).get("os", {})
 
-            if not prev_os and next_os:
-                reward += 0.5
-                reasons.append(f"New OS discovered: '{next_os}' +0.5")
+            def reward_for_os_field(field_name, prev_val, next_val, weight, description):
+                if not prev_val and next_val:
+                    reward += weight
+                    reasons.append(f"Discovered {description}: '{next_val}' +{weight}")
+
+            reward = 0
+            reasons = []
+
+            # name (e.g. "Linux", "Windows")
+            reward_for_os_field(
+                "name",
+                prev_os.get("name", "").strip(),
+                next_os.get("name", "").strip(),
+                weight=0.2,
+                description="OS name"
+            )
+
+            # distribution.name (e.g. "Ubuntu", "Arch")
+            reward_for_os_field(
+                "distribution.name",
+                prev_os.get("distribution", {}).get("name", "").strip(),
+                next_os.get("distribution", {}).get("name", "").strip(),
+                weight=0.15,
+                description="distribution name"
+            )
+
+            # distribution.version (e.g. "20.04")
+            reward_for_os_field(
+                "distribution.version",
+                prev_os.get("distribution", {}).get("version", "").strip(),
+                next_os.get("distribution", {}).get("version", "").strip(),
+                weight=0.15,
+                description="distribution version"
+            )
+
+            # kernel (e.g. "5.15.0-85-generic")
+            reward_for_os_field(
+                "kernel",
+                prev_os.get("kernel", "").strip(),
+                next_os.get("kernel", "").strip(),
+                weight=0.25,
+                description="kernel version"
+            )
+
+            # architecture (e.g. "x86_64")
+            reward_for_os_field(
+                "architecture",
+                prev_os.get("architecture", "").strip(),
+                next_os.get("architecture", "").strip(),
+                weight=0.25,
+                description="architecture"
+            )
 
             # (6) ענישה אם לא היה שום גילוי בכלל
             if not new_services and not new_dirs and not (not prev_os and next_os):

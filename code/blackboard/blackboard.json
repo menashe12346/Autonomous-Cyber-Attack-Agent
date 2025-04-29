@@ -152,12 +152,7 @@
     }
   },
   "actions_history": [
-    "nmap -F 192.168.56.101",
-    "nmap 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "gobuster dir -u http://192.168.56.101 -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt",
-    "gobuster dir -u http://192.168.56.101 -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt",
-    "nmap -F 192.168.56.101"
+    "nmap 192.168.56.101"
   ],
   "cpes": [],
   "vulnerabilities_found": []

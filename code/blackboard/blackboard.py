@@ -1,15 +1,15 @@
 import copy
-from config import DEFAULT_TARGET_STRUCTURE, DEFAULT_WEB_DIRECTORIES_STATUS
+from config import DEFAULT_STATE_STRUCTURE
 
 def initialize_blackboard(target_ip: str = ""):
-    blackboard = {}
-    initialize_target(blackboard, target_ip)
-    initialize_web_directories_status(blackboard)
+    """
+    יוצר את מבנה ה־blackboard על פי המבנה המוגדר בקונפיג.
+    ממלא את כתובת ה־IP אם ניתנה.
+    """
+    blackboard = copy.deepcopy(DEFAULT_STATE_STRUCTURE)
+    if target_ip:
+        try:
+            blackboard["target"]["ip"] = target_ip
+        except KeyError:
+            pass  # במידה ו־"target" לא מוגדר – מתעלמים
     return blackboard
-
-def initialize_target(blackboard, target_ip):
-    blackboard["target"] = copy.deepcopy(DEFAULT_TARGET_STRUCTURE)
-    blackboard["target"]["ip"] = target_ip or ""
-
-def initialize_web_directories_status(blackboard):
-    blackboard["web_directories_status"] = copy.deepcopy(DEFAULT_WEB_DIRECTORIES_STATUS)

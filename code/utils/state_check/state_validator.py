@@ -1,28 +1,84 @@
 import re
-from config import EXPECTED_STATUS_CODES, VALID_PROTOCOLS
+from config import DEFAULT_STATE_STRUCTURE
+import copy
+
+def recursive_setdefault(base: dict, default: dict):
+    """
+    משלים רקורסיבית ערכים חסרים במילון base לפי מבנה default.
+    """
+    for key, default_value in default.items():
+        if key not in base:
+            base[key] = copy.deepcopy(default_value)
+        elif isinstance(default_value, dict) and isinstance(base[key], dict):
+            recursive_setdefault(base[key], default_value)
+
+def clean_list_entries_by_template(actual_list, template_list):
+    """
+    מנקה איברים לא חוקיים מתוך actual_list על פי המבנה הצפוי ב-template_list.
+    כרגע תומך רק בניקוי services לפי port/protocol/service.
+    """
+    if not template_list or not isinstance(template_list[0], dict):
+        return actual_list  # אין תבנית להשוואה
+    expected_keys = set(template_list[0].keys())
+    return [
+        item for item in actual_list
+        if isinstance(item, dict) and
+           all(k in item and item[k] for k in expected_keys)
+    ]
+
+def recursive_clean(base: dict, default: dict):
+    """
+    מבצע ניקוי מותאם לפי התבנית:
+    אם יש רשימה כמו 'services', היא תסונן לפי המבנה שב-template.
+    """
+    for key, default_value in default.items():
+        if isinstance(default_value, dict) and isinstance(base.get(key), dict):
+            recursive_clean(base[key], default_value)
+        elif isinstance(default_value, list) and isinstance(base.get(key), list):
+            base[key] = clean_list_entries_by_template(base[key], default_value)
 
 def ensure_structure(state: dict) -> dict:
     """
-    מוודא שכל שדות החובה קיימים במבנה ה־state.
+    מבטיח שמבנה ה־state תואם בדיוק ל־DEFAULT_STATE_STRUCTURE לפי config בלבד.
+    אין שימוש במחרוזות קשיחוֹת.
     """
-    state.setdefault("target", {})
-    state["target"].setdefault("ip", "")
-    state["target"].setdefault("os", "")
-    state["target"].setdefault("services", [])
-
-    # עבור כל שירות ברשימה, ודא שהפורט, הפרוטוקול והשירות קיימים, אחרת הסר את השירות
-    state["target"]["services"] = [
-        service for service in state["target"]["services"]
-        if service.get("port") and service.get("protocol") and service.get("service")
-    ]
-
-    state.setdefault("web_directories_status", {})
-    for code in EXPECTED_STATUS_CODES:
-        state["web_directories_status"].setdefault(code, {"": ""})
-
+    recursive_setdefault(state, DEFAULT_STATE_STRUCTURE)
+    recursive_clean(state, DEFAULT_STATE_STRUCTURE)
     return state
 
-def validate_services_format(services: list) -> list:
+def fix_values_to_strings(data: dict, template: dict) -> dict:
+    """
+    מקבלת מילון `data` ומבנה `template`, ומוודאת:
+    - כל שדה שמופיע ב-template חייב להיות str ב-data, אחרת מאותחל ל-"".
+    - תומך גם בתתי-שדות (רק לעומק 2 כרגע).
+    """
+    fixed = {}
+
+    for key, expected_value in template.items():
+        if isinstance(expected_value, dict):
+            inner = data.get(key, {})
+            if not isinstance(inner, dict):
+                fixed[key] = copy.deepcopy(expected_value)
+            else:
+                fixed[key] = fix_values_to_strings(inner, expected_value)
+        else:
+            val = data.get(key)
+            fixed[key] = val if isinstance(val, str) else ""
+
+    return fixed
+
+def validate_os(os_dict: dict) -> dict:
+    """
+    מתקן את שדות os לפי המבנה המוגדר בקונפיג.
+    אין שימוש בשמות שדות קשיחים — הכל לפי DEFAULT_STATE_STRUCTURE["target"]["os"]
+    """
+    os_template = DEFAULT_STATE_STRUCTURE.get("target", {}).get("os", {})
+    if not isinstance(os_dict, dict):
+        return copy.deepcopy(os_template)
+
+    return fix_values_to_strings(os_dict, os_template)
+
+def validate_services(services: list) -> list:
     """
     מוודא שכל שירות במבנה תקני: פורט מספרי, פרוטוקול tcp/udp, ושם שירות באנגלית.
     """
@@ -34,7 +90,6 @@ def validate_services_format(services: list) -> list:
             service = s.get("service", "").lower()
             if (
                 0 < port <= 65535 and
-                protocol in VALID_PROTOCOLS and
                 re.match(r'^[a-z0-9\-_\.]+$', service)
             ):
                 valid.append({
@@ -46,20 +101,7 @@ def validate_services_format(services: list) -> list:
             continue
     return valid
 
-def filter_invalid_services(services: list) -> list:
-    """
-    מסנן שירותים פיקטיביים לפי פורטים או שמות בעייתיים.
-    """
-    suspicious_ports = {0, 1, 9999}
-    blocked_names = {"none", "fake"}
-
-    return [
-        s for s in services
-        if int(s["port"]) not in suspicious_ports
-        and s["service"] not in blocked_names
-    ]
-
-def clean_web_directories(web_dirs: dict) -> dict:
+def validate_web_directories(web_dirs: dict) -> dict:
     """
     מנקה ומוודאת את מבנה web_directories_status:
     - שומר רק נתיבים חוקיים שמתחילים ב-"/".
@@ -82,10 +124,12 @@ def clean_web_directories(web_dirs: dict) -> dict:
                         has_slash_path = True  # היה לפחות נתיב אמיתי
 
         # אם לא היו נתיבים חוקיים בכלל — נשאיר "": ""
-        # אם כן היו נתיבים עם "/", נכניס "": "" גם
         if not has_slash_path:
             valid_paths[""] = ""
-
+        else:
+            if "" in valid_paths:
+                del valid_paths[""]
+                
         cleaned[code] = valid_paths
 
     return cleaned
@@ -101,16 +145,35 @@ def truncate_lists(state: dict, max_services=100, max_paths_per_status=100) -> d
         state["web_directories_status"][code] = limited
     return state
 
+def validate_state_category(state: dict, path: list, validate_fn) -> dict:
+    """
+    מעדכן קטגוריה בתוך state לפי הפונקציה הנתונה.
+    :param state: מילון ה־state המלא
+    :param path: רשימת מפתחות שמובילה לשדה (למשל ["target", "os"])
+    :param validate_fn: פונקציה שמקבלת dict ומחזירה dict מתוקן
+    """
+    sub_state = state
+    for key in path[:-1]:
+        sub_state = sub_state.get(key, {})
+        if not isinstance(sub_state, dict):
+            return state  # אם מבנה לא תקני, לא נוגעים
+
+    last_key = path[-1]
+    value = sub_state.get(last_key)
+    if value is not None:
+        sub_state[last_key] = validate_fn(value)
+
+    return state
+
 def validate_state(state: dict) -> dict:
     """
-    פונקציה ראשית שמיישמת את כל שלבי הבדיקה והניקוי.
+    הפונקציה הראשית שמוודאת שה־state במבנה נכון ובעל ערכים תקניים.
     """
     state = ensure_structure(state)
-    services = state["target"]["services"]
-    services = validate_services_format(services)
-    services = filter_invalid_services(services)
-    state["target"]["services"] = services
 
-    state["web_directories_status"] = clean_web_directories(state["web_directories_status"])
+    state = validate_state_category(state, ["target", "os"], validate_os)
+    state = validate_state_category(state, ["target", "services"], validate_services)
+    state = validate_state_category(state, ["web_directories_status"], validate_web_directories)
+
     state = truncate_lists(state)
     return state
