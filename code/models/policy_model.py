@@ -36,8 +36,8 @@ class PolicyModel(nn.Module):
 
         self.network = nn.Sequential(*layers)
 
-        self.loss_fn = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        self.loss_fn = nn.SmoothL1Loss()
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate, weight_decay=1e-5)
 
     def forward(self, state_vector):
         """
@@ -107,6 +107,7 @@ class PolicyModel(nn.Module):
 
         self.optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return q_value.item(), loss.item()

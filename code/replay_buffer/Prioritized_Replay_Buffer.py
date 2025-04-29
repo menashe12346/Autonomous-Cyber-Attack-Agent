@@ -87,8 +87,8 @@ class PrioritizedReplayBuffer:
             new_priorities (List[float]): Updated priority values.
         """
         for idx, priority in zip(indices, new_priorities):
-            self.priorities[idx] = priority
-
+            self.priorities[idx] = max(priority, 1e-5)  # הוספת מינימום כדי להימנע מ-0
+            
     def size(self):
         """
         Return the number of stored experiences.

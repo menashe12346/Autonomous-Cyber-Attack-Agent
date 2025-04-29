@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import copy
 import random
-
+import matplotlib.pyplot as plt
 
 class RLModelTrainer:
     """
@@ -11,7 +11,7 @@ class RLModelTrainer:
     Supports prioritized experience buffers and a target network for stable learning.
     """
 
-    def __init__(self, policy_model, replay_buffer, device='cpu', learning_rate=1e-3, gamma=0.99):
+    def __init__(self, policy_model, replay_buffer, device='cpu', learning_rate=5e-4, gamma=0.99):
         """
         Initialize the trainer.
 
@@ -28,7 +28,7 @@ class RLModelTrainer:
         self.gamma = gamma
 
         self.optimizer = optim.Adam(self.policy_model.parameters(), lr=learning_rate)
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = nn.SmoothL1Loss()
 
         self.training_history = []
         self.target_model = copy.deepcopy(policy_model).to(device)
@@ -36,6 +36,10 @@ class RLModelTrainer:
 
         self.update_target_steps = 100
         self.train_step = 0
+
+        self.episode_rewards = []
+
+        self.episode_epsilons = []
 
     def train_batch(self, batch_size):
         """
@@ -72,7 +76,8 @@ class RLModelTrainer:
         td_target = td_target.detach()
 
         # TD Error & loss
-        td_errors = torch.abs(current_q_values - td_target)
+        td_errors = (current_q_values - td_target) ** 2
+        td_errors = torch.clamp(td_errors, max=10.0)  # Clip ל-TD Error
         loss = (weights * td_errors).mean()
 
         # Backpropagation
@@ -82,8 +87,14 @@ class RLModelTrainer:
 
         # Update target model if needed
         self.train_step += 1
-        if self.train_step % self.update_target_steps == 0:
-            self.target_model.load_state_dict(self.policy_model.state_dict())
+        # Dynamic tau increases with training steps
+
+        #tau = min(0.005 + 0.0002 * self.train_step, 0.05)
+        tau = 0.001 
+
+        # Perform soft update
+        for target_param, policy_param in zip(self.target_model.parameters(), self.policy_model.parameters()):
+            target_param.data.copy_(tau * policy_param.data + (1.0 - tau) * target_param.data)
 
         # Update priorities
         self.replay_buffer.update_priorities(indices, td_errors.detach().cpu().numpy())
@@ -125,18 +136,58 @@ class RLModelTrainer:
         self.policy_model.load_state_dict(torch.load(path, map_location=self.device))
         self.policy_model.eval()
 
-    def plot_learning_curve(self):
+    def record_episode_reward(self, total_reward):
         """
-        Plot the training loss over time.
+        Records the total reward obtained in one episode.
+        
+        Args:
+            total_reward (float): Sum of rewards during the episode.
         """
-        if not self.training_history:
-            print("No training history to plot.")
+        self.episode_rewards.append(total_reward)
+    
+    def record_episode_epsilon(self, epsilon_value):
+        self.episode_epsilons.append(epsilon_value)  # <-- חדש: לשמור גם את ערך epsilon אחרי כל פרק
+
+    def plot_training_progress(self):
+        """
+        Plot the training loss curve, episode reward curve, and epsilon decay curve.
+        """
+        if not self.training_history and not self.episode_rewards:
+            print("No training history or rewards to plot.")
             return
 
-        import matplotlib.pyplot as plt
-        plt.plot(self.training_history)
+        episodes = list(range(1, len(self.episode_rewards) + 1))
+        train_steps = list(range(1, len(self.training_history) + 1))
+
+        plt.figure(figsize=(18, 5))
+
+        # Plot loss
+        plt.subplot(1, 3, 1)
+        plt.plot(train_steps, self.training_history, label="Loss", color="red")
         plt.xlabel("Training Steps")
         plt.ylabel("Loss")
         plt.title("Training Loss Curve")
         plt.grid(True)
+        plt.legend()
+
+        # Plot reward
+        plt.subplot(1, 3, 2)
+        plt.plot(episodes, self.episode_rewards, label="Reward", color="green")
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.title("Episode Rewards Curve")
+        plt.grid(True)
+        plt.legend()
+
+        # Plot epsilon
+        if self.episode_epsilons:
+            plt.subplot(1, 3, 3)
+            plt.plot(episodes, self.episode_epsilons, label="Epsilon", color="blue")
+            plt.xlabel("Episode")
+            plt.ylabel("Epsilon")
+            plt.title("Epsilon Decay Curve")
+            plt.grid(True)
+            plt.legend()
+
+        plt.tight_layout()
         plt.show()

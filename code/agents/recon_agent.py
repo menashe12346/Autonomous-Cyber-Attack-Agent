@@ -10,7 +10,7 @@ class ReconAgent(BaseAgent):
     It selects and executes recon commands to gather service and network info.
     """
 
-    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model):
+    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model, epsilon):
         """
         Initialize the ReconAgent with access to the blackboard and learning components.
 
@@ -33,7 +33,8 @@ class ReconAgent(BaseAgent):
             state_encoder=state_encoder,
             action_encoder=action_encoder,
             command_cache=command_cache,
-            model=model
+            model=model,
+            epsilon=epsilon
         )
 
     def should_run(self):
@@ -109,9 +110,9 @@ class ReconAgent(BaseAgent):
         reward = 0.0
         reasons = []
 
-        def _services_to_ports(services):
+        def _services_to_ports_services(services):
             return set(
-                (s.get("port", ""), s.get("protocol", ""))
+                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
                 for s in services if isinstance(s, dict)
             )
 
@@ -126,21 +127,21 @@ class ReconAgent(BaseAgent):
                 reward += penalty
                 reasons.append(f"Action repeated {count} times {penalty}")
             else:
-                reward += 0.2
-                reasons.append("First time action +0.2")
+                reward += 0.1
+                reasons.append("First time action +0.1")
 
-            # (3) גילוי פורטים חדשים
-            prev_ports = _services_to_ports(prev_dict.get("target", {}).get("services", []))
-            next_ports = _services_to_ports(next_dict.get("target", {}).get("services", []))
-            new_ports = next_ports - prev_ports
+            # (3) גילוי שירותים חדשים
+            prev_services = _services_to_ports_services(prev_dict.get("target", {}).get("services", []))
+            next_services = _services_to_ports_services(next_dict.get("target", {}).get("services", []))
+            new_services = next_services - prev_services
 
-            print(f"[Reward Debug] prev_ports: {prev_ports}")
-            print(f"[Reward Debug] next_ports: {next_ports}")
-            print(f"[Reward Debug] new_ports: {new_ports}")
+            print(f"[Reward Debug] prev_services: {prev_services}")
+            print(f"[Reward Debug] next_services: {next_services}")
+            print(f"[Reward Debug] new_services: {new_services}")
 
-            reward += 1.0 * len(new_ports)
-            if new_ports:
-                reasons.append(f"{len(new_ports)} new ports discovered +{1.0 * len(new_ports):.1f}")
+            reward += 0.2 * len(new_services)
+            if new_services:
+                reasons.append(f"{len(new_services)} new services discovered +{0.2 * len(new_services):.1f}")
 
             # (4) גילוי web directories חדשים
             prev_dirs = set()
@@ -164,20 +165,20 @@ class ReconAgent(BaseAgent):
             print(f"[Reward Debug] next_dirs: {next_dirs}")
             print(f"[Reward Debug] new_dirs: {new_dirs}")
 
-            reward += 0.5 * len(new_dirs)
+            reward += 0.1 * len(new_dirs)
             if new_dirs:
-                reasons.append(f"{len(new_dirs)} new web directories discovered +{0.5 * len(new_dirs):.1f}")
+                reasons.append(f"{len(new_dirs)} new web directories discovered +{0.1 * len(new_dirs):.1f}")
 
             # (5) גילוי OS חדש
             prev_os = (prev_dict.get("target", {}).get("os") or "").strip().lower()
             next_os = (next_dict.get("target", {}).get("os") or "").strip().lower()
 
             if not prev_os and next_os:
-                reward += 2.0
-                reasons.append(f"New OS discovered: '{next_os}' +2.0")
+                reward += 0.5
+                reasons.append(f"New OS discovered: '{next_os}' +0.5")
 
             # (6) ענישה אם לא היה שום גילוי בכלל
-            if not new_ports and not new_dirs and not (not prev_os and next_os):
+            if not new_services and not new_dirs and not (not prev_os and next_os):
                 reward -= 1.0
                 reasons.append("No new discoveries -1.0")
 
@@ -188,7 +189,7 @@ class ReconAgent(BaseAgent):
                 print(f" - {r}")
             print(f"Total reward: {reward:.4f}\n")
 
-            return reward
+            return reward/10
 
         except Exception as e:
             print(f"[!] Reward computation failed: {e}")

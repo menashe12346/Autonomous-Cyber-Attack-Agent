@@ -133,9 +133,12 @@ def main():
     command_cache = {}
     all_actions = []
 
+    epsilon = 1.0
+
     # === EPISODE LOOP ===
     for episode in range(NUM_EPISODES):
         print(f"\n========== EPISODE {episode + 1} ==========")
+
 
         # --- Initialize Blackboard ---
         blackboard_dict = initialize_blackboard(TARGET_IP)
@@ -150,9 +153,10 @@ def main():
             state_encoder=state_encoder,
             action_encoder=action_encoder,
             command_cache=command_cache,
-            model=model
+            model=model,
+            epsilon=epsilon
         )
-        
+        """
         # --- Create vuln Agent ---
         vuln_agent = VulnAgent(
             blackboard_api=bb_api,
@@ -172,7 +176,7 @@ def main():
             exploitdb_dataset=exploitdb_dataset,
             full_exploit_dataset=full_exploit_dataset
         )
-
+        """
         # --- Register Agents ---
         agents = [recon_agent] # , vuln_agent, exploit_agent
         agent_manager = AgentManager(bb_api)
@@ -195,6 +199,13 @@ def main():
             "actions": recon_agent.actions_history.copy()
         })
 
+        # --- Track Reward ---
+        if hasattr(recon_agent, "episode_total_reward"):
+            trainer.record_episode_reward(recon_agent.episode_total_reward)
+            recon_agent.decay_epsilon()
+            trainer.record_episode_epsilon(recon_agent.epsilon)
+            epsilon = recon_agent.epsilon
+
         # --- Train Policy Model ---
         for _ in range(10):
             loss = trainer.train_batch(batch_size=32)
@@ -207,6 +218,9 @@ def main():
 
     trainer.save_model("models/saved_models/policy_model.pth")
     print("✅ Final trained model saved.")
+
+    # --- Plot Training Curves ---
+    trainer.plot_training_progress()
 
 if __name__ == "__main__":
     main()

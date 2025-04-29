@@ -36,7 +36,7 @@ class BaseAgent(ABC):
     """
 
     def __init__(self, name, action_space, blackboard_api, replay_buffer,
-                 policy_model, state_encoder, action_encoder, command_cache, model, epsilon=0.1):
+                 policy_model, state_encoder, action_encoder, command_cache, model, epsilon, min_epsilon = 0.01, epsilon_decay = 0.995):
         self.name = name
         self.action_space = action_space
         self.blackboard_api = blackboard_api
@@ -47,12 +47,15 @@ class BaseAgent(ABC):
         self.command_cache = command_cache
         self.model = model
         self.epsilon = epsilon
+        self.min_epsilon = min_epsilon
+        self.epsilon_decay = epsilon_decay
         self.actions_history = []
         self.last_state = None
         self.encoded_last_state = None
         self.last_action = None
         self.llm_cache = LLMCache()
         self.command_llm_cache = CommandLLMCache()
+        self.episode_total_reward = 0.0
  
     @abstractmethod
     def should_run(self) -> bool:
@@ -121,6 +124,7 @@ class BaseAgent(ABC):
 
         # Step 7: reward and update model
         reward = self.get_reward(state, action, next_state)
+        self.episode_total_reward += reward
         #print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
         self.actions_history.append(action)
@@ -154,17 +158,17 @@ class BaseAgent(ABC):
         """
         if random.random() < self.epsilon:
             action_index = random.randint(0, len(self.action_space) - 1)
-            self.decay_epsilon()
         else:
             action_index = self.policy_model.predict_best_action(state_vector)
 
         return self.action_space[action_index]
 
-    def decay_epsilon(self, decay_rate=0.995, min_epsilon=0.01):
+
+    def decay_epsilon(self):
         """
         Gradually reduce exploration probability.
         """
-        self.epsilon = max(self.epsilon * decay_rate, min_epsilon)
+        self.epsilon = max(self.epsilon * self.epsilon_decay, self.min_epsilon)
 
     def get_state_raw(self):
         """
