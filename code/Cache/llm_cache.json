@@ -3,7 +3,6 @@
     "action": "nmap -F 192.168.56.101",
     "parsed": {
       "target": {
-        "ip": "192.168.56.101",
         "os": "Linux",
         "services": [
           {
@@ -25,11 +24,6 @@
             "port": "25",
             "protocol": "tcp",
             "service": "smtp"
-          },
-          {
-            "port": "53",
-            "protocol": "tcp",
-            "service": "domain"
           },
           {
             "port": "80",
@@ -114,111 +108,29 @@
         "504": {
           "": ""
         }
-      },
-      "actions_history": [
-        "nmap -F 192.168.56.101"
-      ],
-      "cpes": [],
-      "vulnerabilities_found": []
+      }
     }
   },
   {
     "action": "gobuster dir -u http://192.168.56.101 -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt",
     "parsed": {
       "target": {
-        "ip": "192.168.56.101",
         "os": "Linux",
-        "services": [
-          {
-            "port": "21",
-            "protocol": "tcp",
-            "service": "ftp"
-          },
-          {
-            "port": "22",
-            "protocol": "tcp",
-            "service": "ssh"
-          },
-          {
-            "port": "23",
-            "protocol": "tcp",
-            "service": "telnet"
-          },
-          {
-            "port": "25",
-            "protocol": "tcp",
-            "service": "smtp"
-          },
-          {
-            "port": "53",
-            "protocol": "tcp",
-            "service": "domain"
-          },
-          {
-            "port": "80",
-            "protocol": "tcp",
-            "service": "http"
-          },
-          {
-            "port": "111",
-            "protocol": "tcp",
-            "service": "rpcbind"
-          },
-          {
-            "port": "445",
-            "protocol": "tcp",
-            "service": "netbios-ssn"
-          },
-          {
-            "port": "513",
-            "protocol": "tcp",
-            "service": "login"
-          },
-          {
-            "port": "514",
-            "protocol": "tcp",
-            "service": "shell"
-          },
-          {
-            "port": "2049",
-            "protocol": "tcp",
-            "service": "nfs"
-          },
-          {
-            "port": "2121",
-            "protocol": "tcp",
-            "service": "ftp"
-          },
-          {
-            "port": "3306",
-            "protocol": "tcp",
-            "service": "mysql"
-          },
-          {
-            "port": "5432",
-            "protocol": "tcp",
-            "service": "postgresql"
-          },
-          {
-            "port": "5900",
-            "protocol": "tcp",
-            "service": "vnc"
-          }
-        ]
+        "services": []
       },
       "web_directories_status": {
         "200": {
           "/dav/": "OK",
           "/index": "OK",
           "/index.php": "OK",
-          "/phpMyAdmin/": "OK",
           "/phpinfo": "OK",
           "/phpinfo.php": "OK",
           "/test/": "OK",
           "/twiki/": "OK"
         },
         "301": {
-          "/dav": "Moved Permanently"
+          "/dav": "Moved Permanently",
+          "/phpMyAdmin": "Moved Permanently"
         },
         "302": {
           "": ""
@@ -248,19 +160,13 @@
         "504": {
           "": ""
         }
-      },
-      "actions_history": [
-        "nmap -F 192.168.56.101"
-      ],
-      "cpes": [],
-      "vulnerabilities_found": []
+      }
     }
   },
   {
     "action": "nmap 192.168.56.101",
     "parsed": {
       "target": {
-        "ip": "192.168.56.101",
         "os": "Linux",
         "services": [
           {
@@ -312,6 +218,11 @@
             "port": "513",
             "protocol": "tcp",
             "service": "login"
+          },
+          {
+            "port": "514",
+            "protocol": "tcp",
+            "service": "shell"
           },
           {
             "port": "1099",
@@ -391,10 +302,7 @@
         "504": {
           "": ""
         }
-      },
-      "actions_history": [],
-      "cpes": [],
-      "vulnerabilities_found": []
+      }
     }
   }
 ]

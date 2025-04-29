@@ -3,6 +3,7 @@ import copy
 import json
 
 from config import BLACKBOARD_PATH
+from utils.state_check.state_sorting import sort_state
 
 class BlackboardAPI:
     """
@@ -137,13 +138,49 @@ class BlackboardAPI:
 
     def _update_from_recon_agent(self, new_state: dict):
         """
-        Update fields relevant to ReconAgent.
+        Smart merge of ReconAgent results into the blackboard.
+        Only adds new information without deleting or overwriting existing data.
         """
-        if "target" in new_state:
-            self.blackboard.setdefault("target", {}).update(new_state["target"])
-        if "web_directories_status" in new_state:
-            self.blackboard["web_directories_status"] = new_state["web_directories_status"]
+        self._smart_merge(self.blackboard, new_state)
+        self.blackboard = sort_state(self.blackboard)
+        print(f"final blackboard: {self.blackboard}")
         self._save_to_file()
+
+    def _smart_merge(self, base: dict, incoming: dict):
+        """
+        Recursively merges incoming into base.
+        - Existing fields stay as-is.
+        - Missing fields are added.
+        - Lists are merged intelligently (without duplicates).
+        - Nested dicts are merged recursively.
+        """
+        for key, value in incoming.items():
+            if key not in base:
+                base[key] = value
+            else:
+                if isinstance(base[key], dict) and isinstance(value, dict):
+                    # Recursively merge dictionaries
+                    self._smart_merge(base[key], value)
+                elif isinstance(base[key], list) and isinstance(value, list):
+                    # Merge lists without duplicates (assuming list of dicts or primitives)
+                    existing = set(map(self._freeze, base[key]))
+                    for item in value:
+                        if self._freeze(item) not in existing:
+                            base[key].append(item)
+                else:
+                    # If base already has a primitive value (str, int, etc), keep it, don't overwrite
+                    pass
+
+    def _freeze(self, item):
+        """
+        Converts dicts/lists into a hashable (tuple) structure for set membership checks.
+        This is needed to detect duplicates in lists.
+        """
+        if isinstance(item, dict):
+            return tuple(sorted((k, self._freeze(v)) for k, v in item.items()))
+        if isinstance(item, list):
+            return tuple(self._freeze(x) for x in item)
+        return item
 
     def _update_from_vuln_agent(self, new_state: dict):
         """

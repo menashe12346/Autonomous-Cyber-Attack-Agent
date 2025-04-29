@@ -359,5 +359,9 @@
   "url_check:http://192.168.56.101/server-status": [
     "403",
     "Forbidden"
+  ],
+  "url_check:http://192.168.56.101/phpMyAdmin": [
+    "301",
+    "Moved Permanently"
   ]
 }

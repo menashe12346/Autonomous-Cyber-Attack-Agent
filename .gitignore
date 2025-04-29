@@ -10,3 +10,4 @@ nvd_files/
 exploitdb/
 metasploit-framework/
 metasploit_dataset.json
+full_exploit_dataset.json

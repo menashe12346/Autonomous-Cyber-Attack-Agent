@@ -12,7 +12,7 @@ class LlamaModel(BaseLLM):
     Supports single or multiple prompts with contextual memory.
     """
 
-    def __init__(self, llama_path, model_path, tokens=3500, threads=2, n_batch=8192, context_size=500):
+    def __init__(self, llama_path, model_path, tokens=4000, threads=2, n_batch=8192, context_size=500):
         self.llama_path = llama_path
         self.model_path = model_path
         self.tokens = str(tokens)

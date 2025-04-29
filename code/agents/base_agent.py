@@ -120,7 +120,7 @@ class BaseAgent(ABC):
         encoded_next_state = self.state_encoder.encode(next_state, self.actions_history)
 
         # Step 7: reward and update model
-        reward = self.get_reward(encoded_state, action, encoded_next_state)
+        reward = self.get_reward(state, action, next_state)
         #print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
         self.actions_history.append(action)
@@ -221,6 +221,7 @@ class BaseAgent(ABC):
         remove_untrained_categories(state, trained_categories)
 
         cached_inner_prompt = self.command_llm_cache.get(self.last_action)
+        #cached_inner_prompt = None
         if cached_inner_prompt:
             inner_prompt = cached_inner_prompt
             print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
@@ -248,6 +249,7 @@ class BaseAgent(ABC):
 
         parsed = fix_json(self.last_state, full_response)
         parsed = self.check_state(parsed)
+        remove_untrained_categories(parsed, trained_categories)
 
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")

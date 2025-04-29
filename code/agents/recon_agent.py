@@ -94,14 +94,14 @@ class ReconAgent(BaseAgent):
 
         return True
 
-    def get_reward(self, prev_state, action, next_state) -> float:
+    def get_reward(self, prev_dict: dict, action: str, next_dict: dict) -> float:
         """
-        Calculate the reward based on changes in knowledge or system state.
+        Calculates a smarter reward based on discoveries in services, web directories, and OS.
 
         Args:
-            prev_state: Previous state vector.
+            prev_dict (dict): Previous state dictionary.
             action (str): Action that was taken.
-            next_state: Resulting state vector.
+            next_dict (dict): Resulting state dictionary.
 
         Returns:
             float: The reward value for this transition.
@@ -109,80 +109,81 @@ class ReconAgent(BaseAgent):
         reward = 0.0
         reasons = []
 
-        def _services_to_set(services):
+        def _services_to_ports(services):
             return set(
-                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
+                (s.get("port", ""), s.get("protocol", ""))
                 for s in services if isinstance(s, dict)
             )
 
         try:
-            prev_key = str(prev_state.tolist())
-            next_key = str(next_state.tolist())
-
-            prev_dict = self.state_encoder.encoded_to_state.get(prev_key, {})
-            next_dict = self.state_encoder.encoded_to_state.get(next_key, {})
-
-            # (1) קבל את כל ההיסטוריה
+            # (1) היסטוריית אקשנים
             actions_history = self.actions_history.copy()
 
-            # (2) ענישה או תגמול על חזרה
+            # (2) ענישה/תגמול על חזרה
             if action in actions_history:
                 count = actions_history.count(action)
-                if count >= 1:
-                    penalty = -0.5 * count
-                    reward += penalty
-                    reasons.append(f"Action repeated {count} times {penalty}")
+                penalty = -0.5 * count
+                reward += penalty
+                reasons.append(f"Action repeated {count} times {penalty}")
             else:
                 reward += 0.2
                 reasons.append("First time action +0.2")
 
-            # (3) תגמול על גילוי שירותים חדשים (כולל פורטים פתוחים גם אם service ריק)
-            prev_services = _services_to_set(prev_dict.get("target", {}).get("services", []))
-            next_services = _services_to_set(next_dict.get("target", {}).get("services", []))
-            new_services = next_services - prev_services
-            print(f"prev_dirs: {prev_services}")
-            print(f"next_dirs: {next_services}")
-            for port, protocol, service in new_services:
-                if port:  # אם יש פורט פתוח
-                    reward += 1.0
-                    reasons.append(f"New open port {port}/{protocol} (service: {service or 'unknown'}) +1.0")
+            # (3) גילוי פורטים חדשים
+            prev_ports = _services_to_ports(prev_dict.get("target", {}).get("services", []))
+            next_ports = _services_to_ports(next_dict.get("target", {}).get("services", []))
+            new_ports = next_ports - prev_ports
 
-            # (4) תגמול על גילוי נתיבי web directories חדשים
+            print(f"[Reward Debug] prev_ports: {prev_ports}")
+            print(f"[Reward Debug] next_ports: {next_ports}")
+            print(f"[Reward Debug] new_ports: {new_ports}")
+
+            reward += 1.0 * len(new_ports)
+            if new_ports:
+                reasons.append(f"{len(new_ports)} new ports discovered +{1.0 * len(new_ports):.1f}")
+
+            # (4) גילוי web directories חדשים
             prev_dirs = set()
             next_dirs = set()
 
             for status_code in prev_dict.get("web_directories_status", {}):
                 prev_dirs.update(
                     path for path in prev_dict["web_directories_status"].get(status_code, {}).keys()
-                    if path.strip()  # מתעלם ממחרוזות ריקות
+                    if path.strip()
                 )
 
             for status_code in next_dict.get("web_directories_status", {}):
                 next_dirs.update(
                     path for path in next_dict["web_directories_status"].get(status_code, {}).keys()
-                    if path.strip()  # מתעלם ממחרוזות ריקות
+                    if path.strip()
                 )
 
             new_dirs = next_dirs - prev_dirs
+
+            print(f"[Reward Debug] prev_dirs: {prev_dirs}")
+            print(f"[Reward Debug] next_dirs: {next_dirs}")
+            print(f"[Reward Debug] new_dirs: {new_dirs}")
+
             reward += 0.5 * len(new_dirs)
             if new_dirs:
                 reasons.append(f"{len(new_dirs)} new web directories discovered +{0.5 * len(new_dirs):.1f}")
 
-            # (5) ענישה אם לא היה גילוי חדש בכלל
-            if not new_services and not new_dirs:
-                if action in actions_history:
-                    reward -= 1.0
-                    reasons.append("No new discoveries and repeated action -1.0")
+            # (5) גילוי OS חדש
+            prev_os = (prev_dict.get("target", {}).get("os") or "").strip().lower()
+            next_os = (next_dict.get("target", {}).get("os") or "").strip().lower()
+
+            if not prev_os and next_os:
+                reward += 2.0
+                reasons.append(f"New OS discovered: '{next_os}' +2.0")
+
+            # (6) ענישה אם לא היה שום גילוי בכלל
+            if not new_ports and not new_dirs and not (not prev_os and next_os):
+                reward -= 1.0
+                reasons.append("No new discoveries -1.0")
 
             # Debug summary
-            print(f"[Reward Debug] Action: {action}")
-            print(f"[Reward Debug] New services: {len(new_services)}")
-            print(f"[Reward Debug] New web directories: {len(new_dirs)}")
-            print(f"[Reward Debug] Total reward: {reward:.4f}")
-
-            print("\n[Reward Summary]")
+            print(f"\n[Reward Debug]")
             print(f"Action: {action}")
-            print("Reasons:")
             for r in reasons:
                 print(f" - {r}")
             print(f"Total reward: {reward:.4f}\n")

@@ -42,6 +42,7 @@ class ScenarioOrchestrator:
 
         # Initialize target structure
         self.blackboard.blackboard = initialize_blackboard(self.target)
+        print(f"self.blackboard.blackboard: {self.blackboard.blackboard}")
 
         print(f"[+] Starting scenario: {self.scenario_name}")
 
