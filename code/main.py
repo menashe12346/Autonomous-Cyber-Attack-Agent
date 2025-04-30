@@ -35,7 +35,7 @@ from create_datasets.create_exploit_dataset.create_metasploit_dataset import cre
 from create_datasets.create_exploit_dataset.download_metasploit import download_metasploit
 from create_datasets.create_exploit_dataset.create_full_exploit_dataset import merge_exploit_datasets
 
-from create_datasets_create_os_datasets.distrowatch import download_os_linux_dataset
+from create_datasets.create_os_dataset.distrowatch import download_os_linux_dataset
 
 def strip_file_scheme(path):
     if path.startswith("file://"):
@@ -166,7 +166,9 @@ def main():
             action_encoder=action_encoder,
             command_cache=command_cache,
             model=model,
-            epsilon=epsilon
+            epsilon=epsilon,
+            os_linux_dataset=os_linux_dataset,
+            os_linux_kernel_dataset=os_linux_kernel_dataset
         )
         """
         # --- Create vuln Agent ---

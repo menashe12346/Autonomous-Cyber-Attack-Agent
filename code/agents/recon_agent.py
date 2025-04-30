@@ -10,7 +10,7 @@ class ReconAgent(BaseAgent):
     It selects and executes recon commands to gather service and network info.
     """
 
-    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model, epsilon):
+    def __init__(self, blackboard_api, policy_model, replay_buffer, state_encoder, action_encoder, command_cache, model, epsilon, os_linux_dataset, os_linux_kernel_dataset):
         """
         Initialize the ReconAgent with access to the blackboard and learning components.
 
@@ -34,7 +34,9 @@ class ReconAgent(BaseAgent):
             action_encoder=action_encoder,
             command_cache=command_cache,
             model=model,
-            epsilon=epsilon
+            epsilon=epsilon,
+            os_linux_dataset=os_linux_dataset,
+            os_linux_kernel_dataset=os_linux_kernel_dataset
         )
 
     def should_run(self):

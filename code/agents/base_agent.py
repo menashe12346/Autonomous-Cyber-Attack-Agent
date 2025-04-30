@@ -37,7 +37,7 @@ class BaseAgent(ABC):
     """
 
     def __init__(self, name, action_space, blackboard_api, replay_buffer,
-                 policy_model, state_encoder, action_encoder, command_cache, model, epsilon, min_epsilon = 0.01, epsilon_decay = 0.995):
+                 policy_model, state_encoder, action_encoder, command_cache, model, epsilon, os_linux_dataset, os_linux_kernel_dataset, min_epsilon = 0.01, epsilon_decay = 0.995):
         self.name = name
         self.action_space = action_space
         self.blackboard_api = blackboard_api
@@ -57,6 +57,8 @@ class BaseAgent(ABC):
         self.llm_cache = LLMCache()
         self.command_llm_cache = CommandLLMCache()
         self.episode_total_reward = 0.0
+        self.os_linux_dataset=os_linux_dataset,
+        self.os_linux_kernel_dataset=os_linux_kernel_dataset
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # <-- חדש
  
@@ -308,7 +310,7 @@ class BaseAgent(ABC):
         print(f"validate_state: {new_state}")
         
         # Correct the state based on predefined rules
-        new_state = correct_state(new_state)
+        new_state = correct_state(new_state, self.os_linux_dataset, self.os_linux_kernel_dataset)
         print(f"correct_state: {new_state}")
 
         # Ensure the state is a dictionary

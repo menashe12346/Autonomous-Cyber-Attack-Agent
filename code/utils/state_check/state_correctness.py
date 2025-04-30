@@ -2,7 +2,7 @@ import subprocess
 import re
 import json
 from utils.utils import remove_comments_and_empty_lines
-from config import TARGET_IP, EXPECTED_STATUS_CODES
+from config import TARGET_IP, EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
 from utils.utils import run_command
 from utils.state_check.correctness_cache import CorrectnessCache
 
@@ -28,40 +28,48 @@ def correct_port(ip: str, port: str) -> str:
     cache.set(key, None)
     return None
 
-def correct_os(ip: str, current_os: str) -> str:
+def correct_os(ip: str, current_os: dict, linux_dataset: dict, kernel_versions: list) -> dict:
     key = f"os_detection:{ip}"
     cached_result = cache.get(key)
     if cached_result is not None:
         return cached_result
 
-    tools = [
-        f"whatweb http://{ip}",
-        f"curl -I http://{ip}",
-        f"wget http://{ip} -O -"
-    ]
+    corrected_os = current_os.copy()
 
-    os_candidates = []
+    distro_name = corrected_os.get("distribution", {}).get("name", "").lower()
+    distro_version = corrected_os.get("distribution", {}).get("version", "")
+    architecture = corrected_os.get("architecture", "")
+    kernel = corrected_os.get("kernel", "")
 
-    for cmd in tools:
-        output = run_command(cmd)
-        if "linux" in output.lower():
-            os_candidates.append("Linux")
-        elif "windows" in output.lower():
-            os_candidates.append("Windows")
-        elif "ubuntu" in output.lower():
-            os_candidates.append("Linux")
-        elif "iis" in output.lower():
-            os_candidates.append("Windows")
-        elif "apache" in output.lower() or "nginx" in output.lower():
-            os_candidates.append("Linux")
+    # תיקון לפי dataset
 
-    if os_candidates:
-        final_os = "Linux" if "Linux" in os_candidates else os_candidates[0]
+    # בדיקה: האם distribution.name חוקי
+    if distro_name in (name.lower() for name in linux_dataset):
+        # שליפת המפתח המקורי כפי שהוא (עם אותיות מקוריות)
+        matched_name = next(name for name in linux_dataset if name.lower() == distro_name)
+        corrected_os["distribution"]["name"] = matched_name
+
+        # בדיקה: האם הגרסה חוקית עבור ההפצה
+        valid_versions = linux_dataset[matched_name].get("versions", [])
+        if distro_version not in valid_versions:
+            corrected_os["distribution"]["version"] = ""
+
+        # בדיקה: האם הארכיטקטורה חוקית עבור ההפצה
+        valid_architectures = linux_dataset[matched_name].get("architecture", [])
+        if architecture not in valid_architectures:
+            corrected_os["architecture"] = ""
     else:
-        final_os = current_os
+        # אם ההפצה לא חוקית כלל – מחיקה
+        corrected_os["distribution"]["name"] = ""
+        corrected_os["distribution"]["version"] = ""
+        corrected_os["architecture"] = ""
 
-    cache.set(key, final_os)
-    return final_os
+    # בדיקה: האם הקרנל חוקי
+    if kernel not in kernel_versions:
+        corrected_os["kernel"] = ""
+
+    cache.set(key, corrected_os)
+    return corrected_os
 
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
     verified = {code: {} for code in EXPECTED_STATUS_CODES}
@@ -95,11 +103,10 @@ def correct_web_directories(ip: str, web_dirs: dict) -> dict:
                 verified[status_code][path] = reason
                 
     return verified
+    
+def correct_state(state: dict, linux_dataset: dict, kernel_versions: list) -> dict:
 
-def correct_state(state: dict) -> dict:
-    ip = TARGET_IP
-
-    print(f"[+] Verifying declared services individually on {ip}...")
+    print(f"[+] Verifying declared services individually on {TARGET_IP}...")
 
     verified_services = []
     for s in state.get("target", {}).get("services", []):
@@ -107,29 +114,29 @@ def correct_state(state: dict) -> dict:
         protocol = s.get("protocol", "").lower()
         declared_service = s.get("service", "").lower()
 
-        if not port or not protocol or protocol != "tcp":
-            continue  # מדלגים על שורות פגומות או שאינן TCP
-
-        actual_service = check_port_with_nmap(ip, port)
+        actual_service = correct_port(TARGET_IP, port)
         if actual_service:
             verified_services.append({
                 "port": port,
                 "protocol": "tcp",
-                "service": actual_service  # יכול להיות שונה מהצהרה
+                "service": actual_service
             })
         else:
             print(f"[!] Port {port}/tcp is not open — removing.")
 
     state["target"]["services"] = verified_services
 
-    # OS detection
-    current_os = state["target"].get("os", "")
-    new_os = detect_os_from_multiple_tools(ip, current_os)
-    state["target"]["os"] = new_os
+    # תיקון OS
+    current_os = state["target"].get("os", DEFAULT_STATE_STRUCTURE["target"]["os"])
+    if isinstance(current_os, dict):
+        new_os = correct_os(TARGET_IP, current_os, linux_dataset, kernel_versions)
+        state["target"]["os"] = new_os
+    else:
+        print("[!] OS field is not in expected dict format — skipping.")
 
-    # Web directories
+    # תיקון web directories
     print(f"[+] Verifying web directories with curl...")
-    raw_web_dirs = verify_web_directories(ip, state.get("web_directories_status", {}))
+    raw_web_dirs = correct_web_directories(TARGET_IP, state.get("web_directories_status", DEFAULT_STATE_STRUCTURE["web_directories_status"]))
     state["web_directories_status"] = clean_web_directories(raw_web_dirs)
 
     return state

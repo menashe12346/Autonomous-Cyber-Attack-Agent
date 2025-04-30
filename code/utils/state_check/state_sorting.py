@@ -1,28 +1,27 @@
 import json
+from copy import deepcopy
+from config import DEFAULT_STATE_STRUCTURE, EXPECTED_STATUS_CODES
 
-def sort_state(state: dict) -> dict:
+
+def sort_services(services: list) -> list:
     """
-    Sorts services:
-      - First by port number (ascending) for services with a valid port.
-      - Then services with missing/invalid ports sorted alphabetically by service name.
-    Also sorts web directories alphabetically.
-    Removes duplicates based on (port, protocol, service, version).
-    Ignores empty services (where port, protocol, and service are all empty).
+    Sorts and deduplicates service entries.
+    - First by port number (ascending) if port is valid.
+    - Then by service name (alphabetically) if port is missing/invalid.
+    - Ignores completely empty entries.
+    - Removes duplicates based on (port, protocol, service, version).
     """
 
     def service_sort_key(service):
         port = service.get("port", "")
         service_name = service.get("service", "")
-        
         if port.isdigit():
-            return (0, int(port))  # פורט תקין - קבוצה 0 לפי מספר
+            return (0, int(port))
         else:
-            return (1, service_name.lower())  # ללא פורט - קבוצה 1 לפי שם שירות
+            return (1, service_name.lower())
 
-    # Remove duplicate services, ignore empty entries, and sort
     seen_services = set()
     sorted_services = []
-    services = state.get("target", {}).get("services", [])
 
     for service in sorted(services, key=service_sort_key):
         port = service.get("port", "")
@@ -39,14 +38,32 @@ def sort_state(state: dict) -> dict:
             seen_services.add(service_key)
             sorted_services.append(service)
 
-    if "target" in state:
-        state["target"]["services"] = sorted_services
+    return sorted_services
 
-    # Sort web directories inside each HTTP status code
-    for code, entries in state.get("web_directories_status", {}).items():
+
+def sort_web_directories(web_dirs: dict) -> dict:
+    """
+    Sorts web directory paths alphabetically within each HTTP status code.
+    """
+    sorted_result = {}
+    for code, entries in web_dirs.items():
         if isinstance(entries, dict):
-            sorted_entries = dict(sorted(entries.items()))
-            state["web_directories_status"][code] = sorted_entries
+            sorted_result[code] = dict(sorted(entries.items()))
+        else:
+            sorted_result[code] = entries  # keep as-is if not a dict
+    return sorted_result
+
+def sort_state(state: dict) -> dict:
+    """
+    Delegates sorting of services and web directories.
+    """
+    if "target" in state:
+        services = state["target"].get("services", [])
+        state["target"]["services"] = sort_services(services)
+
+    if "web_directories_status" in state:
+        web_dirs = state.get("web_directories_status", {})
+        state["web_directories_status"] = sort_web_directories(web_dirs)
 
     return state
 

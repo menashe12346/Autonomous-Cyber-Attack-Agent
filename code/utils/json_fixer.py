@@ -4,213 +4,24 @@ import os
 import sys
 import ast
 
-from config import EXPECTED_STATUS_CODES
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
 from blackboard.blackboard import initialize_blackboard
 
 EXPECTED_STRUCTURE = initialize_blackboard()
 EXPECTED_STRUCTURE["target"].pop("ip",None)
+import re
+from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
 
-def find_missing_categories(parsed_parts, expected_structure):
-    missing = {}
-
-    for key, subfields in expected_structure.items():
-        if key not in parsed_parts:
-            missing[key] = "entire category missing"
-        else:
-            if isinstance(subfields, dict):
-                for subkey in subfields:
-                    if subkey not in parsed_parts[key]:
-                        missing.setdefault(key, []).append(subkey)
-
-    return missing
-
-def extract_json_parts(new_data):
-    """
-    Scans the text and extracts parts starting when encountering 'target' or 'web_directories_status'.
-    Passes only the specific block after each key to its extractor.
-    """
-    parts = {}
-
-    text = new_data.replace('\n', ' ').replace('\r', ' ').strip()
-
-    pos = 0
-    while pos < len(text):
-        # Search for target
-        if text[pos:].startswith('target'):
-            target_after = text[pos + len('target'):]
-            target_text = cut_text_until_word(target_after, 'web_directories_status')
-            parts['target'] = extract_target_data(target_text)
-            pos += len('target')
-            break
-        pos += 1  # move forward character by character
-
-    pos = 0
-    while pos < len(target_after):
-        # Search for web_directories_status
-        if target_after[pos:].startswith('web_directories_status'):
-            wds_text = target_after[pos + len('web_directories_status'):]
-            parts['web_directories_status'] = extract_web_directories_status(wds_text)
-            pos += len('web_directories_status')
-            break
-        pos += 1  # move forward character by character
-
-    missing = find_missing_categories(parts, EXPECTED_STRUCTURE)
-    return parts, missing
-
-def extract_target_data(target_text):
-    #print(target_text)
-    target_data = {}
-
-    pos = 0
-    while pos < len(target_text):
-        if target_text[pos:].startswith('os'):
-            after_os = target_text[pos + len('os'):]
-            os_text = cut_text_until_word(after_os, 'services')  # משתמשים בפונקציה החכמה
-            os_data = extract_os_from_target(os_text)
-            if os_data:
-                target_data['os'] = os_data
-            pos += len('os')
-            break
-        pos += 1
-
-    pos = 0
-    while pos < len(after_os):
-        if after_os[pos:].startswith('services'):
-            services_data = extract_services_from_target(after_os[pos + len('services'):])
-            if services_data:
-                target_data['services'] = services_data
-            pos += len('services')
-            break
-        pos += 1
-
-    return target_data
-
-def extract_web_directories_status(text_after_web):
-    """
-    Extracts the web_directories_status section.
-    Scans for status codes like 200, 401, 403, 404, 503, and collects their associated directories.
-    """
-    wds = {}
-    pos = 0
-
-    while pos < len(text_after_web):
-        subtext = text_after_web[pos:]
-
-        # Look for each possible HTTP status code
-        for status_code in EXPECTED_STATUS_CODES:
-            if subtext.startswith(status_code):
-                status_block = extract_status_block(subtext, status_code)
-                if status_block is not None:
-                    wds[status_code] = status_block
-                pos += len(status_code)
-                break  # found a match, restart checking
-        else:
-            pos += 1  # if no status matched, move forward
-
-    return wds
-    
-def extract_os_from_target(text):
-    """
-    Extracts OS from a clean piece of text (already trimmed at services).
-    Accepts only letters, digits, spaces, dots, dashes.
-    Ignores leading/trailing quotes and colons.
-    """
-    after_os = text.lstrip()
-
-    # הסר תווים לא חוקיים מההתחלה
-    while after_os and after_os[0] in [':', ' ', '\'', '"']:
-        after_os = after_os[1:]
-
-    os_value = ''
-    idx = 0
-    while idx < len(after_os):
-        c = after_os[idx]
-        if c.isalnum() or c in [' ', '.', '-']:
-            os_value += c
-            idx += 1
-        else:
-            break  # ברגע שמגיעים לתו לא חוקי - עוצרים
-
-    return os_value.strip() if os_value else None
-
-def cut_text_until_word(text, stop_word):
-    """
-    Scans character by character through 'text', and stops exactly when 'stop_word' starts.
-    
-    Args:
-        text (str): The input text to scan.
-        stop_word (str): The word that signals to stop collecting.
-
-    Returns:
-        str: The collected text up until (but not including) the stop_word.
-    """
-    collected = ''
-    idx = 0
-    while idx < len(text):
-        if text[idx:].startswith(stop_word):
-            break
-        collected += text[idx]
-        idx += 1
-    return collected
-
-
-def extract_services_from_target(text_after_services):
-    """
-    Extracts the services from the text after 'services'.
-    Finds sequential triplets of (port, protocol, service) even if messy.
-    """
-    services = []
-    pos = 0
-    current_service = {}
-
-    while pos < len(text_after_services):
-        subtext = text_after_services[pos:]
-
-        # Find port
-        if subtext.startswith('port'):
-            port_value, jump = extract_value_after_key(subtext, 'port', next_keys=['protocol', 'service'])
-            if port_value:
-                current_service['port'] = port_value
-            pos += jump
-            continue
-
-        # Find protocol
-        if subtext.startswith('protocol'):
-            protocol_value, jump = extract_value_after_key(subtext, 'protocol', next_keys=['port', 'service'])
-            if protocol_value:
-                current_service['protocol'] = protocol_value
-            pos += jump
-            continue
-
-        # Find service
-        if subtext.startswith('service'):
-            service_value, jump = extract_value_after_key(subtext, 'service', next_keys=['port', 'protocol'])
-            if service_value:
-                current_service['service'] = service_value
-
-            # אחרי שהשגנו את שלושתם -> הוסף
-            if all(k in current_service for k in ('port', 'protocol', 'service')):
-                services.append(current_service)
-                current_service = {}
-
-            pos += jump
-            continue
-
-        pos += 1
-
-    return services
 
 def extract_value_after_key(text, key_name, next_keys=None):
-    """
-    Extracts the value after a key, stopping immediately if a next key starts.
-    """
     key_pos = text.find(key_name)
     if key_pos == -1:
         return None, len(key_name)
 
     after_key = text[key_pos + len(key_name):].lstrip()
 
-    # דילג על רעשים
     while after_key and after_key[0] in [':', ' ', '\'', '"', '{', '}']:
         after_key = after_key[1:]
 
@@ -219,7 +30,6 @@ def extract_value_after_key(text, key_name, next_keys=None):
     while idx < len(after_key):
         subtext = after_key[idx:]
 
-        # ❗ בדוק כל הזמן אם התחלנו מילת next_key
         if next_keys:
             for k in next_keys:
                 if subtext.startswith(k):
@@ -230,15 +40,56 @@ def extract_value_after_key(text, key_name, next_keys=None):
             value += c
             idx += 1
         else:
-            break  # פיסוק - עצור
+            break
 
     return value.strip(), key_pos + len(key_name) + idx
 
+
+def cut_text_until_word(text, stop_word):
+    collected = ''
+    idx = 0
+    while idx < len(text):
+        if stop_word and text[idx:].startswith(stop_word):
+            break
+        collected += text[idx]
+        idx += 1
+    return collected
+
+
+def find_missing_categories(parsed_data: dict, expected_structure: dict, path="") -> dict:
+    missing = {}
+
+    for key, expected_value in expected_structure.items():
+        full_path = f"{path}.{key}" if path else key
+
+        if key not in parsed_data:
+            missing[full_path] = "missing key"
+        else:
+            actual_value = parsed_data[key]
+
+            if isinstance(expected_value, dict):
+                if not isinstance(actual_value, dict):
+                    missing[full_path] = f"expected dict, got {type(actual_value).__name__}"
+                else:
+                    sub_missing = find_missing_categories(actual_value, expected_value, full_path)
+                    missing.update(sub_missing)
+
+            elif isinstance(expected_value, list) and expected_value and isinstance(expected_value[0], dict):
+                if not isinstance(actual_value, list):
+                    missing[full_path] = f"expected list, got {type(actual_value).__name__}"
+                else:
+                    for i, item in enumerate(actual_value):
+                        if not isinstance(item, dict):
+                            missing[f"{full_path}[{i}]"] = f"expected dict, got {type(item).__name__}"
+                        else:
+                            sub_missing = find_missing_categories(item, expected_value[0], f"{full_path}[{i}]")
+                            missing.update(sub_missing)
+
+    return missing
+
+
 def extract_status_block(text_after_status, status_code):
-    """
-    Extracts all directories and their statuses after a given HTTP status code.
-    Stops when '}' or a new status code appears.
-    """
+    print(f"[DEBUG] Extracting block for status: {status_code}")
     after_status = text_after_status[len(status_code):].lstrip()
 
     while after_status and after_status[0] in [':', '{', ' ', '\'', '"']:
@@ -246,17 +97,16 @@ def extract_status_block(text_after_status, status_code):
 
     directories = {}
     pos = 0
-    inside_block = True
     status_codes = EXPECTED_STATUS_CODES
+    inside_block = True
 
     while pos < len(after_status) and inside_block:
         while pos < len(after_status) and after_status[pos] in [':', ' ', '\'', '"', ',']:
             pos += 1
-        
+
         if pos >= len(after_status):
             break
 
-        # בדוק אם מתחיל קוד סטטוס חדש
         for code in status_codes:
             if after_status[pos:].startswith(code):
                 inside_block = False
@@ -268,11 +118,9 @@ def extract_status_block(text_after_status, status_code):
             inside_block = False
             break
 
-        # קריאת path
         path = ''
         while pos < len(after_status):
-            subtext = after_status[pos:]
-            if any(subtext.startswith(code) for code in status_codes):
+            if any(after_status[pos:].startswith(code) for code in status_codes):
                 inside_block = False
                 break
             c = after_status[pos]
@@ -284,17 +132,12 @@ def extract_status_block(text_after_status, status_code):
             pos += 1
         path = path.strip()
 
-        # ⬇️⬇️⬇️ עכשיו מייד אחרי path — קוראים את value!!
-
-        # דלג על רווחים וגרשיים
         while pos < len(after_status) and after_status[pos] in [' ', ':', '\'', '"', '{']:
             pos += 1
 
-        # קריאת value
         value = ''
         while pos < len(after_status):
-            subtext = after_status[pos:]
-            if any(subtext.startswith(code) for code in status_codes):
+            if any(after_status[pos:].startswith(code) for code in status_codes):
                 inside_block = False
                 break
             if after_status[pos] in [',', '}', '\'', '"', ':']:
@@ -304,34 +147,96 @@ def extract_status_block(text_after_status, status_code):
         value = value.strip()
 
         if path:
+            print(f"[DEBUG] Found path: {path} -> {value}")
             directories[path] = value
 
-        # דילוג אחרי value
         while pos < len(after_status) and after_status[pos] in [' ', ',', ':', '\'', '"']:
             pos += 1
         if pos < len(after_status) and after_status[pos] == '}':
             inside_block = False
             break
 
-    if not directories:
-        return {"": ""}
-    return directories
+    return directories if directories else {"": ""}
 
-def print_json_parts(parts):
-    def print_dict(d, indent=0):
-        for key, value in d.items():
-            if isinstance(value, dict):
-                print(' ' * indent + f"{key}:")
-                print_dict(value, indent + 2)
-            elif isinstance(value, list):
-                print(' ' * indent + f"{key}:")
-                for i, item in enumerate(value):
-                    print(f"{' ' * (indent + 2)}Item {i + 1}:")
-                    print_dict(item, indent + 4)
+
+def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict]:
+    parts = {}
+    text = text.replace('\n', ' ').replace('\r', ' ').strip()
+    keys = list(structure.keys())
+
+    pos = 0
+    while pos < len(text):
+        for i, key in enumerate(keys):
+            if text[pos:].startswith(key):
+                after_key_text = text[pos + len(key):]
+                next_keys = keys[i + 1:]
+                next_stop = next((k for k in next_keys if k in text[pos + len(key):]), "")
+                block_text = cut_text_until_word(after_key_text, next_stop)
+
+                expected_type = structure[key]
+
+                if isinstance(expected_type, dict) and all(k.isdigit() for k in expected_type.keys()):
+                    sub_result = {}
+                    for code in expected_type.keys():
+                        if code in block_text:
+                            code_start = block_text.find(code)
+                            subtext = block_text[code_start:]
+                            sub_result[code] = extract_status_block(subtext, code)
+                        else:
+                            sub_result[code] = {"": ""}
+                    parts[key] = sub_result
+
+                elif isinstance(expected_type, dict):
+                    sub_result, _ = extract_json_parts_recursive(block_text, expected_type)
+                    parts[key] = sub_result
+
+                elif isinstance(expected_type, list) and expected_type and isinstance(expected_type[0], dict):
+                    list_result = []
+                    item_structure = expected_type[0]
+                    item_pos = 0
+                    current_item = {}
+
+                    while item_pos < len(block_text):
+                        subtext = block_text[item_pos:]
+                        matched = False
+                        for field in item_structure:
+                            if subtext.startswith(field):
+                                val, jump = extract_value_after_key(subtext, field, next_keys=list(item_structure.keys()))
+                                if val:
+                                    current_item[field] = val
+                                item_pos += jump
+                                matched = True
+                                break
+                        if matched:
+                            if all(k in current_item for k in item_structure):
+                                list_result.append(current_item)
+                                current_item = {}
+                        else:
+                            item_pos += 1
+                    parts[key] = list_result
+
+                else:
+                    cleaned = block_text.strip(': "{}')
+                    parts[key] = cleaned if cleaned else ""
+
+                pos += len(key)
+                break
+        pos += 1
+
+    for key in structure:
+        if key not in parts:
+            expected_type = structure[key]
+            if isinstance(expected_type, dict):
+                parts[key] = extract_json_parts_recursive("", expected_type)[0]
+            elif isinstance(expected_type, list) and expected_type and isinstance(expected_type[0], dict):
+                parts[key] = []
+            elif isinstance(expected_type, dict) and all(k.isdigit() for k in expected_type.keys()):
+                parts[key] = {code: {"": ""} for code in expected_type.keys()}
             else:
-                print(f"{' ' * indent}{key}: {value}")
+                parts[key] = ""
 
-    print_dict(parts)
+    missing = find_missing_categories(parts, structure)
+    return parts, missing
 
 def fill_json_structure(template_json, extracted_parts):
     target = template_json.get("target", {})
@@ -402,8 +307,25 @@ def clean_empty_directories_status(json_data):
     return json_data
 
 
+def print_json_parts(parts):
+    def print_dict(d, indent=0):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                print(' ' * indent + f"{key}:")
+                print_dict(value, indent + 2)
+            elif isinstance(value, list):
+                print(' ' * indent + f"{key}:")
+                for i, item in enumerate(value):
+                    print(f"{' ' * (indent + 2)}Item {i + 1}:")
+                    print_dict(item, indent + 4)
+            else:
+                print(f"{' ' * indent}{key}: {value}")
+
+    print_dict(parts)
+
+
 def fix_json(state: dict, new_data):
-    parts, missing = extract_json_parts(new_data)
+    parts, missing = extract_json_parts_recursive(new_data, DEFAULT_STATE_STRUCTURE)
     if parts:
         print("✅ JSON extracted successfully.")
         print_json_parts(parts)
@@ -424,7 +346,14 @@ if __name__ == "__main__":
         {
         "target": {
             "ip": "192.168.56.101",
-            "os": "",
+            "os": {
+                "name": "",
+                "distribution": {
+                    "name": "", "version": ""
+                },
+                "kernel": "",
+                "architecture": ""
+            },
             "services": [
             {
                 "port": "",
@@ -454,10 +383,10 @@ if __name__ == "__main__":
             "": ""
             },
             "401": {
-            "": ""
+            "zxcv": "n"
             },
             "503": {
-            "": ""
+            "": "u"
             }
         },
         "actions_history": [],
@@ -468,10 +397,17 @@ if __name__ == "__main__":
         """
 
     new_data = """
-    {
+    
     "target": {
         "ip": "192.168.56.101",
-        "os": "Linux",
+        "os": {
+            "name": "Linux",
+            "distribution": {
+                "name": "ubunto", "version": "1.0"
+            },
+            "kernel": "",
+            "architecture": "19"
+        },
         "services": [
         {"port": "21", "protocol": "tcp", "service": "ftp"},
         {"port": "22", "protocol": "tcp", "service": "ssh"},
@@ -483,7 +419,7 @@ if __name__ == "__main__":
         {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
         {"port": "445", "protocol": "tcp", "service": "microsoft-ds"},
         {"port": "512", "protocol": "tcp", "service": "exec"},
-        {"port": "513", "protocol": "tcp", "service": "login"},
+        port513", "protocol": "tcp", "servicelogin
         {"port": "1099", "protocol": "tcp", "service": "rmiregistry"},
         {"port": "1524", "protocol": "tcp", "service": "ingreslock"},
         {"port": "2049", "protocol": "tcp", "service": "nfs"},
@@ -520,7 +456,7 @@ if __name__ == "__main__":
         "": ""
         },
         "503": {
-        "": ""
+        "b": "sdf"
         }
     }
     }
