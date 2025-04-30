@@ -11,9 +11,6 @@ from blackboard.blackboard import initialize_blackboard
 
 EXPECTED_STRUCTURE = initialize_blackboard()
 EXPECTED_STRUCTURE["target"].pop("ip",None)
-import re
-from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
-
 
 def extract_value_after_key(text, key_name, next_keys=None):
     key_pos = text.find(key_name)
@@ -160,13 +157,18 @@ def extract_status_block(text_after_status, status_code):
 
 
 def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict]:
-    parts = {}
+    # ── DEBUG: entering recursion, show a snippet of the text and the keys we expect ──
+    print(f"[DEBUG] extract_json_parts_recursive(text_snippet={text[:80]!r}, keys={list(structure.keys())})")
+    parts: dict = {} 
     text = text.replace('\n', ' ').replace('\r', ' ').strip()
     keys = list(structure.keys())
 
     pos = 0
     while pos < len(text):
         for i, key in enumerate(keys):
+            #── DEBUG: disable skipping duplicates so 'os' always matches ──
+            if key in parts:
+                continue
             if text[pos:].startswith(key):
                 after_key_text = text[pos + len(key):]
                 next_keys = keys[i + 1:]
@@ -187,8 +189,22 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
                     parts[key] = sub_result
 
                 elif isinstance(expected_type, dict):
-                    sub_result, _ = extract_json_parts_recursive(block_text, expected_type)
-                    parts[key] = sub_result
+                            # detect “status‐code” dicts (all keys are digits) and skip debug for those
+                            is_status_mapping = all(str(k).isdigit() for k in expected_type.keys())
+                
+                            if not is_status_mapping:
+                                # — only for real object‐like fields (e.g. os, distribution, target…) —
+                                print(f"[DEBUG] Recursing into object key={key!r}")
+                                print(f"[DEBUG]   raw block_text for {key!r}: {block_text!r}")
+                            # strip leading punctuation so inner keys line up
+                            cleaned_block = block_text.lstrip(': {\'"')
+                            if not is_status_mapping:
+                                print(f"[DEBUG]   cleaned block_text for {key!r}: {cleaned_block!r}")
+                            # recurse
+                            sub_result, _ = extract_json_parts_recursive(cleaned_block, expected_type)
+                            if not is_status_mapping:
+                                print(f"[DEBUG]   result for {key!r}: {sub_result!r}")
+                            parts[key] = sub_result
 
                 elif isinstance(expected_type, list) and expected_type and isinstance(expected_type[0], dict):
                     list_result = []
@@ -216,8 +232,10 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
                     parts[key] = list_result
 
                 else:
-                    cleaned = block_text.strip(': "{}')
-                    parts[key] = cleaned if cleaned else ""
+                    # strip surrounding punctuation, quotes, commas, braces and whitespace
+                    cleaned = block_text.strip(' :{},"\n\r,')
+                    parts[key] = cleaned
+
 
                 pos += len(key)
                 break
@@ -288,22 +306,132 @@ def fill_json_structure(template_json, extracted_parts):
 
     return final_json
 
-def remove_empty_services(template_json):
-    if "target" in template_json and "services" in template_json["target"]:
-        template_json["target"]["services"] = [
-            service for service in template_json["target"]["services"]
-            if service.get("port") and service.get("protocol") and service.get("service")
-        ]
+def fill_json_structure(template_json: dict,
+                        extracted_parts: dict,
+                        expected_structure: dict) -> dict:
+    """
+    Recursively merge extracted_parts into template_json based on expected_structure.
+    - Scalars: only set if template_json[key] is empty.
+    - Dicts: recurse into sub-dicts.
+    - Lists of dicts: append any item not already present (by full-item equality).
+    """
+    for key, expected in expected_structure.items():
+        # אם לא הוצא כלום – דילוג
+        if key not in extracted_parts:
+            continue
+
+        # ── Branch for dynamic status–code dicts (כל המקשים הם ספרות) ──
+        if isinstance(expected, dict) and all(str(k).isdigit() for k in expected.keys()):
+            # קח עותק של המצב הקיים, בלי placeholder:
+            merged = {
+                code: dirs
+                for code, dirs in template_json.get(key, {}).items()
+                if code  # רק אם הקוד לא ריק
+            }
+            print(f"[DEBUG] before merge status={key}: {merged!r}")
+            # וננדס איך שהתקבלו ב־extracted_parts
+            for code, dirs in extracted_parts[key].items():
+                if not isinstance(dirs, dict):
+                    continue
+                # מחשב רק התיקיות האמיתיות מתוך extracted
+                real = {d: v for d, v in dirs.items() if d}
+                if real:
+                    merged.setdefault(code, {}).update(real)
+                else:
+                    # אין ערכים אמיתיים -> שמור placeholder
+                    merged.setdefault(code, {})[""] = ""
+            print(f"[DEBUG] after  merge status={key}: {merged!r}")
+            template_json[key] = merged
+            # המשך ללולאה מבלי לגרום לרקורסיה הרגילה
+            continue
+        value = extracted_parts[key]
+        # 1) Scalar field
+        if not isinstance(expected, (dict, list)):
+            if value and not template_json.get(key):
+                template_json[key] = value
+            continue
+
+        # 2) Nested dict
+        if isinstance(expected, dict):
+            # get or init a dict in the template
+            sub_template = template_json.get(key, {})
+            if not isinstance(sub_template, dict):
+                sub_template = {}
+            # recurse
+            template_json[key] = fill_json_structure(
+                sub_template,
+                value if isinstance(value, dict) else {},
+                expected
+            )
+            continue
+
+        # 3) List-of-dicts
+        if isinstance(expected, list) and expected and isinstance(expected[0], dict):
+            # get or init a list in the template
+            sub_template_list = template_json.get(key, [])
+            if not isinstance(sub_template_list, list):
+                sub_template_list = []
+
+            # each item in `value` should be a dict matching expected[0]
+            for item in value:
+                if not isinstance(item, dict):
+                    continue
+                # drop any empty items
+                if any(not item.get(f) for f in expected[0].keys()):
+                    continue
+                # append if not already there
+                if item not in sub_template_list:
+                    sub_template_list.append(item)
+
+            template_json[key] = sub_template_list
+
     return template_json
 
-def clean_empty_directories_status(json_data):
-    if "web_directories_status" in json_data:
-        web_directories_status = json_data["web_directories_status"]
-        for status, directories in web_directories_status.items():
-            if "" in directories:
-                del directories[""]
-            if not directories:
-                directories[""] = ""
+def clean_after_fill(json_data: dict, expected_structure: dict) -> dict:
+    """
+    לנקות אחרי מיזוג:
+    1. לכל מפתח שהוא list של dicts — הסרת פריטים שלא מלאים בכל השדות.
+       אם List ריק בסוף, יוצרים פריט ריק עם כל השדות כמחרוזת ריקה.
+    2. לכל מפתח שהוא dict של dicts עם מפתחות ספרתיים (status codes) — 
+       הסרת המפתח "" ולהוספתו אם מערך הערכים ריק.
+    3. לכל מפתח שהוא dict רגיל — רק לחזור פנימה.
+    """
+    for key, expected in expected_structure.items():
+        if key not in json_data:
+            continue
+
+        val = json_data[key]
+
+        # 1) List-of-dicts
+        if isinstance(expected, list) and expected and isinstance(expected[0], dict):
+            item_struct = expected[0]
+            cleaned_list = []
+            for item in val if isinstance(val, list) else []:
+                # נשמור פריט רק אם כל השדות שלו מלאים
+                if all(item.get(field) for field in item_struct):
+                    cleaned_list.append(item)
+            # אם אין פריטים — נשים פריט ריק
+            if not cleaned_list:
+                cleaned_list = [{field: "" for field in item_struct}]
+            json_data[key] = cleaned_list
+            continue
+
+        # 2) Dynamic dict-of-dicts (status codes)
+        if isinstance(expected, dict) and all(str(k).isdigit() for k in expected.keys()):
+            block = val if isinstance(val, dict) else {}
+            # הסרת מפתח ריק
+            block.pop("", None)
+            # אם אין ערכים — נחזיר {"": ""}
+            if not block:
+                block[""] = ""
+            json_data[key] = block
+            continue
+
+        # 3) Nested dict — נקרא רקורסיבית
+        if isinstance(expected, dict):
+            sub = val if isinstance(val, dict) else {}
+            json_data[key] = clean_after_fill(sub, expected)
+
     return json_data
 
 
@@ -323,22 +451,36 @@ def print_json_parts(parts):
 
     print_dict(parts)
 
-
-def fix_json(state: dict, new_data):
-    parts, missing = extract_json_parts_recursive(new_data, DEFAULT_STATE_STRUCTURE)
-    if parts:
+def fix_json(state: dict, new_data: str) -> dict:
+    # 1) Extract parts and report (use EXPECTED_STRUCTURE)
+    extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
+    if extracted_parts:
         print("✅ JSON extracted successfully.")
-        print_json_parts(parts)
+        print_json_parts(extracted_parts)
     else:
         print("❌ Failed to extract valid JSON.")
-    
+
     if missing:
+        # ── drop any “missing” שנוצר עבור web_directories_status.<code>. ──
+        missing = {
+            path: err 
+            for path, err in missing.items()
+            if not path.startswith("web_directories_status.") or path == "web_directories_status"
+        }
         print("❗ Missing categories/subfields detected:")
         print(json.dumps(missing, indent=2))
 
-    filled_json = fill_json_structure(state, parts)
-    print(json.dumps(filled_json, indent=2))
-    return filled_json
+    # 2) Merge into the original state using the expected schema
+    filled = fill_json_structure(state, extracted_parts, EXPECTED_STRUCTURE)
+
+    # 3) Run our generic cleanup (services, status‐codes, etc.)
+    final_cleaned = clean_after_fill(filled, EXPECTED_STRUCTURE)
+
+    # 4) Show and return
+    print("🧹 Final cleaned JSON:")
+    print(json.dumps(final_cleaned, indent=2))
+    return final_cleaned
+
 
 if __name__ == "__main__":
 
@@ -373,20 +515,49 @@ if __name__ == "__main__":
             ]
         },
         "web_directories_status": {
-            "404": {
-            "": ""
-            },
             "200": {
-            "": ""
+                "": "",
+                "/dav/": "OK",
+                "/index": "OK",
+                "/index.php": "OK",
+                "/phpinfo": "OK",
+                "/phpinfo.php": "OK",
+                "/test/": "OK",
+                "/twiki/": "OK"
             },
-            "403": {
-            "": ""
+            "301": {
+                "": "",
+                "/dav": "Moved Permanently",
+                "/phpMyAdmin": "Moved Permanently"
+            },
+            "302": {
+                "": ""
+            },
+            "307": {
+                "": ""
             },
             "401": {
-            "zxcv": "n"
+                "": ""
+            },
+            "403": {
+                "": "",
+                "/.hta": "Forbidden",
+                "/.htaccess": "Forbidden",
+                "/.htpasswd": "Forbidden",
+                "/cgi-bin/": "Forbidden",
+                "/server-status": "Forbidden"
+            },
+            "500": {
+                "": ""
+            },
+            "502": {
+                "": ""
             },
             "503": {
-            "": "u"
+                "": ""
+            },
+            "504": {
+                "": ""
             }
         },
         "actions_history": [],
@@ -397,52 +568,29 @@ if __name__ == "__main__":
         """
 
     new_data = """
-    
     "target": {
-        "ip": "192.168.56.101",
-        "os": {
-            "name": "Linux",
-            "distribution": {
-                "name": "ubunto", "version": "1.0"
-            },
-            "kernel": "",
-            "architecture": "19"
+        "os": 
+            "name": "Linux
+distributionname": "ubunto", "version": "1.0"
+            
+            "kernel76543garchitecture": "19
         },
-        "services": [
-        {"port": "21", "protocol": "tcp", "service": "ftp"},
-        {"port": "22", "protocol": "tcp", "service": "ssh"},
-        {"port": "23", "protocol": "tcp", "service": "telnet"},
-        {"port": "25", "protocol": "tcp", "service": "smtp"},
-        {"port": "53", "protocol": "tcp", "service": "domain"},
-        {"port": "80", "protocol": "tcp", "service": "http"},
-        {"port": "111", "protocol": "tcp", "service": "rpcbind"},
+        "services
+
         {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
-        {"port": "445", "protocol": "tcp", "service": "microsoft-ds"},
-        {"port": "512", "protocol": "tcp", "service": "exec"},
+        {"port": "445", "protocol": "tcp", "service": "microsoft-ds"}port": "512", "protocol": "tcp", "service": "exec"},
         port513", "protocol": "tcp", "servicelogin
-        {"port": "1099", "protocol": "tcp", "service": "rmiregistry"},
-        {"port": "1524", "protocol": "tcp", "service": "ingreslock"},
-        {"port": "2049", "protocol": "tcp", "service": "nfs"},
-        {"port": "2121", "protocol": "tcp", "service": "ccproxy-ftp"},
-        {"port": "3306", "protocol": "tcp", "service": "mysql"},
-        {"port": "5432", "protocol": "tcp", "service": "postgresql"},
-        {"port": "5900", "protocol": "tcp", "service": "vnc"},
-        {"port": "6000", "protocol": "tcp", "service": "X11"},
-        {"port": "6667", "protocol": "tcp", "service": "irc"},
-        {"port": "8009", "protocol": "tcp", "service": "ajp13"},
+
         {"port": "8180", "protocol": "tcp", "service": "unknown"}
         ]
     },
-    "web_directories_status": {
-        "200": {
+    "web_directories_status200": {
         "/": "",
         "/admin": "",
-        "/login": "",
-        "/public": ""
+        "/login": ""public": ""
         },
-        "400": {
-        "": ""
-        },
+        "400
+        "": "
         "401": {
         "": ""
         },
@@ -455,7 +603,7 @@ if __name__ == "__main__":
         "500": {
         "": ""
         },
-        "503": {
+        "503
         "b": "sdf"
         }
     }

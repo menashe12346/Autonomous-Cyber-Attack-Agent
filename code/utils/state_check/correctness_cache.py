@@ -1,8 +1,10 @@
 import json
 import os
 
+from config import CORRECTNESS_CACHE
+
 class CorrectnessCache:
-    def __init__(self, cache_file="utils.state_check.correctness_cache.json"):
+    def __init__(self, cache_file=CORRECTNESS_CACHE):
         self.cache_file = cache_file
         self.cache = self._load_cache()
 

@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 250
-MAX_STEPS_PER_EPISODE = 3
+NUM_EPISODES = 2
+MAX_STEPS_PER_EPISODE = 2
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -57,6 +57,8 @@ OS_LINUX_DATASET= f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_da
 OS_LINUX_KERNEL_DATASET = f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_kernel_dataset.json"
 
 TEMPORARY_DISTROWATCH_FILES = f"{PROJECT_PATH}/project/code/datasets/os_datasets/temporary_DistroWatch_files"
+
+CORRECTNESS_CACHE = f"{PROJECT_PATH}/project/code/Cache/correctness_cache.json"
 
 # STATE CONFIGURATION #
 
