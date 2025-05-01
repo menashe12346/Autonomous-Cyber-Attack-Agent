@@ -399,5 +399,9 @@
   "url_check:http://192.168.56.101//192.168.56.101/twiki/": [
     "404",
     "Not Found"
+  ],
+  "url_check:http://192.168.56.101/common.txt": [
+    "404",
+    "Not Found"
   ]
 }

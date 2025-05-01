@@ -53,8 +53,8 @@ class LlamaModel(BaseLLM):
 
             # === Debug Output ===
             print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
-            print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
-            print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
+            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
 
             cmd = [
                 self.llama_path,

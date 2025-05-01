@@ -4,6 +4,7 @@ import json
 
 from config import BLACKBOARD_PATH
 from utils.state_check.state_sorting import sort_state
+from utils.state_check.state_validator import validate_state
 
 class BlackboardAPI:
     """
@@ -142,6 +143,7 @@ class BlackboardAPI:
         Only adds new information without deleting or overwriting existing data.
         """
         self._smart_merge(self.blackboard, new_state)
+        self.blackboard = validate_state(self.blackboard)
         self.blackboard = sort_state(self.blackboard)
         print(f"final blackboard: {self.blackboard}")
         self._save_to_file()
