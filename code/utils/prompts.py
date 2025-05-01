@@ -1,4 +1,5 @@
-from config import EXPECTED_STATUS_CODES
+from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
+import json
 
 def PROMPT_1(current_state: str) -> str:
   return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
@@ -19,7 +20,7 @@ Just memorize it internally — you will be asked to use it later.
 All response should be one line. 
 
 Here is the structure: 
-{{ "target": {{ "os": "", "services": [ {{ "port": "", "protocol": "", "service": "" }}, {{ "port": "", "protocol": "", "service": "" }}, {{ "port": "", "protocol": "", "service": "" }} ] }} , "web_directories_status": {{ "200": {{ "": "" }}, "403": {{ "": "" }}, "401": {{ "": "" }}, "503": {{ "": "" }} }} }},
+{json.dumps(DEFAULT_STATE_STRUCTURE, indent=4, separators=(',',':'))},
 
 You were previously given a specific JSON structure. 
 You MUST now return ONLY that same structure, filled correctly. 
@@ -29,13 +30,13 @@ Include all real fileds found.
 with no limit each status key must exist with {{ "{{" }}"": ""{{ }}" }}. 
 The "os" field includes nSame (e.g. "Linux"), distribution with name (e.g. "Ubuntu") and version (e.g. "20.04"), kernel (e.g. "5.15.0-85-generic"), and architecture (e.g. "x86_64")
 In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp" (lowercase), "service": service name (e.g. http, ssh) — lowercase, If missing, leave value as "". 
-In "web_directories_status", for each status ({EXPECTED_STATUS_CODES}): Map any discovered paths (like "/admin") to their message (or use "" if no message). All {len(EXPECTED_STATUS_CODES)} keys must appear, even if empty.
+In "web_directories_status", for each status ({json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':'))}): Map any discovered paths (like "/admin") to their message (or use "" if no message). All {len(EXPECTED_STATUS_CODES)} keys must appear, even if empty.
 Do not invent or guess data.
 Do not rename, add, or remove any fields. 
 Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. All response should be one line.
 
-Instructions for this specific command: {Custom_prompt}
-Here is the new data: {command_output}
+Instructions for this specific command: {Custom_prompt}.
+Here is the new data: {command_output}.
 Before returning your answer: Compare it to the original json structure character by character. Return ONLY ONE JSON — no explanation, no formatting, no comments.
 """
 

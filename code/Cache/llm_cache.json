@@ -1,173 +1,17 @@
 [
   {
-    "action": "nmap -F 192.168.56.101",
-    "parsed": {
-      "target": {
-        "os": "Linux",
-        "services": [
-          {
-            "port": "21",
-            "protocol": "tcp",
-            "service": "ftp"
-          },
-          {
-            "port": "22",
-            "protocol": "tcp",
-            "service": "ssh"
-          },
-          {
-            "port": "23",
-            "protocol": "tcp",
-            "service": "telnet"
-          },
-          {
-            "port": "25",
-            "protocol": "tcp",
-            "service": "smtp"
-          },
-          {
-            "port": "80",
-            "protocol": "tcp",
-            "service": "http"
-          },
-          {
-            "port": "111",
-            "protocol": "tcp",
-            "service": "rpcbind"
-          },
-          {
-            "port": "445",
-            "protocol": "tcp",
-            "service": "netbios-ssn"
-          },
-          {
-            "port": "513",
-            "protocol": "tcp",
-            "service": "login"
-          },
-          {
-            "port": "514",
-            "protocol": "tcp",
-            "service": "shell"
-          },
-          {
-            "port": "2049",
-            "protocol": "tcp",
-            "service": "nfs"
-          },
-          {
-            "port": "2121",
-            "protocol": "tcp",
-            "service": "ftp"
-          },
-          {
-            "port": "3306",
-            "protocol": "tcp",
-            "service": "mysql"
-          },
-          {
-            "port": "5432",
-            "protocol": "tcp",
-            "service": "postgresql"
-          },
-          {
-            "port": "5900",
-            "protocol": "tcp",
-            "service": "vnc"
-          }
-        ]
-      },
-      "web_directories_status": {
-        "200": {
-          "": ""
-        },
-        "301": {
-          "": ""
-        },
-        "302": {
-          "": ""
-        },
-        "307": {
-          "": ""
-        },
-        "401": {
-          "": ""
-        },
-        "403": {
-          "": ""
-        },
-        "500": {
-          "": ""
-        },
-        "502": {
-          "": ""
-        },
-        "503": {
-          "": ""
-        },
-        "504": {
-          "": ""
-        }
-      }
-    }
-  },
-  {
-    "action": "gobuster dir -u http://192.168.56.101 -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt",
-    "parsed": {
-      "target": {
-        "os": "Linux",
-        "services": []
-      },
-      "web_directories_status": {
-        "200": {
-          "/dav/": "OK",
-          "/index": "OK",
-          "/index.php": "OK",
-          "/phpinfo": "OK",
-          "/phpinfo.php": "OK",
-          "/test/": "OK",
-          "/twiki/": "OK"
-        },
-        "301": {
-          "/dav": "Moved Permanently",
-          "/phpMyAdmin": "Moved Permanently"
-        },
-        "302": {
-          "": ""
-        },
-        "307": {
-          "": ""
-        },
-        "401": {
-          "": ""
-        },
-        "403": {
-          "/.hta": "Forbidden",
-          "/.htaccess": "Forbidden",
-          "/.htpasswd": "Forbidden",
-          "/cgi-bin/": "Forbidden",
-          "/server-status": "Forbidden"
-        },
-        "500": {
-          "": ""
-        },
-        "502": {
-          "": ""
-        },
-        "503": {
-          "": ""
-        },
-        "504": {
-          "": ""
-        }
-      }
-    }
-  },
-  {
     "action": "nmap 192.168.56.101",
     "parsed": {
       "target": {
-        "os": "Linux",
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
         "services": [
           {
             "port": "21",
@@ -208,21 +52,6 @@
             "port": "445",
             "protocol": "tcp",
             "service": "netbios-ssn"
-          },
-          {
-            "port": "512",
-            "protocol": "tcp",
-            "service": "exec"
-          },
-          {
-            "port": "513",
-            "protocol": "tcp",
-            "service": "login"
-          },
-          {
-            "port": "514",
-            "protocol": "tcp",
-            "service": "shell"
           },
           {
             "port": "1099",
@@ -268,6 +97,268 @@
             "port": "6667",
             "protocol": "tcp",
             "service": "irc"
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -F 192.168.56.101",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": [
+          {
+            "port": "21",
+            "protocol": "tcp",
+            "service": "ftp"
+          },
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh"
+          },
+          {
+            "port": "23",
+            "protocol": "tcp",
+            "service": "telnet"
+          },
+          {
+            "port": "25",
+            "protocol": "tcp",
+            "service": "smtp"
+          },
+          {
+            "port": "53",
+            "protocol": "tcp",
+            "service": "domain"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http"
+          },
+          {
+            "port": "111",
+            "protocol": "tcp",
+            "service": "rpcbind"
+          },
+          {
+            "port": "445",
+            "protocol": "tcp",
+            "service": "netbios-ssn"
+          },
+          {
+            "port": "513",
+            "protocol": "tcp",
+            "service": "login"
+          },
+          {
+            "port": "514",
+            "protocol": "tcp",
+            "service": "shell"
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs"
+          },
+          {
+            "port": "2121",
+            "protocol": "tcp",
+            "service": "ftp"
+          },
+          {
+            "port": "3306",
+            "protocol": "tcp",
+            "service": "mysql"
+          },
+          {
+            "port": "5432",
+            "protocol": "tcp",
+            "service": "postgresql"
+          },
+          {
+            "port": "5900",
+            "protocol": "tcp",
+            "service": "vnc"
+          },
+          {
+            "port": "6000",
+            "protocol": "tcp",
+            "service": "x11"
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "traceroute 192.168.56.101",
+    "parsed": {
+      "target": {
+        "ip": "192.168.56.101",
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": [
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "ping -c 1 192.168.56.101",
+    "parsed": {
+      "target": {
+        "ip": "",
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": [
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": ""
           }
         ]
       },

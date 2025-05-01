@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 2
-MAX_STEPS_PER_EPISODE = 2
+NUM_EPISODES = 100
+MAX_STEPS_PER_EPISODE = 4
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -58,6 +58,10 @@ OS_LINUX_KERNEL_DATASET = f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_
 
 TEMPORARY_DISTROWATCH_FILES = f"{PROJECT_PATH}/project/code/datasets/os_datasets/temporary_DistroWatch_files"
 
+DISTROWATCH_FILES =  f"{PROJECT_PATH}/project/code/datasets/os_datasets/DistroWatch_files"
+
+OS_DATASETS = f"{PROJECT_PATH}/project/code/datasets/os_datasets"
+
 CORRECTNESS_CACHE = f"{PROJECT_PATH}/project/code/Cache/correctness_cache.json"
 
 # STATE CONFIGURATION #
@@ -67,14 +71,13 @@ EXPECTED_STATUS_CODES = [
     "200", "301", "302", "307", "401", "403", "500", "502", "503", "504"
 ]
 
-DEFAULT_STATE_STRUCTURE = {
+# שמרו את התבנית הבסיסית בשדה פנימי
+_BASE_DEFAULT_STATE = {
     "target": {
         "ip": "",
         "os": {
             "name": "",
-            "distribution": {
-                "name": "", "version": ""
-            },
+            "distribution": {"name": "", "version": ""},
             "kernel": "",
             "architecture": ""
         },
@@ -86,3 +89,11 @@ DEFAULT_STATE_STRUCTURE = {
     },
     "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
 }
+
+import copy
+
+def __getattr__(name):
+    if name == "DEFAULT_STATE_STRUCTURE":
+        # כל גישה ל־DEFAULT_STATE_STRUCTURE מחזירה עותק עומק חדש
+        return copy.deepcopy(_BASE_DEFAULT_STATE)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

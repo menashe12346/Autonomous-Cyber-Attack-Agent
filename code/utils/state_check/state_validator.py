@@ -1,6 +1,8 @@
 import re
-from config import DEFAULT_STATE_STRUCTURE
+from config import EXPECTED_STATUS_CODES
 import copy
+from blackboard.blackboard import initialize_blackboard
+DEFAULT_STATE_STRUCTURE = initialize_blackboard()
 
 def recursive_setdefault(base: dict, default: dict):
     """

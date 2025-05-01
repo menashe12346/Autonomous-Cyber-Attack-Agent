@@ -1,10 +1,17 @@
 import subprocess
 import re
 import json
-from utils.utils import remove_comments_and_empty_lines
-from config import TARGET_IP, EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
-from utils.utils import run_command
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from config import TARGET_IP, EXPECTED_STATUS_CODES, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET
+from utils.utils import run_command, load_dataset
 from utils.state_check.correctness_cache import CorrectnessCache
+from utils.state_check.state_validator import validate_web_directories
+
+from blackboard.blackboard import initialize_blackboard
+DEFAULT_STATE_STRUCTURE = initialize_blackboard()
 
 cache = CorrectnessCache()
 
@@ -71,11 +78,27 @@ def correct_os(ip: str, current_os: dict, linux_dataset: dict, kernel_versions: 
     cache.set(key, corrected_os)
     return corrected_os
 
+# תווים מותרים ב־URL path לפי RFC 3986 (unreserved characters)
+ALLOWED_PATH_CHARS_REGEX = re.compile(r'^[A-Za-z0-9\-._~/]*$')
+
+def is_valid_url_path(path: str) -> bool:
+    """
+    בודק אם הנתיב מורכב אך ורק מהתווים המותרים ב־URL לפי התקן:
+    A–Z, a–z, 0–9, -, ., _, ~, /
+    """
+    return isinstance(path, str) and bool(ALLOWED_PATH_CHARS_REGEX.fullmatch(path))
+
+
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
     verified = {code: {} for code in EXPECTED_STATUS_CODES}
 
     for code, entries in web_dirs.items():
         for path in entries:
+
+            if not is_valid_url_path(path):
+                print(f"[WARNING] Skipping invalid path: {path!r}")
+                continue
+
             full_url = f"http://{ip}{path}"
             key = f"url_check:{full_url}"
             cached_result = cache.get(key)
@@ -102,7 +125,7 @@ def correct_web_directories(ip: str, web_dirs: dict) -> dict:
             if status_code in verified:
                 verified[status_code][path] = reason
                 
-    return verified
+    return validate_web_directories(verified)
     
 def correct_state(state: dict, linux_dataset: dict, kernel_versions: list) -> dict:
 
@@ -136,7 +159,17 @@ def correct_state(state: dict, linux_dataset: dict, kernel_versions: list) -> di
 
     # תיקון web directories
     print(f"[+] Verifying web directories with curl...")
-    raw_web_dirs = correct_web_directories(TARGET_IP, state.get("web_directories_status", DEFAULT_STATE_STRUCTURE["web_directories_status"]))
-    state["web_directories_status"] = clean_web_directories(raw_web_dirs)
-
+    state["web_directories_status"] = correct_web_directories(TARGET_IP, state.get("web_directories_status", DEFAULT_STATE_STRUCTURE["web_directories_status"]))
     return state
+
+if __name__ == "__main__":
+    state = {'target': {'ip': '192.168.56.101', 'os': {'name': '', 'distribution': {'name': '', 'version': ''}, 'kernel': '', 'architecture': ''}, 'services': []}, 'web_directories_status': {'200': {'/index.php': '', '/phpinfo.php': '', '/phpinfo': '', '/index': ''}, '301': {'/dav/': '', '/phpMyAdmin/': '', '/test/': '', '/twiki/': ''}, '302': {'': ''}, '307': {'': ''}, '401': {'': ''}, '403': {'/.htaccess': '', '/cgi-bin/': '', '/server-status': '', '/test/': '', '/twiki/': '', '/': ''}, '500': {'': ''}, '502': {'': ''}, '503': {'': ''}, '504': {'': ''}}, 'actions_history': [], 'cpes': [], 'vulnerabilities_found': []}
+    os_linux_dataset = load_dataset(OS_LINUX_DATASET)
+    print(f"✅ OS Linux dataset Loaded Successfully")
+
+    os_linux_kernel_dataset = load_dataset(OS_LINUX_KERNEL_DATASET)
+    print(f"✅ OS Linux Kernel dataset Loaded Successfully")
+
+    final_state = correct_state(state, os_linux_dataset, os_linux_kernel_dataset)
+
+    print(final_state)

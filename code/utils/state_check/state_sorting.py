@@ -1,6 +1,6 @@
 import json
 from copy import deepcopy
-from config import DEFAULT_STATE_STRUCTURE, EXPECTED_STATUS_CODES
+from config import EXPECTED_STATUS_CODES
 
 
 def sort_services(services: list) -> list:

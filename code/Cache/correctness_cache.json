@@ -16,7 +16,6 @@
   "port_open:192.168.56.101:5900": "vnc",
   "port_open:192.168.56.101:6000": "x11",
   "port_open:192.168.56.101:6667": "irc",
-  "os_detection:192.168.56.101": "Linux",
   "url_check:http://192.168.56.101": [
     "200",
     "OK"
@@ -363,5 +362,42 @@
   "url_check:http://192.168.56.101/phpMyAdmin": [
     "301",
     "Moved Permanently"
+  ],
+  "url_check:http://192.168.56.101/admin/restricted": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/admin/private": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/unavailable": [
+    "404",
+    "Not Found"
+  ],
+  "os_detection:192.168.56.101": {
+    "name": "",
+    "distribution": {
+      "name": "",
+      "version": ""
+    },
+    "kernel": "",
+    "architecture": ""
+  },
+  "url_check:http://192.168.56.101//192.168.56.101/dav/phpMyAdmin": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101//192.168.56.101/phpMyAdmin/test": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101//192.168.56.101/test/twiki": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101//192.168.56.101/twiki/": [
+    "404",
+    "Not Found"
   ]
 }

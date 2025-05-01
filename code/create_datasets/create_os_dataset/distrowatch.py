@@ -4,12 +4,13 @@ import requests
 from pathlib import Path
 from bs4 import BeautifulSoup
 import re
+import shutil
 
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from config import OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, TEMPORARY_DISTROWATCH_FILES
+from config import OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, TEMPORARY_DISTROWATCH_FILES, DISTROWATCH_FILES, OS_DATASETS
 
 # כתובות
 BASE_URL = "https://distrowatch.com"
@@ -18,8 +19,9 @@ DISTRO_PAGE_BASE = f"{BASE_URL}/table.php?distribution="
 # קבצים ותיקיות
 DATA_DIR = Path(TEMPORARY_DISTROWATCH_FILES)
 DISTRO_DIR = DATA_DIR / "distros"
-POP_PAGE = DATA_DIR / "popularity.html"
-FINAL_DATASET_PATH = DATA_DIR / "os_dataset.json"
+distro_index_dir = DATA_DIR / "distro_indexes"
+POP_PAGE = Path(DISTROWATCH_FILES) / "popularity.html"
+FINAL_DATASET_PATH = Path(OS_DATASETS) / "os_dataset.json"
 
 # הגדרות
 HEADERS = {
@@ -32,6 +34,8 @@ HEADERS = {
 # הכנה
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DISTRO_DIR.mkdir(parents=True, exist_ok=True)
+distro_index_dir.mkdir(parents=True, exist_ok=True)
+
 def extract_distro_names():
     """
     מחלץ את שם ההפצה המלא ואת ה-slug (href) מהחלק של Last 12 months.
@@ -113,9 +117,6 @@ def download_distro_indexes(distros):
     """
     print("[*] Downloading distro index pages...")
 
-    distro_index_dir = DATA_DIR / "distro_indexes"
-    distro_index_dir.mkdir(parents=True, exist_ok=True)
-
     existing_files = {p.stem.lower() for p in distro_index_dir.glob("*.html")}
     missing = [d for d in distros if d["name"].lower() not in existing_files]
 
@@ -133,7 +134,7 @@ def download_distro_indexes(distros):
             if resp.status_code == 200:
                 output_file.write_text(resp.text, encoding="utf-8")
             else:
-                print(f"[!] Failed index page for {name}, status {resp.status_code}")
+                print(f"[!] Failed index page for {name}, status {resp.status_code}, url = {url}")
         except Exception as e:
             print(f"[!] Error downloading index page for {name}: {e}")
 
@@ -202,10 +203,10 @@ def update_versions_in_dataset():
     print("[✔] All versions updated and saved.")
 
 
-BASE_URL = "https://cdn.kernel.org/pub/linux/kernel/"
+KERNEL_BASE_URL = "https://cdn.kernel.org/pub/linux/kernel/"
 
 def fetch_kernel_versions():
-    response = requests.get(BASE_URL)
+    response = requests.get(KERNEL_BASE_URL)
     if response.status_code != 200:
         print("Failed to fetch base page.")
         return
@@ -216,7 +217,7 @@ def fetch_kernel_versions():
     versions = []
 
     for link in links:
-        folder_url = BASE_URL + link
+        folder_url = KERNEL_BASE_URL + link
         sub_response = requests.get(folder_url)
         if sub_response.status_code != 200:
             continue
@@ -295,6 +296,29 @@ def extract_architectures_from_html(path):
 
     return architectures
 
+def delete_directory(path: str) -> None:
+    """
+    Deletes the directory at `path` and all its contents.
+    """
+    # ודא שהתיקיה קיימת
+    if not os.path.exists(path):
+        print(f"[!] Directory '{path}' does not exist.")
+        return
+    # ודא שזה באמת תיקיה
+    if not os.path.isdir(path):
+        print(f"[!] Path '{path}' is not a directory.")
+        return
+
+    try:
+        # מחיקת התיקיה וכל תת־התיקיות/קבצים בתוכה
+        shutil.rmtree(path)
+        print(f"[✓] Directory '{path}' removed successfully.")
+    except Exception as e:
+        print(f"[✗] Failed to remove '{path}': {e}")
+
+def clean():
+    delete_directory(DATA_DIR)
+
 def download_os_linux_dataset():
     if not Path(OS_LINUX_DATASET).exists():
         distro_names = extract_distro_names()
@@ -304,6 +328,8 @@ def download_os_linux_dataset():
 
     if not Path(OS_LINUX_KERNEL_DATASET).exists():
         fetch_kernel_versions()
+    
+    clean()
 
 if __name__ == "__main__":
     download_os_linux_dataset()

@@ -3,14 +3,36 @@ import json
 import os
 import sys
 import ast
-
+import copy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
+from config import EXPECTED_STATUS_CODES
 from blackboard.blackboard import initialize_blackboard
 
 EXPECTED_STRUCTURE = initialize_blackboard()
 EXPECTED_STRUCTURE["target"].pop("ip",None)
+
+import re
+
+def clean_input_string(s: str, preserve_prefix: int = 0) -> str:
+    """
+    מנקה מחרוזת מתווים לא רצויים, עם אפשרות לשמר N תווים מההתחלה (למשל '/', './').
+    - מסיר תווים כמו , : " ' ( ) [ ] { } < > .
+    - מבצע strip לתווי קצה כמו רווחים, נקודותיים, גרשיים וכו'.
+    """
+    if not isinstance(s, str):
+        return s
+    s = s.strip()
+
+    # חלק לשימור בתחילת המחרוזת
+    prefix = s[:preserve_prefix]
+    rest = s[preserve_prefix:]
+
+    # ניקוי שאר המחרוזת
+    cleaned_rest = re.sub(r"[,:\"'()\[\]{}<>]", "", rest)
+    cleaned_rest = cleaned_rest.strip(' :{},"\n\r\'')
+
+    return prefix + cleaned_rest
 
 def extract_value_after_key(text, key_name, next_keys=None):
     key_pos = text.find(key_name)
@@ -127,7 +149,7 @@ def extract_status_block(text_after_status, status_code):
             if c not in ['\'', '"', ',', '{', '}']:
                 path += c
             pos += 1
-        path = path.strip()
+        path = clean_input_string(path)
 
         while pos < len(after_status) and after_status[pos] in [' ', ':', '\'', '"', '{']:
             pos += 1
@@ -141,7 +163,7 @@ def extract_status_block(text_after_status, status_code):
                 break
             value += after_status[pos]
             pos += 1
-        value = value.strip()
+        value = clean_input_string(value)
 
         if path:
             print(f"[DEBUG] Found path: {path} -> {value}")
@@ -225,7 +247,8 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
                                 break
                         if matched:
                             if all(k in current_item for k in item_structure):
-                                list_result.append(current_item)
+                                cleaned_item = {f: clean_input_string(current_item[f]) for f in item_structure}
+                                list_result.append(cleaned_item)
                                 current_item = {}
                         else:
                             item_pos += 1
@@ -233,8 +256,7 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
 
                 else:
                     # strip surrounding punctuation, quotes, commas, braces and whitespace
-                    cleaned = block_text.strip(' :{},"\n\r,')
-                    parts[key] = cleaned
+                    parts[key] = clean_input_string(block_text)
 
 
                 pos += len(key)
@@ -256,56 +278,6 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
     missing = find_missing_categories(parts, structure)
     return parts, missing
 
-def fill_json_structure(template_json, extracted_parts):
-    target = template_json.get("target", {})
-
-    if "target" in extracted_parts:
-        target_data = extracted_parts["target"]
-        if "ip" in target_data and target_data["ip"] and not target.get("ip"):
-            target["ip"] = target_data["ip"]
-        if "os" in target_data and target_data["os"] and not target.get("os"):
-            target["os"] = target_data["os"]
-        if "services" in target_data and target_data["services"]:
-            existing_services = {
-                (s["port"], s["protocol"], s["service"]) for s in target.get("services", [])
-            }
-            for service in target_data["services"]:
-                if not service.get("port") or not service.get("protocol") or not service.get("service"):
-                    continue
-                service_tuple = (service["port"], service["protocol"], service["service"])
-                if service_tuple not in existing_services:
-                    target.setdefault("services", []).append(service)
-
-    template_json["target"] = target
-
-    web_directories_status = template_json.get("web_directories_status", {})
-
-    if "web_directories_status" in extracted_parts:
-        wds_data = extracted_parts["web_directories_status"]
-        for status, directories in wds_data.items():
-            if status not in web_directories_status:
-                web_directories_status[status] = {}
-            for directory, value in directories.items():
-                directory = directory.strip('"')
-                value = value.strip('"')
-                if directory and directory not in web_directories_status[status]:
-                    web_directories_status[status][directory] = value
-
-    template_json["web_directories_status"] = web_directories_status
-
-    for section in ["target", "web_directories_status"]:
-        if section == "target" and not template_json["target"].get("services"):
-            template_json["target"]["services"] = [{"port": "", "protocol": "", "service": ""}]
-        if section == "web_directories_status":
-            for status in EXPECTED_STATUS_CODES:
-                if status not in template_json["web_directories_status"]:
-                    template_json["web_directories_status"][status] = {}
-
-    final_json = remove_empty_services(template_json)
-    final_json = clean_empty_directories_status(final_json)
-
-    return final_json
-
 def fill_json_structure(template_json: dict,
                         extracted_parts: dict,
                         expected_structure: dict) -> dict:
@@ -315,6 +287,7 @@ def fill_json_structure(template_json: dict,
     - Dicts: recurse into sub-dicts.
     - Lists of dicts: append any item not already present (by full-item equality).
     """
+    print(f"template_json: {template_json}")
     for key, expected in expected_structure.items():
         # אם לא הוצא כלום – דילוג
         if key not in extracted_parts:
@@ -386,54 +359,115 @@ def fill_json_structure(template_json: dict,
             template_json[key] = sub_template_list
 
     return template_json
-
-def clean_after_fill(json_data: dict, expected_structure: dict) -> dict:
+def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
     """
-    לנקות אחרי מיזוג:
-    1. לכל מפתח שהוא list של dicts — הסרת פריטים שלא מלאים בכל השדות.
-       אם List ריק בסוף, יוצרים פריט ריק עם כל השדות כמחרוזת ריקה.
-    2. לכל מפתח שהוא dict של dicts עם מפתחות ספרתיים (status codes) — 
-       הסרת המפתח "" ולהוספתו אם מערך הערכים ריק.
-    3. לכל מפתח שהוא dict רגיל — רק לחזור פנימה.
+    מסיר רק placeholders דינמיים בתוך json_data לפי expected_structure:
+      - list of dicts: drop items שכל השדות שלהם == ""
+      - dict-of-dicts with digit keys: pop("") בלבד
+      - nested dicts: recurse
+    לא מוסיף placeholder חדש, לא מוחק מפתחות סקימטיים.
     """
+    print(f"expected_structure: {expected_structure}")
     for key, expected in expected_structure.items():
         if key not in json_data:
             continue
 
         val = json_data[key]
 
-        # 1) List-of-dicts
+        # 1) list-of-dicts (e.g. services)
         if isinstance(expected, list) and expected and isinstance(expected[0], dict):
             item_struct = expected[0]
-            cleaned_list = []
-            for item in val if isinstance(val, list) else []:
-                # נשמור פריט רק אם כל השדות שלו מלאים
-                if all(item.get(field) for field in item_struct):
-                    cleaned_list.append(item)
-            # אם אין פריטים — נשים פריט ריק
-            if not cleaned_list:
-                cleaned_list = [{field: "" for field in item_struct}]
-            json_data[key] = cleaned_list
+            if isinstance(val, list):
+                json_data[key] = [
+                    item for item in val
+                    if any(item.get(field) for field in item_struct.keys())
+                ]
+            # else: לא נוגעים
             continue
 
-        # 2) Dynamic dict-of-dicts (status codes)
+        # 2) dynamic dict-of-dicts (status codes)
         if isinstance(expected, dict) and all(str(k).isdigit() for k in expected.keys()):
-            block = val if isinstance(val, dict) else {}
-            # הסרת מפתח ריק
-            block.pop("", None)
-            # אם אין ערכים — נחזיר {"": ""}
-            if not block:
-                block[""] = ""
-            json_data[key] = block
+            if isinstance(val, dict):
+                for code, dirs in val.items():
+                    if isinstance(dirs, dict):
+                        dirs.pop("", None)
+            # else: לא נוגעים
             continue
 
-        # 3) Nested dict — נקרא רקורסיבית
+        # 3) nested dict
         if isinstance(expected, dict):
-            sub = val if isinstance(val, dict) else {}
-            json_data[key] = clean_after_fill(sub, expected)
+            if isinstance(val, dict):
+                json_data[key] = remove_empty_fields(val, expected)
+            # else: לא נוגעים
+            continue
 
     return json_data
 
+import copy
+
+def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> dict:
+    """
+    Returns a new dict based on expected_structure, with extracted_parts merged in.
+    Uses the same merging rules as fill_json_structure.
+    """
+    # 1) יוצרים עותק עמוק של המבנה
+    state = copy.deepcopy(expected_structure)
+
+    # 2) ממזגים פנימה
+    for key, expected in expected_structure.items():
+        if key not in extracted_parts:
+            continue
+
+        parts = extracted_parts[key]
+
+        # מצב־קוד דינמי (כל המפתחות ספרות)
+        if isinstance(expected, dict) and all(str(k).isdigit() for k in expected):
+            merged = {
+                code: dirs
+                for code, dirs in state.get(key, {}).items()
+                if code  # שומרים רק קודים לא ריקים
+            }
+            for code, dirs in parts.items():
+                if not isinstance(dirs, dict):
+                    continue
+                real = {p: v for p, v in dirs.items() if p}
+                if real:
+                    merged.setdefault(code, {}).update(real)
+                else:
+                    merged.setdefault(code, {})[""] = ""
+            state[key] = merged
+            continue
+
+        # שדה סקלרי
+        if not isinstance(expected, (dict, list)):
+            if parts and not state.get(key):
+                state[key] = parts
+            continue
+
+        # dict מקונן
+        if isinstance(expected, dict):
+            sub = state.get(key, {})
+            if not isinstance(sub, dict):
+                sub = {}
+            state[key] = build_state_from_parts(parts if isinstance(parts, dict) else {}, expected)
+            continue
+
+        # list של dicts
+        if isinstance(expected, list) and expected and isinstance(expected[0], dict):
+            lst = state.get(key, [])
+            if not isinstance(lst, list):
+                lst = []
+            for item in parts:
+                if not isinstance(item, dict):
+                    continue
+                # סינון פריטים ריקים
+                if any(not item.get(f) for f in expected[0].keys()):
+                    continue
+                if item not in lst:
+                    lst.append(item)
+            state[key] = lst
+
+    return state
 
 def print_json_parts(parts):
     def print_dict(d, indent=0):
@@ -453,6 +487,7 @@ def print_json_parts(parts):
 
 def fix_json(state: dict, new_data: str) -> dict:
     # 1) Extract parts and report (use EXPECTED_STRUCTURE)
+    EXPECTED_STRUCTURE=initialize_blackboard()
     extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
     if extracted_parts:
         print("✅ JSON extracted successfully.")
@@ -469,17 +504,24 @@ def fix_json(state: dict, new_data: str) -> dict:
         }
         print("❗ Missing categories/subfields detected:")
         print(json.dumps(missing, indent=2))
+    
+    state = copy.deepcopy(state)
 
+    EXPECTED_STRUCTURE=initialize_blackboard()
+    data_for_cache = build_state_from_parts(extracted_parts, EXPECTED_STRUCTURE)
+
+    EXPECTED_STRUCTURE=initialize_blackboard()
     # 2) Merge into the original state using the expected schema
     filled = fill_json_structure(state, extracted_parts, EXPECTED_STRUCTURE)
 
+    EXPECTED_STRUCTURE=initialize_blackboard()
     # 3) Run our generic cleanup (services, status‐codes, etc.)
-    final_cleaned = clean_after_fill(filled, EXPECTED_STRUCTURE)
+    final_json = remove_empty_fields(filled, EXPECTED_STRUCTURE)
 
     # 4) Show and return
     print("🧹 Final cleaned JSON:")
-    print(json.dumps(final_cleaned, indent=2))
-    return final_cleaned
+    print(json.dumps(final_json, indent=2))
+    return final_json, data_for_cache
 
 
 if __name__ == "__main__":
@@ -609,4 +651,6 @@ distributionname": "ubunto", "version": "1.0"
     }
     }
     """
-    fix_json(json.loads(state), new_data)
+    extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
+    data_for_cache = build_state_from_parts(extracted_parts, EXPECTED_STRUCTURE)
+    print(data_for_cache)

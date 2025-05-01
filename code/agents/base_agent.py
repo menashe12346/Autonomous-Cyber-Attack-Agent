@@ -180,7 +180,9 @@ class BaseAgent(ABC):
             print(f"  {action:70s} => Q = {q:.4f}")
 
         # בחירת פעולה
-        if random.random() < self.epsilon:
+        rnd = random.random() 
+        if rnd < self.epsilon:
+            print(f"\033[91m[! EXPLORATION] rnd={rnd:.4f} < ε={self.epsilon:.4f} → Choosing random action\033[0m")
             action_index = random.randint(0, len(self.action_space) - 1)
         else:
             action_index = int(np.argmax(q_values))
@@ -248,7 +250,6 @@ class BaseAgent(ABC):
         remove_untrained_categories(state, trained_categories)
 
         cached_inner_prompt = self.command_llm_cache.get(self.last_action)
-        #cached_inner_prompt = None
         if cached_inner_prompt:
             inner_prompt = cached_inner_prompt
             print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
@@ -274,7 +275,7 @@ class BaseAgent(ABC):
 
         print(f"full_response - {full_response}")
 
-        parsed = fix_json(self.last_state, full_response)
+        parsed, data_for_cache = fix_json(self.last_state, full_response)
         parsed = self.check_state(parsed)
         remove_untrained_categories(parsed, trained_categories)
 
@@ -282,8 +283,8 @@ class BaseAgent(ABC):
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
 
-        if parsed:
-            self.llm_cache.set(self.last_action, parsed)
+        if data_for_cache:
+            self.llm_cache.set(self.last_action, data_for_cache)
 
         return parsed
 
