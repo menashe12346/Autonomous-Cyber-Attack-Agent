@@ -255,7 +255,7 @@ class BaseAgent(ABC):
             print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
         else:
             prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-            inner_prompt = self.model.run([prompt_for_prompt])[0]
+            inner_prompt = self.model.run([one_line(prompt_for_prompt)])[0]
             self.command_llm_cache.set(self.last_action, inner_prompt)
 
         final_prompt = PROMPT_2(command_output, inner_prompt)
