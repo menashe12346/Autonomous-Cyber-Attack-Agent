@@ -41,71 +41,119 @@ def correct_os(
     linux_dataset: dict,
     kernel_versions: list
 ) -> dict:
+    """
+    1) Lowercase & split OS name + distribution name into words.
+       If 'linux' in OS-words, corrected['name']='linux'.
+    2) Try to match (in order):
+         a) concat(OS words)
+         b) concat(dist words)
+         c) each OS word
+         d) each dist word
+       against lowercase linux_dataset keys.
+       If found → set corrected['distribution']['name'] and corrected['name']='linux'.
+       Else → clear only the three distribution fields.
+    3) Independently validate corrected['distribution']['version'] and
+       corrected['distribution']['architecture'] against that distro’s dataset entry,
+       clearing only the field that doesn’t match.
+    4) Validate kernel (lowercase) against kernel_versions.
+    5) Cache under "os_detection:{ip}" and return.
+    """
     cache_key = f"os_detection:{ip}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    # 1) קח מה-state את הערכים (בשורה אחת: הכל ל-lowercase)
-    raw_name = current_os.get("distribution", {})\
-                         .get("name", "")\
-                         .lower()
-    raw_version = current_os.get("distribution", {})\
-                            .get("version", "")\
-                            .lower()
-    raw_arch = current_os.get("distribution", {})\
-                         .get("architecture", "")\
-                         .lower()
-    raw_kernel = current_os.get("kernel", "").lower()
-    raw_os_name = current_os.get("name", "").lower()
+    # 1) pull & lowercase
+    raw_os_name   = current_os.get("name", "").lower()
+    raw_dist_name = current_os.get("distribution", {})\
+                               .get("name", "")\
+                               .lower()
+    raw_version   = current_os.get("distribution", {})\
+                               .get("version", "")\
+                               .lower()
+    raw_arch      = current_os.get("distribution", {})\
+                               .get("architecture", "")\
+                               .lower()
+    raw_kernel    = current_os.get("kernel", "").lower()
 
-    # 2) בנה תוצאה ראשונית ב־lowercase
+    os_name_words   = raw_os_name.split()
+    dist_name_words = raw_dist_name.split()
+
+    # init corrected (all lowercase)
     corrected = {
-        "name": raw_os_name,
+        "name": "",
         "distribution": {
-            "name":        raw_name,
-            "version":     raw_version,
+            "name":         "",
+            "version":      raw_version,
             "architecture": raw_arch,
         },
         "kernel": raw_kernel,
     }
 
-    # 3) מיפוי מקשים lowercase → המפתח המקורי ב־dataset
-    lc_to_key = {k.lower(): k for k in linux_dataset}
+    # detect 'linux' in OS name
+    if "linux" in os_name_words:
+        corrected["name"] = "linux"
 
-    # חפש התאמה מדויקת או במילים בודדות
-    dist_key = lc_to_key.get(raw_name)
-    if dist_key is None and " " in raw_name:
-        for w in raw_name.split():
-            if w in lc_to_key:
-                dist_key = lc_to_key[w]
+    # 2) match distro key
+    lc_dataset = {k.lower(): k for k in linux_dataset}
+    matched_key = None
+
+    # a) combo of OS words
+    combo_os = "".join(os_name_words)
+    if combo_os in lc_dataset:
+        matched_key = lc_dataset[combo_os]
+
+    # b) combo of dist words
+    if not matched_key:
+        combo_dist = "".join(dist_name_words)
+        if combo_dist in lc_dataset:
+            matched_key = lc_dataset[combo_dist]
+
+    # c) each OS word
+    if not matched_key:
+        for w in os_name_words:
+            if w in lc_dataset:
+                matched_key = lc_dataset[w]
                 break
 
-    if dist_key:
-        # canonical name ב־lowercase
-        corrected["distribution"]["name"] = dist_key.lower()
+    # d) each dist word
+    if not matched_key:
+        for w in dist_name_words:
+            if w in lc_dataset:
+                matched_key = lc_dataset[w]
+                break
 
-        # 4) בדוק version ב־lowercase
-        valid_versions_lc = {v.lower() for v in linux_dataset[dist_key].get("versions", [])}
-        if raw_version not in valid_versions_lc:
+    if matched_key:
+        # set canonical distro name
+        corrected["distribution"]["name"] = matched_key.lower()
+        corrected["name"] = "linux"
+
+        # 3a) validate version independently
+        valid_versions = {v.lower() for v in linux_dataset[matched_key].get("versions", [])}
+        if raw_version not in valid_versions:
             corrected["distribution"]["version"] = ""
-        # else כבר lowercase
+        # else leave corrected['distribution']['version'] == raw_version
 
-        # 5) בדוק architecture ב־lowercase
-        valid_archs_lc = {a.lower() for a in linux_dataset[dist_key].get("architecture", [])}
-        if raw_arch not in valid_archs_lc:
+        # 3b) validate architecture independently
+        valid_archs = {a.lower() for a in linux_dataset[matched_key].get("architecture", [])}
+        if raw_arch not in valid_archs:
             corrected["distribution"]["architecture"] = ""
+        # else leave corrected['distribution']['architecture'] == raw_arch
+
     else:
-        # שום התאמה → אפס הכל
+        # no distro match → clear only distribution fields
         corrected["distribution"]["name"]         = ""
         corrected["distribution"]["version"]      = ""
         corrected["distribution"]["architecture"] = ""
 
-    # 6) בדיקת kernel ב־lowercase
-    if raw_kernel not in {k.lower() for k in kernel_versions}:
+    # 4) validate kernel
+    valid_kernels = {k.lower() for k in kernel_versions}
+    if raw_kernel not in valid_kernels:
         corrected["kernel"] = ""
+    else:
+        corrected["kernel"] = raw_kernel
 
-    # 7) שמור ב־cache והחזר
+    # 5) cache & return
     cache.set(cache_key, corrected)
     return corrected
 

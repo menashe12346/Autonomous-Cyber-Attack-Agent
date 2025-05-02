@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 100
-MAX_STEPS_PER_EPISODE = 4
+NUM_EPISODES = 1
+MAX_STEPS_PER_EPISODE = 1
 
 # Target configuration
 TARGET_IP = "192.168.56.101"

@@ -335,66 +335,6 @@
     }
   },
   {
-    "action": "whatweb http://192.168.56.101",
-    "parsed": {
-      "target": {
-        "os": {
-          "name": "",
-          "distribution": {
-            "name": "",
-            "version": ""
-          },
-          "kernel": "",
-          "architecture": ""
-        },
-        "services": [
-          {
-            "port": "22",
-            "protocol": "tcp",
-            "service": "ssh"
-          },
-          {
-            "port": "80",
-            "protocol": "tcp",
-            "service": "http"
-          }
-        ]
-      },
-      "web_directories_status": {
-        "200": {
-          "": ""
-        },
-        "301": {
-          "": ""
-        },
-        "302": {
-          "": ""
-        },
-        "307": {
-          "": ""
-        },
-        "401": {
-          "": ""
-        },
-        "403": {
-          "": ""
-        },
-        "500": {
-          "": ""
-        },
-        "502": {
-          "": ""
-        },
-        "503": {
-          "": ""
-        },
-        "504": {
-          "": ""
-        }
-      }
-    }
-  },
-  {
     "action": "curl -I http://192.168.56.101",
     "parsed": {
       "target": {
@@ -456,6 +396,283 @@
   },
   {
     "action": "ping -c 1 192.168.56.101",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": []
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "whois 192.168.56.101",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http"
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "traceroute 192.168.56.101",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": []
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "curl http://192.168.56.101/",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": []
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "gobuster dir -u http://192.168.56.101 -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt",
+    "parsed": {
+      "target": {
+        "os": {
+          "name": "",
+          "distribution": {
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "architecture": ""
+        },
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http"
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "/": "OK",
+          "/index": "OK",
+          "/index.php": "OK",
+          "/phpinfo": "OK",
+          "/phpinfo.php": "OK"
+        },
+        "301": {
+          "/phpMyAdmin": "Moved Permanently",
+          "/test": "Moved Permanently",
+          "/twiki": "Moved Permanently"
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "/.hta": "Forbidden",
+          "/.htaccess": "Forbidden",
+          "/.htpasswd": "Forbidden",
+          "/cgi-bin/": "Forbidden",
+          "/server-status": "Forbidden"
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "whatweb http://192.168.56.101",
     "parsed": {
       "target": {
         "os": {
