@@ -3,8 +3,6 @@ import subprocess
 import tiktoken
 
 from models.llm.base_llm import BaseLLM
-from utils.utils import one_line
-
 
 class LlamaModel(BaseLLM):
     """
@@ -70,7 +68,7 @@ class LlamaModel(BaseLLM):
             try:
                 output = subprocess.check_output(cmd, text=True).strip()
                 responses.append(output)
-                context += f"\n{prompt}\n{one_line(output)}"
+                context += f"\n{prompt}\n{output}"
             except subprocess.CalledProcessError:
                 responses.append("")
 

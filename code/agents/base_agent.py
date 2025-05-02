@@ -9,7 +9,7 @@ from Cache.llm_cache import LLMCache
 from Cache.commandLLM_cache import CommandLLMCache
 
 from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
-from utils.utils import remove_comments_and_empty_lines, one_line
+from utils.utils import remove_comments_and_empty_lines
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state
 from utils.state_check.state_sorting import sort_state
@@ -103,7 +103,7 @@ class BaseAgent(ABC):
         print(f"    Chosen action: {action}")
 
         # Step 3: execute action
-        result = remove_comments_and_empty_lines(self.perform_action(action))
+        result = remove_comments_and_empty_lines(self.perform_action(action)) # TO DO: Improving remove_comments_and_empty_lines
         print("\033[1;32m" + str(result) + "\033[0m")
 
         # Step 4: clean output (if long)
@@ -255,12 +255,12 @@ class BaseAgent(ABC):
             print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
         else:
             prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-            inner_prompt = self.model.run([one_line(prompt_for_prompt)])[0]
+            inner_prompt = self.model.run([prompt_for_prompt])[0]
             self.command_llm_cache.set(self.last_action, inner_prompt)
 
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        responses = self.model.run([one_line(final_prompt)])
+        responses = self.model.run([final_prompt])
 
         if responses and isinstance(responses, list) and len(responses) > 0:
             full_response = responses[0].strip()
@@ -278,6 +278,9 @@ class BaseAgent(ABC):
         parsed, data_for_cache = fix_json(self.last_state, full_response)
         parsed = self.check_state(parsed)
         remove_untrained_categories(parsed, trained_categories)
+
+        data_for_cache = self.check_state(data_for_cache)
+        remove_untrained_categories(data_for_cache, trained_categories)
 
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")

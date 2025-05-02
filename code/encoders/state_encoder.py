@@ -5,22 +5,39 @@ import numbers
 import numpy as np
 import hashlib
 
+from blackboard.blackboard import initialize_blackboard
+
 class StateEncoder:
     """
     Encodes complex nested blackboard state structures into fixed-length numerical vectors
     suitable for use as input to neural networks.
     """
 
-    def __init__(self, action_space: list, max_features: int = 1024):
+    def __init__(
+        self,
+        action_space: list,
+        default_state: dict = None,
+        max_features: int = 1024
+    ):
         """
         Args:
             action_space (list): List of all valid action strings.
+            default_state (dict): A “blank” state dict containing every
+                                  possible key (even empty), used to fix our feature order.
             max_features (int): Fixed length of the output state vector.
         """
-        self.encoded_to_state = {}  # Maps stringified vectors to original state dicts
+        if default_state is None:
+            default_state = initialize_blackboard()
+            
+        self.default_state = default_state 
         self.max_features = max_features
         self.action_space = action_space
-        self.action_to_index = {action: i for i, action in enumerate(action_space)}
+        self.action_to_index = {a: i for i, a in enumerate(action_space)}
+        self.encoded_to_state = {}
+
+        # 1) flatten the provided default_state and sort its keys once
+        flat_defaults = self._flatten_state(default_state)
+        self.feature_keys = sorted(flat_defaults.keys())
 
     def base100_encode(self, text: str) -> float:
         """
@@ -42,48 +59,42 @@ class StateEncoder:
     def encode(self, state: dict, actions_history: list) -> torch.Tensor:
         """
         Converts the blackboard state and action history into a fixed-length torch vector.
-
-        Args:
-            state (dict): The full blackboard state.
-            actions_history (list): List of actions executed by the agent so far.
-
-        Returns:
-            torch.Tensor: A vector of shape (max_features,) representing the state.
+        Uses self.feature_keys to guarantee a stable ordering of every feature.
         """
-        # Flatten the state
-        flat_state = self._flatten_state(state)
+        # 1) flatten the current state
+        flat = self._flatten_state(state)
 
-        # Encode action history as one-hot
+        # 2) append action‐history counts
         actions_vector = np.zeros(len(self.action_space), dtype=np.float32)
-        for action in actions_history:
-            if action in self.action_to_index:
-                idx = self.action_to_index[action]
-                actions_vector[idx] += 1.0 # To count the number of time that command ran
+        for a in actions_history:
+            idx = self.action_to_index.get(a)
+            if idx is not None:
+                actions_vector[idx] += 1.0
+        for i, cnt in enumerate(actions_vector):
+            flat[f"action_history_idx_{i}"] = cnt
 
-        # Add action history to the flat dictionary
-        for i, val in enumerate(actions_vector):
-            flat_state[f"action_history_idx_{i}"] = val
+        # 3) build the normalized values in the fixed order
+        encoded = []
+        for key in self.feature_keys:
+            raw = flat.get(key, 0.0)
+            encoded.append(self._normalize_value(key, raw))
 
-        # Sort keys to ensure consistent ordering
-        sorted_items = sorted(flat_state.items())
-        encoded_values = [self._normalize_value(k, v) for k, v in sorted_items]
-
-        # Pad or truncate to fixed length
-        if len(encoded_values) < self.max_features:
-            encoded_values += [0.0] * (self.max_features - len(encoded_values))
+        # 4) pad or truncate
+        if len(encoded) < self.max_features:
+            encoded += [0.0] * (self.max_features - len(encoded))
         else:
-            encoded_values = encoded_values[:self.max_features]
+            encoded = encoded[: self.max_features]
 
-        # Convert to tensor
-        vector = torch.tensor(encoded_values, dtype=torch.float32)
+        # 5) to tensor
+        vec = torch.tensor(encoded, dtype=torch.float32)
 
-        # Store reverse mapping for debug and reward tracking
-        vector_key = self._vector_to_key(vector)
-        if vector_key not in self.encoded_to_state:
-            self.encoded_to_state[vector_key] = state
+        # 6) store reverse mapping
+        vk = self._vector_to_key(vec)
+        if vk not in self.encoded_to_state:
+            self.encoded_to_state[vk] = state
 
-        print(f"[Encoder] Encoded vector of length {len(encoded_values)} (state + history)")
-        return vector
+        print(f"[Encoder] Encoded vector of length {len(encoded)}")
+        return vec
 
     def decode(self, vector: torch.Tensor) -> dict:
         """

@@ -403,5 +403,67 @@
   "url_check:http://192.168.56.101/common.txt": [
     "404",
     "Not Found"
-  ]
+  ],
+  "url_check:http://192.168.56.101//192.168.56.101/phpMyAdmin/": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/10s/.htaccess": [
+    "404",
+    "Not Found"
+  ],
+  "port_open:192.168.56.101:110": null,
+  "url_check:http://192.168.56.101/robots.txt": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/old": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/redirect": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/moved": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/temp": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/unauth": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/gateway": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/service": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/mutillidae/": [
+    "200",
+    "OK"
+  ],
+  "url_check:http://192.168.56.101/dvwa/": [
+    "302",
+    "Found"
+  ],
+  "url_check:http://192.168.56.101/twiki": [
+    "301",
+    "Moved Permanently"
+  ],
+  "url_check:http://192.168.56.101/webdav": [
+    "404",
+    "Not Found"
+  ],
+  "url_check:http://192.168.56.101/timeout": [
+    "404",
+    "Not Found"
+  ],
+  "port_open:192.168.56.101:1221": null
 }

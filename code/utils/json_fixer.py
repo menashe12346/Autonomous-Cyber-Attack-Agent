@@ -12,8 +12,6 @@ from blackboard.blackboard import initialize_blackboard
 EXPECTED_STRUCTURE = initialize_blackboard()
 EXPECTED_STRUCTURE["target"].pop("ip",None)
 
-import re
-
 def clean_input_string(s: str, preserve_prefix: int = 0) -> str:
     """
     מנקה מחרוזת מתווים לא רצויים, עם אפשרות לשמר N תווים מההתחלה (למשל '/', './').

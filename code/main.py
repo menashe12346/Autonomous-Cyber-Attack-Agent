@@ -145,7 +145,7 @@ def main():
     command_cache = {}
     all_actions = []
 
-    epsilon = 1.0
+    epsilon = 0.6
 
     # === EPISODE LOOP ===
     for episode in range(NUM_EPISODES):

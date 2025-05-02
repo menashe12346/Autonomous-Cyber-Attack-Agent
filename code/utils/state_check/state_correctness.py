@@ -35,48 +35,79 @@ def correct_port(ip: str, port: str) -> str:
     cache.set(key, None)
     return None
 
-def correct_os(ip: str, current_os: dict, linux_dataset: dict, kernel_versions: list) -> dict:
-    key = f"os_detection:{ip}"
-    cached_result = cache.get(key)
-    if cached_result is not None:
-        return cached_result
+def correct_os(
+    ip: str,
+    current_os: dict,
+    linux_dataset: dict,
+    kernel_versions: list
+) -> dict:
+    cache_key = f"os_detection:{ip}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
 
-    corrected_os = current_os.copy()
+    # 1) קח מה-state את הערכים (בשורה אחת: הכל ל-lowercase)
+    raw_name = current_os.get("distribution", {})\
+                         .get("name", "")\
+                         .lower()
+    raw_version = current_os.get("distribution", {})\
+                            .get("version", "")\
+                            .lower()
+    raw_arch = current_os.get("distribution", {})\
+                         .get("architecture", "")\
+                         .lower()
+    raw_kernel = current_os.get("kernel", "").lower()
+    raw_os_name = current_os.get("name", "").lower()
 
-    distro_name = corrected_os.get("distribution", {}).get("name", "").lower()
-    distro_version = corrected_os.get("distribution", {}).get("version", "")
-    architecture = corrected_os.get("architecture", "")
-    kernel = corrected_os.get("kernel", "")
+    # 2) בנה תוצאה ראשונית ב־lowercase
+    corrected = {
+        "name": raw_os_name,
+        "distribution": {
+            "name":        raw_name,
+            "version":     raw_version,
+            "architecture": raw_arch,
+        },
+        "kernel": raw_kernel,
+    }
 
-    # תיקון לפי dataset
+    # 3) מיפוי מקשים lowercase → המפתח המקורי ב־dataset
+    lc_to_key = {k.lower(): k for k in linux_dataset}
 
-    # בדיקה: האם distribution.name חוקי
-    if distro_name in (name.lower() for name in linux_dataset):
-        # שליפת המפתח המקורי כפי שהוא (עם אותיות מקוריות)
-        matched_name = next(name for name in linux_dataset if name.lower() == distro_name)
-        corrected_os["distribution"]["name"] = matched_name
+    # חפש התאמה מדויקת או במילים בודדות
+    dist_key = lc_to_key.get(raw_name)
+    if dist_key is None and " " in raw_name:
+        for w in raw_name.split():
+            if w in lc_to_key:
+                dist_key = lc_to_key[w]
+                break
 
-        # בדיקה: האם הגרסה חוקית עבור ההפצה
-        valid_versions = linux_dataset[matched_name].get("versions", [])
-        if distro_version not in valid_versions:
-            corrected_os["distribution"]["version"] = ""
+    if dist_key:
+        # canonical name ב־lowercase
+        corrected["distribution"]["name"] = dist_key.lower()
 
-        # בדיקה: האם הארכיטקטורה חוקית עבור ההפצה
-        valid_architectures = linux_dataset[matched_name].get("architecture", [])
-        if architecture not in valid_architectures:
-            corrected_os["architecture"] = ""
+        # 4) בדוק version ב־lowercase
+        valid_versions_lc = {v.lower() for v in linux_dataset[dist_key].get("versions", [])}
+        if raw_version not in valid_versions_lc:
+            corrected["distribution"]["version"] = ""
+        # else כבר lowercase
+
+        # 5) בדוק architecture ב־lowercase
+        valid_archs_lc = {a.lower() for a in linux_dataset[dist_key].get("architecture", [])}
+        if raw_arch not in valid_archs_lc:
+            corrected["distribution"]["architecture"] = ""
     else:
-        # אם ההפצה לא חוקית כלל – מחיקה
-        corrected_os["distribution"]["name"] = ""
-        corrected_os["distribution"]["version"] = ""
-        corrected_os["architecture"] = ""
+        # שום התאמה → אפס הכל
+        corrected["distribution"]["name"]         = ""
+        corrected["distribution"]["version"]      = ""
+        corrected["distribution"]["architecture"] = ""
 
-    # בדיקה: האם הקרנל חוקי
-    if kernel not in kernel_versions:
-        corrected_os["kernel"] = ""
+    # 6) בדיקת kernel ב־lowercase
+    if raw_kernel not in {k.lower() for k in kernel_versions}:
+        corrected["kernel"] = ""
 
-    cache.set(key, corrected_os)
-    return corrected_os
+    # 7) שמור ב־cache והחזר
+    cache.set(cache_key, corrected)
+    return corrected
 
 # תווים מותרים ב־URL path לפי RFC 3986 (unreserved characters)
 ALLOWED_PATH_CHARS_REGEX = re.compile(r'^[A-Za-z0-9\-._~/]*$')

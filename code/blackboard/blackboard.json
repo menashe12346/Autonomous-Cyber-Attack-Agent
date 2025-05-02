@@ -5,10 +5,10 @@
       "name": "",
       "distribution": {
         "name": "",
-        "version": ""
+        "version": "",
+        "architecture": ""
       },
-      "kernel": "",
-      "architecture": ""
+      "kernel": ""
     },
     "services": [
       {
@@ -50,6 +50,11 @@
         "port": "445",
         "protocol": "tcp",
         "service": "netbios-ssn"
+      },
+      {
+        "port": "512",
+        "protocol": "tcp",
+        "service": "exec"
       },
       {
         "port": "513",
@@ -141,9 +146,7 @@
     }
   },
   "actions_history": [
-    "nmap 192.168.56.101",
-    "nmap 192.168.56.101",
-    "nmap -F 192.168.56.101"
+    "nmap 192.168.56.101"
   ],
   "cpes": [],
   "vulnerabilities_found": []

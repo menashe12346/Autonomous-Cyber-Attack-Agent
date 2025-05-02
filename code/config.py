@@ -64,6 +64,8 @@ OS_DATASETS = f"{PROJECT_PATH}/project/code/datasets/os_datasets"
 
 CORRECTNESS_CACHE = f"{PROJECT_PATH}/project/code/Cache/correctness_cache.json"
 
+RUN_MANUAL = f"{PROJECT_PATH}/project/code/run_manual.py"
+
 # STATE CONFIGURATION #
 
 # סטטוסים מצופים לדפי Web
@@ -77,9 +79,8 @@ _BASE_DEFAULT_STATE = {
         "ip": "",
         "os": {
             "name": "",
-            "distribution": {"name": "", "version": ""},
+            "distribution": {"name": "", "version": "", "architecture": ""},
             "kernel": "",
-            "architecture": ""
         },
         "services": [
             {"port": "", "protocol": "", "service": ""},

@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-from config import WORDLISTS
+from config import WORDLISTS, RUN_MANUAL
 
 # Mapping of tool categories to their command templates
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
@@ -13,11 +13,11 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             "nmap {ip}"
         ],
         "curl": [
-          #  "curl -I http://{ip}",
-            #"curl http://{ip}/"
+            "curl -I http://{ip}",
+            "curl http://{ip}/"
         ],
         "wget": [
-            #"wget http://{ip} -O -"
+            "wget http://{ip} -O -"
         ],
         "traceroute": [
             "traceroute {ip}"
@@ -27,7 +27,14 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
         ],
         "gobuster": [
             "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
-        ]
+        ],
+        "whois": [
+            "whois {ip}"
+        ],
+        "dirb": [
+            #f"{RUN_MANUAL} dirb http://{{ip}}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+        ],
+
     },
 
     # Example future support:

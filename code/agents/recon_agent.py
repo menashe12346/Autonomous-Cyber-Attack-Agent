@@ -99,149 +99,103 @@ class ReconAgent(BaseAgent):
 
     def get_reward(self, prev_dict: dict, action: str, next_dict: dict) -> float:
         """
-        Calculates a smarter reward based on discoveries in services, web directories, and OS.
-
-        Args:
-            prev_dict (dict): Previous state dictionary.
-            action (str): Action that was taken.
-            next_dict (dict): Resulting state dictionary.
-
-        Returns:
-            float: The reward value for this transition.
+        מחשבת תגמול חכם לפי:
+            1) חזרה על פעולה
+            2) גילוי שירותים חדשים
+            3) גילוי תיקיות חדשות
+            4) גילוי שדות OS חדשים
+            5) עונש אם אין שום גילוי
         """
         reward = 0.0
         reasons = []
 
-        def _services_to_ports_services(services):
+        # 1) היסטוריית אקשנים
+        history = self.actions_history.copy()
+        if action in history:
+            count = history.count(action)
+            penalty = -0.5 * count
+            reward += penalty
+            reasons.append(f"Action repeated {count} times {penalty:+.1f}")
+        else:
+            reward += 0.1
+            reasons.append("First time action +0.1")
+
+        # 2) שירותים חדשים
+        def to_set(svcs):
             return set(
-                (s.get("port", ""), s.get("protocol", ""), s.get("service", ""))
-                for s in services if isinstance(s, dict)
+                (s.get("port",""), s.get("protocol",""), s.get("service",""))
+                for s in svcs if isinstance(s, dict)
             )
+        prev_sv = to_set(prev_dict.get("target",{}).get("services",[]))
+        next_sv = to_set(next_dict.get("target",{}).get("services",[]))
+        new_sv = next_sv - prev_sv
+        if new_sv:
+            bonus = 0.2 * len(new_sv)
+            reward += bonus
+            reasons.append(f"{len(new_sv)} new services +{bonus:.1f}")
 
-        try:
-            # (1) היסטוריית אקשנים
-            actions_history = self.actions_history.copy()
+        # 3) תיקיות web חדשות
+        prev_dirs = {
+            p for st in prev_dict.get("web_directories_status",{}).values()
+            for p in st.keys() if p.strip()
+        }
+        next_dirs = {
+            p for st in next_dict.get("web_directories_status",{}).values()
+            for p in st.keys() if p.strip()
+        }
+        new_dirs = next_dirs - prev_dirs
+        if new_dirs:
+            bonus = 0.1 * len(new_dirs)
+            reward += bonus
+            reasons.append(f"{len(new_dirs)} new dirs +{bonus:.1f}")
 
-            # (2) ענישה/תגמול על חזרה
-            if action in actions_history:
-                count = actions_history.count(action)
-                penalty = -0.5 * count
-                reward += penalty
-                reasons.append(f"Action repeated {count} times {penalty}")
-            else:
-                reward += 0.1
-                reasons.append("First time action +0.1")
+        # 4) גילוי שדות OS
+        prev_os = prev_dict.get("target",{}).get("os",{})
+        next_os = next_dict.get("target",{}).get("os",{})
 
-            # (3) גילוי שירותים חדשים
-            prev_services = _services_to_ports_services(prev_dict.get("target", {}).get("services", []))
-            next_services = _services_to_ports_services(next_dict.get("target", {}).get("services", []))
-            new_services = next_services - prev_services
+        def check_os(field, weight, desc):
+            pv = prev_os.get(field,"") or ""
+            nv = next_os.get(field,"") or ""
+            if not pv.strip() and nv.strip():
+                return (weight, f"Discovered {desc} '{nv}' +{weight:.2f}")
+            return (0.0, None)
 
-            print(f"[Reward Debug] prev_services: {prev_services}")
-            print(f"[Reward Debug] next_services: {next_services}")
-            print(f"[Reward Debug] new_services: {new_services}")
+        for fld, w, d in [
+            ("name",           0.2, "OS name"),
+            ("kernel",         0.25,"kernel version"),
+        ]:
+            wv, msg = check_os(fld, w, d)
+            if wv:
+                reward += wv
+                reasons.append(msg)
 
-            reward += 0.2 * len(new_services)
-            if new_services:
-                reasons.append(f"{len(new_services)} new services discovered +{0.2 * len(new_services):.1f}")
+        # name under distribution
+        pd = prev_os.get("distribution",{}) 
+        nd = next_os.get("distribution",{})
+        for fld, w, d in [
+            ("name",    0.15,"distro name"),
+            ("version", 0.15,"distro version"),
+            ("architecture",   0.25,"architecture"),
+        ]:
+            pv = pd.get(fld,"") or ""
+            nv = nd.get(fld,"") or ""
+            if not pv.strip() and nv.strip():
+                reward += w
+                reasons.append(f"Discovered {d} '{nv}' +{w:.2f}")
 
-            # (4) גילוי web directories חדשים
-            prev_dirs = set()
-            next_dirs = set()
+        # 5) עונש אם לא גילו כלום
+        if not new_sv and not new_dirs and all("Discovered" not in r for r in reasons):
+            reward -= 1.0
+            reasons.append("No new discoveries -1.0")
 
-            for status_code in prev_dict.get("web_directories_status", {}):
-                prev_dirs.update(
-                    path for path in prev_dict["web_directories_status"].get(status_code, {}).keys()
-                    if path.strip()
-                )
+        # Debug
+        print("\n[Reward Debug]")
+        print(f"Action: {action}")
+        for r in reasons:
+            print("  ", r)
+        print(f"Total raw reward: {reward:.2f}\n")
 
-            for status_code in next_dict.get("web_directories_status", {}):
-                next_dirs.update(
-                    path for path in next_dict["web_directories_status"].get(status_code, {}).keys()
-                    if path.strip()
-                )
+        reward = reward/4 # so it would be easier for the model to learn
 
-            new_dirs = next_dirs - prev_dirs
-
-            print(f"[Reward Debug] prev_dirs: {prev_dirs}")
-            print(f"[Reward Debug] next_dirs: {next_dirs}")
-            print(f"[Reward Debug] new_dirs: {new_dirs}")
-
-            reward += 0.1 * len(new_dirs)
-            if new_dirs:
-                reasons.append(f"{len(new_dirs)} new web directories discovered +{0.1 * len(new_dirs):.1f}")
-
-            # (5) גילוי OS חדש
-            prev_os = prev_dict.get("target", {}).get("os", {})
-            next_os = next_dict.get("target", {}).get("os", {})
-
-            def reward_for_os_field(field_name, prev_val, next_val, weight, description):
-                if not prev_val and next_val:
-                    reward += weight
-                    reasons.append(f"Discovered {description}: '{next_val}' +{weight}")
-
-            reward = 0
-            reasons = []
-
-            # name (e.g. "Linux", "Windows")
-            reward_for_os_field(
-                "name",
-                prev_os.get("name", "").strip(),
-                next_os.get("name", "").strip(),
-                weight=0.2,
-                description="OS name"
-            )
-
-            # distribution.name (e.g. "Ubuntu", "Arch")
-            reward_for_os_field(
-                "distribution.name",
-                prev_os.get("distribution", {}).get("name", "").strip(),
-                next_os.get("distribution", {}).get("name", "").strip(),
-                weight=0.15,
-                description="distribution name"
-            )
-
-            # distribution.version (e.g. "20.04")
-            reward_for_os_field(
-                "distribution.version",
-                prev_os.get("distribution", {}).get("version", "").strip(),
-                next_os.get("distribution", {}).get("version", "").strip(),
-                weight=0.15,
-                description="distribution version"
-            )
-
-            # kernel (e.g. "5.15.0-85-generic")
-            reward_for_os_field(
-                "kernel",
-                prev_os.get("kernel", "").strip(),
-                next_os.get("kernel", "").strip(),
-                weight=0.25,
-                description="kernel version"
-            )
-
-            # architecture (e.g. "x86_64")
-            reward_for_os_field(
-                "architecture",
-                prev_os.get("architecture", "").strip(),
-                next_os.get("architecture", "").strip(),
-                weight=0.25,
-                description="architecture"
-            )
-
-            # (6) ענישה אם לא היה שום גילוי בכלל
-            if not new_services and not new_dirs and not (not prev_os and next_os):
-                reward -= 1.0
-                reasons.append("No new discoveries -1.0")
-
-            # Debug summary
-            print(f"\n[Reward Debug]")
-            print(f"Action: {action}")
-            for r in reasons:
-                print(f" - {r}")
-            print(f"Total reward: {reward:.4f}\n")
-
-            return reward/4
-
-        except Exception as e:
-            print(f"[!] Reward computation failed: {e}")
-            return 0.0
+        # אפשר לסקל או לחלק אם צריך, כרגע מחזירים כפי שמחושב
+        return reward
