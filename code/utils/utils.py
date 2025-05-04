@@ -5,6 +5,19 @@ import os
 import orjson
 import csv
 
+
+def get_nested(d: dict, path: str):
+    """
+    מקבלת מילון ומפתח ב-dot notation ומחזירה את הערך המקונן.
+    למשל: get_nested(data, "target.os.name")
+    """
+    keys = path.split(".")
+    for k in keys:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(k)
+    return d
+
 def remove_comments_and_empty_lines(text: str) -> str:
     """
     Removes comment lines (starting with '#') and empty lines from a multiline string.

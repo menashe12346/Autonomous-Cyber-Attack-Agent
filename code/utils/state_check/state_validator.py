@@ -1,7 +1,10 @@
 import re
-from config import EXPECTED_STATUS_CODES
 import copy
+import json
+
+from config import EXPECTED_STATUS_CODES, STATE_SCHEMA
 from blackboard.blackboard import initialize_blackboard
+
 DEFAULT_STATE_STRUCTURE = initialize_blackboard()
 
 def recursive_setdefault(base: dict, default: dict):
@@ -48,134 +51,87 @@ def ensure_structure(state: dict) -> dict:
     recursive_clean(state, DEFAULT_STATE_STRUCTURE)
     return state
 
-def fix_values_to_strings(data: dict, template: dict) -> dict:
-    """
-    מקבלת מילון `data` ומבנה `template`, ומוודאת:
-    - כל שדה שמופיע ב-template חייב להיות str ב-data, אחרת מאותחל ל-"".
-    - תומך גם בתתי-שדות (רק לעומק 2 כרגע).
-    """
+def is_valid_type(value: str, expected_type: str) -> bool:
+    if not isinstance(value, str):
+        return False
+
+    if expected_type == "string":
+        return True
+
+    elif expected_type == "int":
+        return value.isdigit()
+
+    elif expected_type in ("float", "double"):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
+
+    elif expected_type == "dict":
+        try:
+            parsed = json.loads(value)
+            return isinstance(parsed, dict)
+        except (ValueError, TypeError):
+            return False
+
+    elif expected_type == "list":
+        try:
+            parsed = json.loads(value)
+            return isinstance(parsed, list)
+        except (ValueError, TypeError):
+            return False
+
+    return False
+
+def validate_categories_types(data: dict, schema: dict, schema_prefix="") -> dict:
     fixed = {}
 
-    for key, expected_value in template.items():
-        if isinstance(expected_value, dict):
-            inner = data.get(key, {})
-            if not isinstance(inner, dict):
-                fixed[key] = copy.deepcopy(expected_value)
-            else:
-                fixed[key] = fix_values_to_strings(inner, expected_value)
+    for key, value in data.items():
+        full_key = f"{schema_prefix}.{key}" if schema_prefix else key
+
+        # Try exact match
+        schema_entry = schema.get(full_key)
+
+        # Handle list item notation (e.g., target.services[].port)
+        if schema_entry is None:
+            list_key_parts = full_key.split(".")
+            for i in range(len(list_key_parts), 0, -1):
+                candidate = ".".join(list_key_parts[:i]) + "[]"
+                tail = ".".join(list_key_parts[i:])
+                test_key = f"{candidate}.{tail}" if tail else candidate
+                if test_key in schema:
+                    schema_entry = schema[test_key]
+                    break
+
+        # Default to unknown type
+        expected_type = schema_entry["type"] if schema_entry and "type" in schema_entry else "string"
+
+        if isinstance(value, dict):
+            fixed[key] = validate_categories_types(value, schema, full_key)
+        elif isinstance(value, list):
+            fixed[key] = []
+            for item in value:
+                if isinstance(item, dict):
+                    fixed[key].append(validate_categories_types(item, schema, full_key + "[]"))
+                else:
+                    fixed_value = str(item)
+                    if is_valid_type(fixed_value, expected_type):
+                        fixed[key].append(fixed_value)
+                    else:
+                        fixed[key].append("")
         else:
-            val = data.get(key)
-            fixed[key] = val if isinstance(val, str) else ""
+            fixed_value = str(value)
+            fixed[key] = fixed_value if is_valid_type(fixed_value, expected_type) else ""
 
     return fixed
 
-def validate_os(os_dict: dict) -> dict:
-    """
-    מתקן את שדות os לפי המבנה המוגדר בקונפיג.
-    אין שימוש בשמות שדות קשיחים — הכל לפי DEFAULT_STATE_STRUCTURE["target"]["os"]
-    """
-    os_template = DEFAULT_STATE_STRUCTURE.get("target", {}).get("os", {})
-    if not isinstance(os_dict, dict):
-        return copy.deepcopy(os_template)
-
-    return fix_values_to_strings(os_dict, os_template)
-
-def validate_services(services: list) -> list:
-    """
-    מוודא שכל שירות במבנה תקני: פורט מספרי, פרוטוקול tcp/udp, ושם שירות באנגלית.
-    """
-    valid = []
-    for s in services:
-        try:
-            port = int(s.get("port", ""))
-            protocol = s.get("protocol", "").lower()
-            service = s.get("service", "").lower()
-            if (
-                0 < port <= 65535 and
-                re.match(r'^[a-z0-9\-_\.]+$', service)
-            ):
-                valid.append({
-                    "port": str(port),
-                    "protocol": protocol,
-                    "service": service
-                })
-        except:
-            continue
-    return valid
-
-def validate_web_directories(web_dirs: dict) -> dict:
-    """
-    מנקה ומוודאת את מבנה web_directories_status:
-    - שומר רק נתיבים חוקיים שמתחילים ב-"/".
-    - מוסיף '"" : ""' רק אם היה לפחות נתיב עם '/'.
-    - תמיד מחזיר את כל חמשת הקטגוריות: 200, 401, 403, 404, 503.
-    """
-    cleaned = {}
-
-    for code in EXPECTED_STATUS_CODES:
-        entries = web_dirs.get(code, {})
-        valid_paths = {}
-
-        has_slash_path = False
-
-        if isinstance(entries, dict):
-            for path, label in entries.items():
-                if isinstance(path, str) and isinstance(label, str):
-                    if path.startswith("/") and path.strip():
-                        valid_paths[path] = label
-                        has_slash_path = True  # היה לפחות נתיב אמיתי
-
-        # אם לא היו נתיבים חוקיים בכלל — נשאיר "": ""
-        if not has_slash_path:
-            valid_paths[""] = ""
-        else:
-            if "" in valid_paths:
-                del valid_paths[""]
-                
-        cleaned[code] = valid_paths
-
-    return cleaned
-
-def truncate_lists(state: dict, max_services=100, max_paths_per_status=100) -> dict:
-    """
-    מגביל את האורך של services ונתיבי web.
-    """
-    state["target"]["services"] = state["target"]["services"][:max_services]
-    for code in EXPECTED_STATUS_CODES:
-        entries = state["web_directories_status"].get(code, {})
-        limited = dict(list(entries.items())[:max_paths_per_status])
-        state["web_directories_status"][code] = limited
-    return state
-
-def validate_state_category(state: dict, path: list, validate_fn) -> dict:
-    """
-    מעדכן קטגוריה בתוך state לפי הפונקציה הנתונה.
-    :param state: מילון ה־state המלא
-    :param path: רשימת מפתחות שמובילה לשדה (למשל ["target", "os"])
-    :param validate_fn: פונקציה שמקבלת dict ומחזירה dict מתוקן
-    """
-    sub_state = state
-    for key in path[:-1]:
-        sub_state = sub_state.get(key, {})
-        if not isinstance(sub_state, dict):
-            return state  # אם מבנה לא תקני, לא נוגעים
-
-    last_key = path[-1]
-    value = sub_state.get(last_key)
-    if value is not None:
-        sub_state[last_key] = validate_fn(value)
-
-    return state
 
 def validate_state(state: dict) -> dict:
     """
     הפונקציה הראשית שמוודאת שה־state במבנה נכון ובעל ערכים תקניים.
     """
+    state = validate_categories_types(state, STATE_SCHEMA)
     state = ensure_structure(state)
 
-    state = validate_state_category(state, ["target", "os"], validate_os)
-    state = validate_state_category(state, ["target", "services"], validate_services)
-    state = validate_state_category(state, ["web_directories_status"], validate_web_directories)
-
-    state = truncate_lists(state)
     return state

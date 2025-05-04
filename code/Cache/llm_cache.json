@@ -609,89 +609,24 @@
           "name": "",
           "distribution": {
             "name": "",
-            "version": ""
+            "version": "",
+            "architecture": ""
           },
-          "kernel": "",
-          "architecture": ""
-        },
-        "services": [
-          {
-            "port": "22",
-            "protocol": "tcp",
-            "service": "ssh"
-          },
-          {
-            "port": "80",
-            "protocol": "tcp",
-            "service": "http"
-          }
-        ]
-      },
-      "web_directories_status": {
-        "200": {
-          "/": "OK",
-          "/index": "OK",
-          "/index.php": "OK",
-          "/phpinfo": "OK",
-          "/phpinfo.php": "OK"
-        },
-        "301": {
-          "/phpMyAdmin": "Moved Permanently",
-          "/test": "Moved Permanently",
-          "/twiki": "Moved Permanently"
-        },
-        "302": {
-          "": ""
-        },
-        "307": {
-          "": ""
-        },
-        "401": {
-          "": ""
-        },
-        "403": {
-          "/.hta": "Forbidden",
-          "/.htaccess": "Forbidden",
-          "/.htpasswd": "Forbidden",
-          "/cgi-bin/": "Forbidden",
-          "/server-status": "Forbidden"
-        },
-        "500": {
-          "": ""
-        },
-        "502": {
-          "": ""
-        },
-        "503": {
-          "": ""
-        },
-        "504": {
-          "": ""
-        }
-      }
-    }
-  },
-  {
-    "action": "whatweb http://192.168.56.101",
-    "parsed": {
-      "target": {
-        "os": {
-          "name": "",
-          "distribution": {
-            "name": "",
-            "version": ""
-          },
-          "kernel": "",
-          "architecture": ""
+          "kernel": ""
         },
         "services": []
       },
       "web_directories_status": {
         "200": {
-          "": ""
+          "index": "",
+          "index.php": ""
         },
         "301": {
-          "": ""
+          "//192.168.56.101/dav/phpMyAdmin": "http",
+          "//192.168.56.101/phpMyAdmin/test": "http",
+          "//192.168.56.101/test/twiki": "http",
+          "//192.168.56.101/twiki/303": "",
+          "dav": "http"
         },
         "302": {
           "": ""
@@ -703,7 +638,11 @@
           "": ""
         },
         "403": {
-          "": ""
+          "/.hta": "",
+          "/.htaccess": "",
+          "/.htpasswd": "",
+          "/cgi-bin/": "",
+          "/server-status": ""
         },
         "500": {
           "": ""

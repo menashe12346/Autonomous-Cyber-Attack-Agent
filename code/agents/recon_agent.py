@@ -3,6 +3,8 @@ import hashlib
 from agents.base_agent import BaseAgent
 from tools.action_space import get_commands_for_agent
 from collections import Counter
+from config import STATE_SCHEMA
+from utils.utils import get_nested
 
 class ReconAgent(BaseAgent):
     """
@@ -96,23 +98,19 @@ class ReconAgent(BaseAgent):
             return False
 
         return True
-
     def get_reward(self, prev_dict: dict, action: str, next_dict: dict) -> float:
         """
-        מחשבת תגמול חכם לפי:
-            1) חזרה על פעולה
-            2) גילוי שירותים חדשים
-            3) גילוי תיקיות חדשות
-            4) גילוי שדות OS חדשים
-            5) עונש אם אין שום גילוי
+        מחשבת תגמול כללי לפי STATE_SCHEMA:
+        - תגמול עבור גילוי שדות חדשים בהתאם ל-reward שב-schema
+        - עונש על חזרה על פעולה
+        - עונש אם לא התגלה כלום
         """
         reward = 0.0
         reasons = []
 
-        # 1) היסטוריית אקשנים
-        history = self.actions_history.copy()
-        if action in history:
-            count = history.count(action)
+        # 1) חזרה על פעולה / פעולה ראשונה
+        if action in self.actions_history:
+            count = self.actions_history.count(action)
             penalty = -0.5 * count
             reward += penalty
             reasons.append(f"Action repeated {count} times {penalty:+.1f}")
@@ -120,73 +118,69 @@ class ReconAgent(BaseAgent):
             reward += 0.1
             reasons.append("First time action +0.1")
 
-        # 2) שירותים חדשים
-        def to_set(svcs):
-            return set(
-                (s.get("port",""), s.get("protocol",""), s.get("service",""))
-                for s in svcs if isinstance(s, dict)
-            )
-        prev_sv = to_set(prev_dict.get("target",{}).get("services",[]))
-        next_sv = to_set(next_dict.get("target",{}).get("services",[]))
-        new_sv = next_sv - prev_sv
-        if new_sv:
-            bonus = 0.2 * len(new_sv)
-            reward += bonus
-            reasons.append(f"{len(new_sv)} new services +{bonus:.1f}")
+        schema = self.state_encoder.schema
 
-        # 3) תיקיות web חדשות
-        prev_dirs = {
-            p for st in prev_dict.get("web_directories_status",{}).values()
-            for p in st.keys() if p.strip()
-        }
-        next_dirs = {
-            p for st in next_dict.get("web_directories_status",{}).values()
-            for p in st.keys() if p.strip()
-        }
-        new_dirs = next_dirs - prev_dirs
-        if new_dirs:
-            bonus = 0.1 * len(new_dirs)
-            reward += bonus
-            reasons.append(f"{len(new_dirs)} new dirs +{bonus:.1f}")
+        # 2) מעבר על כל שדה בסכמה
+        for raw_key, info in schema.items():
+            weight = info.get("reward", 0)
+            if weight <= 0:
+                continue
 
-        # 4) גילוי שדות OS
-        prev_os = prev_dict.get("target",{}).get("os",{})
-        next_os = next_dict.get("target",{}).get("os",{})
+            enc = info.get("encoder", "")
 
-        def check_os(field, weight, desc):
-            pv = prev_os.get(field,"") or ""
-            nv = next_os.get(field,"") or ""
-            if not pv.strip() and nv.strip():
-                return (weight, f"Discovered {desc} '{nv}' +{weight:.2f}")
-            return (0.0, None)
+            # A) count_encoder: ספירת פריטים בהבדל בין prev ל-next
+            if enc == "count_encoder":
+                prev_container = get_nested(prev_dict, raw_key) or {}
+                next_container = get_nested(next_dict, raw_key) or {}
+                try:
+                    prev_count = len(prev_container)
+                    next_count = len(next_container)
+                except Exception:
+                    continue
+                diff = next_count - prev_count
+                if diff > 0:
+                    total = weight * diff
+                    reward += total
+                    reasons.append(
+                        f"Discovered {diff} new items under {raw_key} +{total:.2f}"
+                    )
+                continue
 
-        for fld, w, d in [
-            ("name",           0.2, "OS name"),
-            ("kernel",         0.25,"kernel version"),
-        ]:
-            wv, msg = check_os(fld, w, d)
-            if wv:
-                reward += wv
-                reasons.append(msg)
+            # B) list-element fields: raw_key contains "[]"
+            if "[]" in raw_key:
+                prefix, field = raw_key.split("[].")
+                prev_list = get_nested(prev_dict, prefix) or []
+                next_list = get_nested(next_dict, prefix) or []
+                prev_vals = {
+                    str(item.get(field, "")).strip()
+                    for item in prev_list
+                    if isinstance(item, dict)
+                }
+                next_vals = {
+                    str(item.get(field, "")).strip()
+                    for item in next_list
+                    if isinstance(item, dict)
+                }
+                new_vals = next_vals - prev_vals
+                if new_vals:
+                    total = weight * len(new_vals)
+                    reward += total
+                    reasons.append(
+                        f"Discovered {len(new_vals)} new '{field}' under {prefix} +{total:.2f}"
+                    )
+                continue
 
-        # name under distribution
-        pd = prev_os.get("distribution",{}) 
-        nd = next_os.get("distribution",{})
-        for fld, w, d in [
-            ("name",    0.15,"distro name"),
-            ("version", 0.15,"distro version"),
-            ("architecture",   0.25,"architecture"),
-        ]:
-            pv = pd.get(fld,"") or ""
-            nv = nd.get(fld,"") or ""
-            if not pv.strip() and nv.strip():
-                reward += w
-                reasons.append(f"Discovered {d} '{nv}' +{w:.2f}")
+            # C) שדות רגילים (string / number)
+            prev_val = str(get_nested(prev_dict, raw_key) or "").strip()
+            next_val = str(get_nested(next_dict, raw_key) or "").strip()
+            if not prev_val and next_val:
+                reward += weight
+                reasons.append(f"Discovered {raw_key} = '{next_val}' +{weight:.2f}")
 
-        # 5) עונש אם לא גילו כלום
-        if not new_sv and not new_dirs and all("Discovered" not in r for r in reasons):
+        # 3) עונש אם לא התגלה כלום (מלבד repeat/first-time)
+        if len(reasons) == 1:
             reward -= 1.0
-            reasons.append("No new discoveries -1.0")
+            reasons.append("No new fields discovered -1.0")
 
         # Debug
         print("\n[Reward Debug]")
@@ -195,7 +189,7 @@ class ReconAgent(BaseAgent):
             print("  ", r)
         print(f"Total raw reward: {reward:.2f}\n")
 
-        reward = reward/4 # so it would be easier for the model to learn
+        # 4) עדכון היסטוריה
+        self.prev_state = dict(next_dict)
 
-        # אפשר לסקל או לחלק אם צריך, כרגע מחזירים כפי שמחושב
         return reward

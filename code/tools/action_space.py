@@ -6,30 +6,30 @@ from config import WORDLISTS, RUN_MANUAL
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "ping": [
-           # "ping -c 1 {ip}"
+            "ping -c 1 {ip}"
         ],
         "nmap": [
-           # "nmap -F {ip}",
-          #  "nmap {ip}"
+            "nmap -F {ip}",
+            "nmap {ip}"
         ],
         "curl": [
-           # "curl -I http://{ip}",
-           # "curl http://{ip}/"
+            "curl -I http://{ip}",
+            "curl http://{ip}/"
         ],
         "wget": [
-          #  "wget http://{ip} -O -"
+            "wget http://{ip} -O -"
         ],
         "traceroute": [
-          #  "traceroute {ip}"
+           # "traceroute {ip}"
         ],
         "whatweb": [
-            "whatweb http://{ip}"
+           # "whatweb http://{ip}"
         ],
         "gobuster": [
-          #  "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
         "whois": [
-           # "whois {ip}"
+            #"whois {ip}"
         ],
         "dirb": [
             #f"{RUN_MANUAL} dirb http://{{ip}}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"

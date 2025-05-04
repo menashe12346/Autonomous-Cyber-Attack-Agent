@@ -3,8 +3,11 @@ import json
 import torch
 import numbers
 import numpy as np
-import hashlib
-
+import re
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from config import STATE_SCHEMA
 from blackboard.blackboard import initialize_blackboard
 
 class StateEncoder:
@@ -35,9 +38,18 @@ class StateEncoder:
         self.action_to_index = {a: i for i, a in enumerate(action_space)}
         self.encoded_to_state = {}
 
+        self.schema = STATE_SCHEMA
+        self.schema_encoders = {
+            k: v.get("encoder") for k, v in self.schema.items()
+        }
+        self.schema_types = {
+            k: v.get("type") for k, v in self.schema.items()
+        }
+
         # 1) flatten the provided default_state and sort its keys once
         flat_defaults = self._flatten_state(default_state)
         self.feature_keys = sorted(flat_defaults.keys())
+        self.feature_keys += [f"action_history_idx_{i}" for i in range(len(self.action_space))] #DEBUG for now
 
     def base100_encode(self, text: str) -> float:
         """
@@ -55,16 +67,39 @@ class StateEncoder:
             code += ord(c) * (base ** (4 - i))
         max_code = (base ** 5) - 1
         return code / max_code
+    
+    def count_encoder(self, count: float) -> float:
+        # מנרמל מונה של פריטים – כאן לחלק ב-100 (או כל ערך שתבחר)
+        return min(count / 100.0, 1.0)
+
+    def normalize_by_specific_number(self, value: float, key: str) -> float:
+        # משתמשים ב־num_for_normalization של הסכמה
+        cfg = self.schema.get(key, {})
+        norm = cfg.get("num_for_normalization", 1.0)
+        return min(value / norm, 1.0)
+    
+    def _apply_encoder(self, key: str, raw):
+        entry = self.schema.get(key, {})
+        enc = entry.get("encoder")
+
+        if enc == "base100_encode":
+            # raw אמור להיות מחרוזת
+            return self.base100_encode(raw) if isinstance(raw, str) else float(raw)
+
+        if enc == "count_encoder":
+            return self.count_encoder(raw)
+
+        if enc == "normalize_by_specific_number":
+            return self.normalize_by_specific_number(raw, key)
+
+        # אם אין encoder מיוחד, ניפול חזרה לנרמול גנרי
+        return self._normalize_value(key, raw)
 
     def encode(self, state: dict, actions_history: list) -> torch.Tensor:
-        """
-        Converts the blackboard state and action history into a fixed-length torch vector.
-        Uses self.feature_keys to guarantee a stable ordering of every feature.
-        """
-        # 1) flatten the current state
+        # 1) flatten
         flat = self._flatten_state(state)
 
-        # 2) append action‐history counts
+        # 2) action history
         actions_vector = np.zeros(len(self.action_space), dtype=np.float32)
         for a in actions_history:
             idx = self.action_to_index.get(a)
@@ -73,22 +108,21 @@ class StateEncoder:
         for i, cnt in enumerate(actions_vector):
             flat[f"action_history_idx_{i}"] = cnt
 
-        # 3) build the normalized values in the fixed order
+        # 3) apply encoders לפי schema
         encoded = []
         for key in self.feature_keys:
             raw = flat.get(key, 0.0)
-            encoded.append(self._normalize_value(key, raw))
+            val = self._apply_encoder(key, raw)
+            encoded.append(val)
 
-        # 4) pad or truncate
+        # 4) pad/truncate
         if len(encoded) < self.max_features:
             encoded += [0.0] * (self.max_features - len(encoded))
         else:
             encoded = encoded[: self.max_features]
 
-        # 5) to tensor
+        # 5) to tensor + שמירת המיפוי ההפוך
         vec = torch.tensor(encoded, dtype=torch.float32)
-
-        # 6) store reverse mapping
         vk = self._vector_to_key(vec)
         if vk not in self.encoded_to_state:
             self.encoded_to_state[vk] = state
@@ -125,82 +159,95 @@ class StateEncoder:
         vector_bytes = vector.numpy().tobytes()
         return hashlib.md5(vector_bytes).hexdigest()
 
+    def _schema_key(self, prefix: str) -> str:
+        return re.sub(r'\[\d+\]', '[]', prefix)
 
     def _flatten_state(self, obj, prefix='') -> dict:
-        """
-        Flattens a nested dictionary or list into a single-level dict of key→value.
-
-        Args:
-            obj: The structure to flatten.
-            prefix: Internal prefix used for recursion.
-
-        Returns:
-            dict: Flattened key-value pairs.
-        """
         items = {}
 
+        # ✴️ התעלמות משדות מסוימים
         if prefix.endswith("vulnerabilities_found") or prefix.endswith("cpes"):
             return {}
 
+        # קבלת מפתח כללי לפי הסכמה
+        schema_key = self._schema_key(prefix)
+        schema_entry = self.schema.get(schema_key, {})
+
+        # 1) count_encoder → פשוט לספור פריטים במילון
+        if schema_entry.get("encoder") == "count_encoder" and isinstance(obj, dict):
+            return { prefix: float(len(obj)) }
+
+        # 2) list type → בילטרציה גנרית + correction
+        if schema_entry.get("type") == "list" and isinstance(obj, list):
+            # תיקון אם צריך
+            corr = schema_entry.get("correction_func")
+            if corr and hasattr(self, corr):
+                obj = getattr(self, corr)(obj)
+
+            sub_items = {}
+            for i, v in enumerate(obj):
+                full_key = f"{prefix}[{i}]" if prefix else f"[{i}]"
+                sub_items.update(self._flatten_state(v, full_key))
+            return sub_items
+
+        # 3) dict־bool־number־str כמו קודם
         if isinstance(obj, dict):
             for k, v in obj.items():
                 full_key = f"{prefix}.{k}" if prefix else k
                 items.update(self._flatten_state(v, full_key))
+
         elif isinstance(obj, list):
+            # מקרה מיוחד ל־failed_CVEs (כבר מטופל ע"י הסכמה)
             if prefix.endswith("failed_CVEs"):
-                for i, cve in enumerate(obj[:5]):  # מגבילים ל־5 CVEs
+                for i, cve in enumerate(obj[:5]):
                     if isinstance(cve, str) and cve.startswith("CVE-"):
                         digits = ''.join(filter(str.isdigit, cve))
                         if digits:
-                            key = f"failed_cve_idx_{i}"
-                            #print(f"[DEBUG] Found failed CVE {cve} → {digits} → {value} → saved as '{key}'")
-                            items[key] = float(int(digits))  # נשלח לנרמול אח"כ
+                            items[f"failed_cve_idx_{i}"] = float(int(digits))
             else:
                 for i, v in enumerate(obj):
                     full_key = f"{prefix}[{i}]"
                     items.update(self._flatten_state(v, full_key))
+
         elif isinstance(obj, bool):
             items[prefix] = 1.0 if obj else 0.0
+
         elif isinstance(obj, numbers.Number):
             items[prefix] = float(obj)
+
         elif isinstance(obj, str):
-            # אם המחרוזת היא רק מספרים (למשל "445")
             if obj.isdigit():
                 items[prefix] = float(obj)
             else:
                 items[prefix] = self.base100_encode(obj)
+
         else:
             items[prefix] = 0.0
 
         return items
 
     def _normalize_value(self, key: str, value: float) -> float:
-        """
-        Normalizes values based on the type of field they represent.
+        encoder = self.schema_encoders.get(key)
 
-        Args:
-            key (str): Feature name (used to detect type like "port", "service", etc.)
-            value (float): The numeric value to normalize.
+        if encoder == "normalize_by_specific_number":
+            norm_val = self.schema.get(key, {}).get("num_for_normalization", 1.0)
+            return min(value / norm_val, 1.0)
 
-        Returns:
-            float: Normalized value between 0 and 1.
-        """
-        if isinstance(value, (int, float)):
-            if "port" in key:
-                return min(value / 65535.0, 1.0)
-            elif "protocol" in key:
-                return min(value / 3.0, 1.0)
-            elif "action_history" in key:
-                return float(value)
-            elif "failed_cve_idx" in key:
-                norm = min(value / 99999999.0, 1.0)
-                print(f"[DEBUG] Normalizing {key}: raw={value}, normalized={norm}")
-                return norm
-            elif any(field in key for field in ["service", "web_directories_status", "os"]):
-                return min(value / 1e6, 1.0)
-            else:
-                return min(value / 1e6, 1.0)
-        return 0.0
+        elif encoder == "base100_encode":
+            return min(value / 1e6, 1.0)
+
+        elif encoder == "count_encoder":
+            # מונה – אפשר לנרמל לפי גבול עליון רך כמו 100
+            return min(value / 100.0, 1.0)
+
+        elif "action_history" in key:
+            return float(value)
+
+        elif "failed_cve_idx" in key:
+            return min(value / 99999999.0, 1.0)
+
+        return min(value / 1e6, 1.0)
+
 
 def main():
     # Define two different blackboard states

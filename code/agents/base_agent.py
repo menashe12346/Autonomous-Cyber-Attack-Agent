@@ -4,6 +4,11 @@ import json
 import torch
 from abc import ABC, abstractmethod
 import numpy as np
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+from config import DEFAULT_STATE_STRUCTURE
 
 from Cache.llm_cache import LLMCache
 from Cache.commandLLM_cache import CommandLLMCache
@@ -11,7 +16,7 @@ from Cache.commandLLM_cache import CommandLLMCache
 from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
 from utils.utils import remove_comments_and_empty_lines
 from utils.state_check.state_validator import validate_state
-from utils.state_check.state_correctness import correct_state
+from utils.state_check.state_correctness import correct_state, clean_state
 from utils.state_check.state_sorting import sort_state
 from utils.json_fixer import fix_json
 
@@ -314,8 +319,10 @@ class BaseAgent(ABC):
         print(f"validate_state: {new_state}")
         
         # Correct the state based on predefined rules
-        new_state = correct_state(new_state, self.os_linux_dataset, self.os_linux_kernel_dataset)
+        new_state = new_state = correct_state(state=new_state, os_linux_dataset=self.os_linux_dataset, os_linux_kernel_dataset=self.os_linux_kernel_dataset)
         print(f"correct_state: {new_state}")
+
+        new_state = clean_state(new_state, DEFAULT_STATE_STRUCTURE)
 
         # Ensure the state is a dictionary
         if not isinstance(new_state, dict):

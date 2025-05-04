@@ -1,39 +1,67 @@
 import subprocess
 import re
 import json
+import inspect
+import builtins
+import copy
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from config import TARGET_IP, EXPECTED_STATUS_CODES, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET
+from config import TARGET_IP, EXPECTED_STATUS_CODES, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, STATE_SCHEMA, TARGET_IP
 from utils.utils import run_command, load_dataset
 from utils.state_check.correctness_cache import CorrectnessCache
-from utils.state_check.state_validator import validate_web_directories
-
 from blackboard.blackboard import initialize_blackboard
-DEFAULT_STATE_STRUCTURE = initialize_blackboard()
 
+DEFAULT_STATE_STRUCTURE = initialize_blackboard()
 cache = CorrectnessCache()
 
-def correct_port(ip: str, port: str) -> str:
+def correct_port(ip: str, port: str) -> tuple[str, str]:
     key = f"port_open:{ip}:{port}"
     cached_result = cache.get(key)
     if cached_result is not None:
-        return cached_result
+        return cached_result, "unknown"
 
     output = run_command(f"nmap -sV -p {port} {ip}")
-    print(f"[DEBUG] nmap output for port {port}:\n{output}")
+    print(f"[DEBUG] Nmap output for {ip}:{port}:\n{output}")
 
     for line in output.splitlines():
-        if re.match(rf"^{port}/tcp\s+open", line):
-            match = re.match(rf"^{port}/tcp\s+open\s+(\S+)", line)
-            service = match.group(1).lower() if match else "unknown"
-            cache.set(key, service)
-            return service
+        if re.match(rf"^{port}/\w+\s+open", line):
+            match = re.match(rf"^{port}/(\w+)\s+open\s+(\S+)", line)
+            if match:
+                protocol = match.group(1).lower()
+                service = match.group(2).lower()
+            else:
+                protocol = "unknown"
+                service = "unknown"
 
-    print(f"[!] Port {port}/tcp is not open — skipping.")
+            print(f"[+] Detected open port {port}/{protocol} → service: {service}")
+            cache.set(key, service)
+            return service, protocol
+
+    print(f"[!] Port {port} is not open on {ip} — skipping.")
     cache.set(key, None)
-    return None
+    return None, None
+
+
+def correct_services(ip: str, services: list[dict]) -> list[dict]:
+    print(f"[+] Verifying declared services individually on {ip}...")
+    verified_services = []
+
+    for s in services:
+        port = s.get("port", "")
+        declared_protocol = s.get("protocol", "").lower()
+        declared_service = s.get("service", "").lower()
+
+        service, protocol = correct_port(ip, port)
+        if service:
+            verified_services.append({
+                "port": port,
+                "protocol": protocol,
+                "service": service
+            })
+
+    return verified_services
 
 def correct_os(
     ip: str,
@@ -43,7 +71,7 @@ def correct_os(
 ) -> dict:
     """
     1) Lowercase & split OS name + distribution name into words.
-       If 'linux' in OS-words, corrected['name']='linux'.
+       If 'linux' in OS-words or distribution-words, corrected['name']='linux'.
     2) Try to match (in order):
          a) concat(OS words)
          b) concat(dist words)
@@ -90,8 +118,8 @@ def correct_os(
         "kernel": raw_kernel,
     }
 
-    # detect 'linux' in OS name
-    if "linux" in os_name_words:
+    # detect 'linux' in OS name or dist name
+    if "linux" in os_name_words or "linux" in dist_name_words:
         corrected["name"] = "linux"
 
     # 2) match distro key
@@ -167,12 +195,14 @@ def is_valid_url_path(path: str) -> bool:
     """
     return isinstance(path, str) and bool(ALLOWED_PATH_CHARS_REGEX.fullmatch(path))
 
-
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
     verified = {code: {} for code in EXPECTED_STATUS_CODES}
 
     for code, entries in web_dirs.items():
-        for path in entries:
+        for path in list(entries):  # נוודא שנוכל למחוק מהאיטרציה אם נרצה
+            if not path.startswith("/"):
+                print(f"[WARNING] Removing path that doesn't start with '/': {path!r}")
+                continue
 
             if not is_valid_url_path(path):
                 print(f"[WARNING] Skipping invalid path: {path!r}")
@@ -203,43 +233,137 @@ def correct_web_directories(ip: str, web_dirs: dict) -> dict:
             status_code, reason = cached_result
             if status_code in verified:
                 verified[status_code][path] = reason
-                
-    return validate_web_directories(verified)
+
+    return verified
+import inspect
+import copy
+
+def correct_state(*, state: dict, schema: dict = None, base_path: str = "", **kwargs) -> dict:
+    """
+    Recursively corrects the state using correction_func from the schema.
+    All arguments must be passed by name (keyword-only).
     
-def correct_state(state: dict, linux_dataset: dict, kernel_versions: list) -> dict:
+    Args:
+        state (dict): The input state to correct.
+        schema (dict): The schema definition. If None, loads STATE_SCHEMA from config.
+        base_path (str): Internal path used for recursion.
+        **kwargs: Named external arguments passed to correction functions (e.g. os_linux_dataset).
 
-    print(f"[+] Verifying declared services individually on {TARGET_IP}...")
+    Returns:
+        dict: A corrected version of the input state.
+    """
+    if schema is None:
+        from config import STATE_SCHEMA
+        schema = STATE_SCHEMA
 
-    verified_services = []
-    for s in state.get("target", {}).get("services", []):
-        port = s.get("port", "")
-        protocol = s.get("protocol", "").lower()
-        declared_service = s.get("service", "").lower()
+    if not isinstance(schema, dict):
+        raise TypeError(f"[correct_state] Expected 'schema' to be a dict, got {type(schema).__name__}")
 
-        actual_service = correct_port(TARGET_IP, port)
-        if actual_service:
-            verified_services.append({
-                "port": port,
-                "protocol": "tcp",
-                "service": actual_service
-            })
-        else:
-            print(f"[!] Port {port}/tcp is not open — removing.")
+    corrected = copy.deepcopy(state)
 
-    state["target"]["services"] = verified_services
+    for key, entry in schema.items():
+        full_path = f"{base_path}.{key}" if base_path else key
 
-    # תיקון OS
-    current_os = state["target"].get("os", DEFAULT_STATE_STRUCTURE["target"]["os"])
-    if isinstance(current_os, dict):
-        new_os = correct_os(TARGET_IP, current_os, linux_dataset, kernel_versions)
-        state["target"]["os"] = new_os
-    else:
-        print("[!] OS field is not in expected dict format — skipping.")
+        if isinstance(entry, dict) and "correction_func" in entry:
+            func_name = entry["correction_func"]
+            correction_func = globals().get(func_name)
 
-    # תיקון web directories
-    print(f"[+] Verifying web directories with curl...")
-    state["web_directories_status"] = correct_web_directories(TARGET_IP, state.get("web_directories_status", DEFAULT_STATE_STRUCTURE["web_directories_status"]))
-    return state
+            if not callable(correction_func):
+                print(f"[WARNING] Correction function '{func_name}' not found for '{full_path}'")
+                continue
+
+            # Navigate to target field
+            parts = full_path.split(".")
+            target = corrected
+            for part in parts[:-1]:
+                part = part.replace("[]", "")
+                target = target.get(part, {})
+
+            last_part = parts[-1].replace("[]", "")
+            if last_part in target:
+                try:
+                    value = target[last_part]
+                    ip = corrected.get("target", {}).get("ip", "")
+
+                    # Build args from function signature
+                    sig = inspect.signature(correction_func)
+                    call_args = {}
+                    for param in sig.parameters.values():
+                        pname = param.name
+                        if pname == "value":
+                            call_args[pname] = value
+                        elif pname == "ip":
+                            call_args[pname] = ip
+                        elif pname in kwargs:
+                            call_args[pname] = kwargs[pname]
+                        elif pname in corrected:
+                            call_args[pname] = corrected[pname]
+
+                    print(f"[INFO] Running {func_name} on '{full_path}'")
+                    result = correction_func(**call_args)
+                    target[last_part] = result
+
+                except Exception as e:
+                    print(f"[ERROR] Correction '{func_name}' failed on '{full_path}': {e}")
+
+        elif isinstance(entry, dict):
+            corrected = correct_state(
+                state=corrected,
+                schema=entry,
+                base_path=full_path,
+                **kwargs
+            )
+
+    return corrected
+
+
+def clean_state(state: dict, structure: dict) -> dict:
+    """
+    Recursively traverses the state based on DEFAULT_STATE_STRUCTURE and:
+    1. For any list of dicts: removes dicts where all fields are empty.
+    2. If the final list is empty: adds one template item (with all empty fields).
+    3. For dict-of-dicts (e.g., web_directories_status): removes "" keys with "" values.
+
+    Args:
+        state: The actual state dict to be cleaned.
+        structure: The DEFAULT_STATE_STRUCTURE that defines the template.
+
+    Returns:
+        A cleaned state dict with invalid list entries removed and empty templates preserved.
+    """
+    cleaned = copy.deepcopy(state)
+
+    for key, expected_value in structure.items():
+        if key not in cleaned:
+            continue
+
+        if isinstance(expected_value, list) and isinstance(cleaned[key], list):
+            template_item = expected_value[0] if expected_value else {}
+            # Remove dicts with all fields empty
+            cleaned_list = [
+                item for item in cleaned[key]
+                if any(v != "" for v in item.values())
+            ]
+            # If empty after cleaning, insert one blank template
+            if not cleaned_list:
+                cleaned_list = [copy.deepcopy(template_item)]
+            cleaned[key] = cleaned_list
+
+        elif isinstance(expected_value, dict) and isinstance(cleaned[key], dict):
+            # Special case for web_directories_status-like dicts of dicts
+            inner_dict = cleaned[key]
+            for subkey, subdict in inner_dict.items():
+                if isinstance(subdict, dict):
+                    inner_dict[subkey] = {
+                        k: v for k, v in subdict.items() if k != "" or v != ""
+                    }
+                    # If nothing left, ensure one empty entry
+                    if not inner_dict[subkey]:
+                        inner_dict[subkey] = {"": ""}
+            # Continue recursive cleaning
+            cleaned[key] = clean_state(cleaned[key], expected_value)
+
+    return cleaned
 
 if __name__ == "__main__":
     state = {'target': {'ip': '192.168.56.101', 'os': {'name': '', 'distribution': {'name': '', 'version': ''}, 'kernel': '', 'architecture': ''}, 'services': []}, 'web_directories_status': {'200': {'/index.php': '', '/phpinfo.php': '', '/phpinfo': '', '/index': ''}, '301': {'/dav/': '', '/phpMyAdmin/': '', '/test/': '', '/twiki/': ''}, '302': {'': ''}, '307': {'': ''}, '401': {'': ''}, '403': {'/.htaccess': '', '/cgi-bin/': '', '/server-status': '', '/test/': '', '/twiki/': '', '/': ''}, '500': {'': ''}, '502': {'': ''}, '503': {'': ''}, '504': {'': ''}}, 'actions_history': [], 'cpes': [], 'vulnerabilities_found': []}
@@ -249,6 +373,6 @@ if __name__ == "__main__":
     os_linux_kernel_dataset = load_dataset(OS_LINUX_KERNEL_DATASET)
     print(f"✅ OS Linux Kernel dataset Loaded Successfully")
 
-    final_state = correct_state(state, os_linux_dataset, os_linux_kernel_dataset)
+    #final_state = correct_state(state, os_linux_dataset, os_linux_kernel_dataset)
 
-    print(final_state)
+    #print(final_state)

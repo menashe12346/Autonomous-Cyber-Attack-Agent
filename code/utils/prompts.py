@@ -1,6 +1,10 @@
-from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE
 import json
+import os
+import sys
 from utils.utils import clean_command_output, clean_prompt
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE, STATE_SCHEMA
 
 def PROMPT_1(current_state: str) -> str:
   return f""" You are about to receive a specific JSON structure. You must remember it exactly as-is.
@@ -39,7 +43,178 @@ Include all and only real fileds found.
 
 The "os" field includes name (e.g. "Linux"), distribution with name (e.g. "Ubuntu"), version (e.g. "20.04") and architecture (e.g. "x86_64"), kernel (e.g. "5.15.0-85-generic").The name of the os can be only Linux and the name of the distribution is the type of linux like ubunto or arch and etc.
 In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp" (lowercase), "service": service name (e.g. http, ssh) — lowercase, If missing, leave value as "". 
-In "web_directories_status", for each status ({json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':'))}): Map any discovered paths (like "/admin") to their message (or use "" if no message) like this pattern {{ "{{" }}"": ""{{ }}" }}. All {len(EXPECTED_STATUS_CODES)} keys must appear, even if empty.
+In "web_directories_status", for each status ({json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':'))}): Map any discovered paths (like "/admin") to their message (or use "" if no message) like this pattern {{ "{{" }}"": ""{{ }}" }}.
+
+Do not invent or guess data.
+Do not rename, add, or remove any fields. 
+Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. Response must be one line.
+Instructions for this specific command:
+"""
+  part_1 = clean_prompt(part_1)
+
+  part_2 = f""" {Custom_prompt}."""
+  part_2 = clean_command_output(part_2)
+
+  part_3 = f"""Here is the new data:"""
+  part_3 = clean_prompt(part_3)
+
+  part_4 = f"""{command_output}."""
+  part_4 = clean_command_output(part_4)
+
+  part_5 = f"""Before returning your answer: Compare it to the original json structure character by character. Return ONLY ONE JSON — no explanation, no formatting, no comments"""
+  part_5 = clean_prompt(part_5)
+
+  final_prompt = part_1 + part_2 + part_3 + part_4 + part_5
+
+  return final_prompt
+from collections import defaultdict
+
+def build_state_explanation(schema: dict, default_structure: dict) -> str:
+    """
+    Builds explanation sentences per top-level field.
+    - Fully recursive.
+    - Supports suppressing a container if its llm_prompt is False, promoting its children to top-level.
+    - Uses schema-provided prompts for both dict and list fields.
+    """
+    lines = []
+
+    # Determine effective top-level entries, handling suppressed containers
+    entries = []  # List of tuples: (label, struct, parent_prefix)
+    for key, value in default_structure.items():
+        top_prompt = schema.get(key, {}).get("llm_prompt", None)
+        if top_prompt is False and isinstance(value, dict):
+            # suppress this container, promote its children
+            for child_key, child_val in value.items():
+                entries.append((child_key, child_val, key))
+        else:
+            entries.append((key, value, None))
+
+    def recurse_collect(struct, path=""):
+        group_fields = defaultdict(list)
+        if isinstance(struct, dict):
+            for k, v in struct.items():
+                full_key = f"{path}.{k}" if path else k
+                prompt = schema.get(full_key, {}).get("llm_prompt", "").strip()
+                if isinstance(v, dict):
+                    sub = recurse_collect(v, full_key)
+                    if prompt:
+                        group_fields[k].append(("__parent_prompt__", prompt))
+                    if sub:
+                        group_fields[k].append(("__nested__", sub))
+                elif isinstance(v, list) and v and isinstance(v[0], dict):
+                    # child list-of-dicts inside dict
+                    if prompt:
+                        group_fields[k].append(("__parent_prompt__", prompt))
+                    for subk in v[0]:
+                        list_key = f"{full_key}[].{subk}"
+                        sub_prompt = schema.get(list_key, {}).get("llm_prompt", "").strip()
+                        if sub_prompt:
+                            group_fields[k].append((subk, sub_prompt))
+                else:
+                    if prompt:
+                        group_fields[""].append((k, prompt))
+        return group_fields
+
+    def format_group(group):
+        segments = []
+        for key, fields in group.items():
+            parent_p = None
+            nested_items = []
+            for name, val in fields:
+                if name == "__parent_prompt__":
+                    parent_p = f"{key} field includes {val}:" if key else val
+                elif name == "__nested__":
+                    nested_items.append(format_group(val))
+                else:
+                    nested_items.append(f"{name} ({val})")
+            if nested_items:
+                inner = nested_items[0] if len(nested_items) == 1 else ", ".join(nested_items[:-1]) + f" and {nested_items[-1]}"
+                if parent_p:
+                    segments.append(f"{parent_p} {inner}")
+                elif key:
+                    segments.append(f"{key} with {inner}")
+                else:
+                    segments.append(inner)
+            elif parent_p:
+                segments.append(parent_p)
+        return ", ".join(segments)
+
+    for label, struct, parent in entries:
+        # build schema path
+        path = f"{parent}.{label}" if parent else label
+        top_prompt_raw = schema.get(path, {}).get("llm_prompt", None)
+        top_prompt = top_prompt_raw.strip().rstrip('.') if isinstance(top_prompt_raw, str) else None
+
+        # Handle list-of-dict top-level fields using schema prompt
+        if isinstance(struct, list) and struct and isinstance(struct[0], dict):
+            # collect child prompts
+            items = []
+            for subk in struct[0]:
+                list_key = f"{path}[].{subk}"
+                sub_prompt = schema.get(list_key, {}).get("llm_prompt", "").strip()
+                if sub_prompt:
+                    items.append(f"{subk} ({sub_prompt})")
+            if items:
+                inner = items[0] if len(items) == 1 else ", ".join(items[:-1]) + f" and {items[-1]}"
+                if top_prompt:
+                    prefix = f'In "{label}", {top_prompt}:'
+                else:
+                    singular = label[:-1] if label.endswith('s') else label
+                    prefix = f'In "{label}", add an entry for each {singular} found:'
+                lines.append(f"{prefix} {inner}.")
+            continue
+
+        # General dict or suppressed-case handling
+        group = recurse_collect(struct, path)
+        if group:
+            # prefix for dict fields
+            if isinstance(struct, list):
+                # fallback if non-dict list without schema prompt
+                singular = label[:-1] if label.endswith('s') else label
+                prefix = f'In "{label}", add an entry for each {singular} found:'
+            else:
+                prefix = f'The "{label}" field includes'
+            sentence = f"{prefix} {format_group(group)}."
+            if top_prompt:
+                sentence += f" {top_prompt}."
+            lines.append(sentence)
+        elif isinstance(top_prompt_raw, str) and top_prompt:
+            # only top-level prompt
+            if top_prompt.lower().startswith('for each'):
+                lines.append(f"In \"{label}\", {top_prompt}.")
+            else:
+                lines.append(f"The \"{label}\" field includes {top_prompt}.")
+
+    return "\n".join(lines).strip()
+
+
+def PROMPT_22(command_output: str, Custom_prompt: str) -> str:
+  top_level_keys = list(DEFAULT_STATE_STRUCTURE.keys())
+  
+  if len(top_level_keys) == 1:
+      top_level_keys_string = top_level_keys[0]
+  elif len(top_level_keys) == 2:
+      top_level_keys_string = " and ".join(top_level_keys)
+  else:
+      top_level_keys_string = ", ".join(top_level_keys[:-1]) + ", and " + top_level_keys[-1]
+
+  part_1 = f"""
+You are about to receive a specific JSON structure.
+
+You must remember it exactly as-is. Do not explain, summarize, or transform it in any way. 
+Just memorize it internally — you will be asked to use it later.
+
+Here is the structure: 
+{json.dumps(DEFAULT_STATE_STRUCTURE, indent=4, separators=(',',':'))}.
+
+You were previously given a specific JSON structure. 
+You MUST now return ONLY that same structure, filled correctly. 
+Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize fields or names (use lowercase only). 
+You MUST return JSON with exactly {len(top_level_keys)} top-level keys: {top_level_keys_string}. 
+Include all and only real fileds found.
+
+Use these field explanations to build the state JSON:
+{build_state_explanation(STATE_SCHEMA, DEFAULT_STATE_STRUCTURE)}
 
 Do not invent or guess data.
 Do not rename, add, or remove any fields. 
@@ -140,3 +315,6 @@ No emojis!!
   final_prompt = part_1 + part_2 + part_3
 
   return final_prompt
+
+if __name__ == "__main__":
+  print(build_state_explanation(STATE_SCHEMA, DEFAULT_STATE_STRUCTURE))
