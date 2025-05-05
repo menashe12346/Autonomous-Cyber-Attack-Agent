@@ -2,9 +2,9 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 100
+NUM_EPISODES = 500
 MAX_STEPS_PER_EPISODE = 2
-EPSILON =0.1
+EPSILON =1.0
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -84,7 +84,17 @@ _BASE_DEFAULT_STATE = {
             "kernel": "",
         },
         "services": [
-            {"port": "", "protocol": "", "service": ""},
+            {
+                "port": "", 
+                "protocol": "", 
+                "service": "", 
+                "server_type": "", 
+                "server_version": "",
+                "supported_protocols": [""],
+                "softwares": [
+                    {"name": "", "version": ""},
+                ]
+            },
         ]
     },
     "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
@@ -159,7 +169,7 @@ STATE_SCHEMA = {
     "target.services[].port": {
         "type": "int",
         "encoder": "normalize_by_specific_number",
-        "num_for_normalization": 65555,
+        "num_for_normalization": 65536,
         "reward": 0.1,
         "llm_prompt": "Port number of the service, e.g., 22 or 80."
     },
@@ -174,6 +184,46 @@ STATE_SCHEMA = {
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": "Application-level service name, e.g., 'http', 'ftp'."
+    },
+    "target.services[].server_type": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].server_version": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].supported_protocols": {
+        "type": "dict",
+        "llm_prompt": ""
+    },
+    "target.services[].supported_protocols[]": {
+        "type": "str",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].softwares": {
+        "type": "dict",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].softwares[].name": {
+        "type": "str",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].softwares[].version": {
+        "type": "str",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
     },
     "web_directories_status": {
         "type": "dict",

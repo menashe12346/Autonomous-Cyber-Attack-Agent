@@ -37,12 +37,12 @@ Here is the structure:
 
 You were previously given a specific JSON structure. 
 You MUST now return ONLY that same structure, filled correctly. 
-Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize fields or names (use lowercase only). 
+Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize fields or names. 
 You MUST return JSON with exactly {len(top_level_keys)} top-level keys: {top_level_keys_string}. 
 Include all and only real fileds found.
 
 The "os" field includes name (e.g. "Linux"), distribution with name (e.g. "Ubuntu"), version (e.g. "20.04") and architecture (e.g. "x86_64"), kernel (e.g. "5.15.0-85-generic").The name of the os can be only Linux and the name of the distribution is the type of linux like ubunto or arch and etc.
-In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp" (lowercase), "service": service name (e.g. http, ssh) — lowercase, If missing, leave value as "". 
+In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp", "service": service name (e.g. http, ssh), "server_type": software name (e.g. Apache, nginx), "server_version": version string (e.g. 2.2.8), "supported_protocols": list of strings (e.g. ["HTTP/1.1", "DAV"]). Also include a "softwares" list with entries of the form {{"name": software name, "version": version string}}. If any value is missing, use "" or empty list as appropriate.
 In "web_directories_status", for each status ({json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':'))}): Map any discovered paths (like "/admin") to their message (or use "" if no message) like this pattern {{ "{{" }}"": ""{{ }}" }}.
 
 Do not invent or guess data.

@@ -142,9 +142,11 @@ class BlackboardAPI:
         Smart merge of ReconAgent results into the blackboard.
         Only adds new information without deleting or overwriting existing data.
         """
-        self._smart_merge(self.blackboard, new_state)
-        self.blackboard = validate_state(self.blackboard)
-        self.blackboard = sort_state(self.blackboard)
+       # self._smart_merge(self.blackboard, new_state)
+        #self.blackboard = validate_state(self.blackboard)
+        #self.blackboard = sort_state(self.blackboard)
+        self.blackboard.clear()
+        self.blackboard.update(new_state)
         print(f"final blackboard: {self.blackboard}")
         self._save_to_file()
 
