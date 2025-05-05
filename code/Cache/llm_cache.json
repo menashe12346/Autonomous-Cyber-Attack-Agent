@@ -606,27 +606,49 @@
     "parsed": {
       "target": {
         "os": {
-          "name": "",
           "distribution": {
             "name": "",
             "version": "",
             "architecture": ""
           },
-          "kernel": ""
+          "kernel": "",
+          "name": "Linux"
         },
-        "services": []
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http"
+          },
+          {
+            "port": "443",
+            "protocol": "tcp",
+            "service": "https"
+          }
+        ]
       },
       "web_directories_status": {
         "200": {
-          "index": "",
-          "index.php": ""
+          "/": "",
+          "/index": "",
+          "/index.php": "",
+          "/phpMyAdmin": "",
+          "/phpinfo": "",
+          "/phpinfo.php": "",
+          "/test": "",
+          "/twiki": "",
+          "/wp-login.php": ""
         },
         "301": {
-          "//192.168.56.101/dav/phpMyAdmin": "http",
-          "//192.168.56.101/phpMyAdmin/test": "http",
-          "//192.168.56.101/test/twiki": "http",
-          "//192.168.56.101/twiki/303": "",
-          "dav": "http"
+          "/dav": "",
+          "/phpMyAdmin/": "",
+          "/test/": "",
+          "/twiki/": ""
         },
         "302": {
           "": ""
@@ -642,7 +664,13 @@
           "/.htaccess": "",
           "/.htpasswd": "",
           "/cgi-bin/": "",
-          "/server-status": ""
+          "/phpinfo": "",
+          "/phpinfo.php": "",
+          "/server-status": "",
+          "/test": "",
+          "/twiki": "",
+          "/wp-admin": "",
+          "/xmlrpc.php": ""
         },
         "500": {
           "": ""

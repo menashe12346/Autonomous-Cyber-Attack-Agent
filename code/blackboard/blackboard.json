@@ -2,14 +2,14 @@
   "target": {
     "ip": "192.168.56.101",
     "os": {
-      "name": "",
+      "architecture": "",
       "distribution": {
         "name": "",
         "version": "",
         "architecture": ""
       },
       "kernel": "",
-      "architecture": ""
+      "name": ""
     },
     "services": [
       {
@@ -46,6 +46,11 @@
         "port": "111",
         "protocol": "tcp",
         "service": "rpcbind"
+      },
+      {
+        "port": "443",
+        "protocol": "tcp",
+        "service": "https"
       },
       {
         "port": "445",
@@ -116,10 +121,23 @@
   },
   "web_directories_status": {
     "200": {
-      "": ""
+      "": "",
+      "/": "",
+      "/index": "",
+      "/index.php": "",
+      "/phpMyAdmin": "",
+      "/phpinfo": "",
+      "/phpinfo.php": "",
+      "/test": "",
+      "/twiki": "",
+      "/wp-login.php": ""
     },
     "301": {
-      "": ""
+      "": "",
+      "/dav": "",
+      "/phpMyAdmin/": "",
+      "/test/": "",
+      "/twiki/": ""
     },
     "302": {
       "": ""
@@ -131,7 +149,18 @@
       "": ""
     },
     "403": {
-      "": ""
+      "": "",
+      "/.hta": "",
+      "/.htaccess": "",
+      "/.htpasswd": "",
+      "/cgi-bin/": "",
+      "/phpinfo": "",
+      "/phpinfo.php": "",
+      "/server-status": "",
+      "/test": "",
+      "/twiki": "",
+      "/wp-admin": "",
+      "/xmlrpc.php": ""
     },
     "500": {
       "": ""

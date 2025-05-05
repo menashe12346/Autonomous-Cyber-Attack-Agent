@@ -1,87 +1,101 @@
 import json
 from copy import deepcopy
-from config import EXPECTED_STATUS_CODES
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-def sort_services(services: list) -> list:
+from config import STATE_SCHEMA
+
+def _generic_sort_list(raw_key: str, items: list) -> list:
     """
-    Sorts and deduplicates service entries.
-    - First by port number (ascending) if port is valid.
-    - Then by service name (alphabetically) if port is missing/invalid.
-    - Ignores completely empty entries.
-    - Removes duplicates based on (port, protocol, service, version).
+    Deduplicate & sort a list of dicts according to the schema:
+      - Remove exact duplicates (by tuple of all defined child fields).
+      - Sort by numeric fields first, then lexicographically by string fields.
     """
+    # Find all child field names for this list in STATE_SCHEMA
+    child_fields = [
+        k.split("[].", 1)[1]
+        for k, info in STATE_SCHEMA.items()
+        if k.startswith(raw_key + "[]")
+    ]
 
-    def service_sort_key(service):
-        port = service.get("port", "")
-        service_name = service.get("service", "")
-        if port.isdigit():
-            return (0, int(port))
-        else:
-            return (1, service_name.lower())
-
-    seen_services = set()
-    sorted_services = []
-
-    for service in sorted(services, key=service_sort_key):
-        port = service.get("port", "")
-        protocol = service.get("protocol", "")
-        service_name = service.get("service", "")
-        version = service.get("version", None)
-
-        # Ignore completely empty services
-        if port == "" and protocol == "" and service_name == "":
+    # Deduplicate
+    seen = set()
+    unique = []
+    for item in items:
+        if not isinstance(item, dict):
             continue
+        key = tuple(item.get(f) for f in child_fields)
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
 
-        service_key = (port, protocol, service_name, version)
-        if service_key not in seen_services:
-            seen_services.add(service_key)
-            sorted_services.append(service)
+    # Sort
+    def sort_key(item):
+        parts = []
+        for f in child_fields:
+            v = item.get(f, "")
+            if isinstance(v, str) and v.isdigit():
+                parts.append((0, int(v)))
+            else:
+                parts.append((1, str(v).lower()))
+        return tuple(parts)
 
-    return sorted_services
+    return sorted(unique, key=sort_key)
 
-
-def sort_web_directories(web_dirs: dict) -> dict:
+def _sort_recursive(obj, prefix=""):
     """
-    Sorts web directory paths alphabetically within each HTTP status code.
+    Recursively sort & dedupe according to STATE_SCHEMA:
+      - If prefix in schema as list → apply _generic_sort_list
+      - If prefix in schema as dict → sort dict keys
+      - Then recurse into any dict values or list items
     """
-    sorted_result = {}
-    for code, entries in web_dirs.items():
-        if isinstance(entries, dict):
-            sorted_result[code] = dict(sorted(entries.items()))
-        else:
-            sorted_result[code] = entries  # keep as-is if not a dict
-    return sorted_result
+    # 1) list-level sorting
+    if prefix in STATE_SCHEMA and STATE_SCHEMA[prefix].get("type") == "list" and isinstance(obj, list):
+        obj = _generic_sort_list(prefix, obj)
+
+    # 2) dict-level sorting
+    if prefix in STATE_SCHEMA and STATE_SCHEMA[prefix].get("type") == "dict" and isinstance(obj, dict):
+        obj = dict(sorted(obj.items()))
+
+    # 3) recurse
+    if isinstance(obj, dict):
+        new = {}
+        for k, v in obj.items():
+            child_prefix = f"{prefix}.{k}" if prefix else k
+            new[k] = _sort_recursive(v, child_prefix)
+        return new
+
+    if isinstance(obj, list):
+        child_prefix = f"{prefix}[]" if prefix else "[]"
+        return [_sort_recursive(item, child_prefix) for item in obj]
+
+    # base case (neither dict nor list)
+    return obj
 
 def sort_state(state: dict) -> dict:
     """
-    Delegates sorting of services and web directories.
+    Deep-copies `state`, then applies recursive sorting/deduplication
+    guided entirely by STATE_SCHEMA.
     """
-    if "target" in state:
-        services = state["target"].get("services", [])
-        state["target"]["services"] = sort_services(services)
+    return _sort_recursive(deepcopy(state))
 
-    if "web_directories_status" in state:
-        web_dirs = state.get("web_directories_status", {})
-        state["web_directories_status"] = sort_web_directories(web_dirs)
-
-    return state
-
+# Example
 if __name__ == "__main__":
-    # Example usage
-    example_state = {
+    example = {
         "target": {
             "services": [
                 {"port": "80", "protocol": "tcp", "service": "http"},
                 {"port": "22", "protocol": "tcp", "service": "ssh"},
-                {"port": "", "protocol": "", "service": ""},  # Should be ignored
-                {"port": "80", "protocol": "tcp", "service": "http"}  # duplicate
+                {"port": "80", "protocol": "tcp", "service": "http"},  # dup
             ]
         },
         "web_directories_status": {
-            "200": {"/admin": "", "/login": "", "/admin": "duplicate"},
-            "404": {"/notfound": "", "/missing": ""}
+            "200": {"/admin": "", "/login": ""},
+            "404": {"/x": "", "/y": ""}
         }
     }
-    sorted_state = sort_state(example_state)
+
+    sorted_state = sort_state(example)
     print(json.dumps(sorted_state, indent=2))
