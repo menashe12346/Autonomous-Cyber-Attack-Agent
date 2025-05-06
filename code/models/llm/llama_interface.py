@@ -32,38 +32,22 @@ class LlamaModel(BaseLLM):
         enc = tiktoken.get_encoding("cl100k_base")
         return len(enc.encode(text, disallowed_special=()))
 
-    def run(self, prompts: list[str]) -> list[str]:
-        """
-        Run one or more prompts in sequence, maintaining conversational context.
-        For a single prompt, just call run([prompt]).
-
-        Args:
-            prompts (list[str]): List of prompt strings.
-
-        Returns:
-            list[str]: List of model outputs, one per prompt.
-        """
+    def run(self, prompts: list[str], context_num = 1) -> list[str]:
         responses = []
         context = ""
+        context_length = str(context_num * 9999)
 
         for prompt in prompts:
-            full_prompt = context + "\n" + prompt if context else prompt
-
-            # === Debug Output ===
-            print(f"[LLAMA] Prompt Tokens   ({self.count_tokens(prompt)}): {repr(prompt)}")
-            #print(f"[LLAMA] Context Tokens  ({self.count_tokens(context)}): {repr(context)}")
-            #print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
+            full_prompt = (context + "\n" + prompt) if context else prompt
 
             cmd = [
-                self.llama_path,
-                self.model_path,
-                full_prompt,
-                "-n", self.tokens,
-                "-t", self.threads,
-                "--n-batch", self.n_batch,
-                "--ctx-size", self.context_size,
-                #--prompt-cache
+                "/mnt/linux-data/project/code/models/llama.cpp/build/bin/llama-run",
+                "--context-size", context_length,
+                "/mnt/linux-data/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf",
+                full_prompt
             ]
+
+            print(f"[LLAMA] Full Tokens     ({self.count_tokens(full_prompt)}): {repr(full_prompt)}")
 
             try:
                 output = subprocess.check_output(cmd, text=True).strip()
@@ -71,5 +55,5 @@ class LlamaModel(BaseLLM):
                 context += f"\n{prompt}\n{output}"
             except subprocess.CalledProcessError:
                 responses.append("")
-
         return responses
+

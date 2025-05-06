@@ -12,6 +12,75 @@ from blackboard.blackboard import initialize_blackboard
 EXPECTED_STRUCTURE = initialize_blackboard()
 EXPECTED_STRUCTURE["target"].pop("ip",None)
 
+def normalize_parts(data: any, schema: any):
+    """
+    מתקן בכל מקום שבו הסכמה דורשת list-of-dicts:
+     - אם נתון לא list, מחליף ברשימה ריקה
+     - אם הוא list, מריץ את עצמו רקורסיבית על כל איבר dict
+    וגם מטפל ב־nested dicts.
+    """
+    # מקרה של מיפוי dict
+    if isinstance(schema, dict) and isinstance(data, dict):
+        for key, exp in schema.items():
+            if key not in data:
+                continue
+            normalize_parts(data[key], exp)
+        return
+
+    # מקרה של list-of-dicts
+    # Case: schema is a list (either of scalars or of dicts)
+    if isinstance(schema, list):
+        # placeholder for empty or non-list scraped data
+        placeholder = None
+        if schema and isinstance(schema[0], dict):
+            import copy
+            placeholder = [copy.deepcopy(schema[0])]
+        else:
+            placeholder = [schema[0]] if schema else []
+
+        # if scraped value isn't a list, or is an empty list, return placeholder
+        if not isinstance(data, list) or len(data) == 0:
+            return placeholder
+
+        # now data is a non-empty list
+        if schema and isinstance(schema[0], dict):
+            return [
+                normalize_parts(item, schema[0]) if isinstance(item, dict) else item
+                for item in data
+            ]
+        # list-of-scalars: assume scraped list is fine
+        return data
+
+    # במקרים אחרים (סקלרים או list-of-scalars) – לא נדרש נירמול
+    return
+import re
+
+def split_items_on_repeat(text: str, field_keys: list[str]) -> list[str]:
+    """
+    Splits a text blob into one chunk per occurrence of the first schema field.
+    Matches the field as a whole word (\b…\b), no quotes required.
+    """
+    if not field_keys:
+        return [text]
+
+    first = field_keys[0]
+    # 1) קימפול ה־regex עבור המיקום של כל "port" (או כל key אחר) בלי גרשיים
+    pattern = re.compile(rf'\b{re.escape(first)}\b')
+    # 2) איסוף כל המיקומים שבהם נמצא המפתח
+    positions = [m.start() for m in pattern.finditer(text)]
+    if not positions:
+        return []
+
+    chunks = []
+    # 3) חיתוך הטקסט בין כל שני מופעים סמוכים (או עד סוף הטקסט)
+    for idx, start in enumerate(positions):
+        end = positions[idx + 1] if idx + 1 < len(positions) else len(text)
+        chunk = text[start:end].strip(" \t\n\r,")
+        chunks.append(chunk)
+
+    return chunks
+
+
 def clean_input_string(s: str, preserve_prefix: int = 0) -> str:
     """
     מנקה מחרוזת מתווים לא רצויים, עם אפשרות לשמר N תווים מההתחלה (למשל '/', './').
@@ -179,7 +248,7 @@ def extract_status_block(text_after_status, status_code):
 def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict]:
     # ── DEBUG: entering recursion, show a snippet of the text and the keys we expect ──
     print(f"[DEBUG] extract_json_parts_recursive(text_snippet={text[:80]!r}, keys={list(structure.keys())})")
-    parts: dict = {} 
+    parts: dict = {}
     text = text.replace('\n', ' ').replace('\r', ' ').strip()
     keys = list(structure.keys())
 
@@ -197,6 +266,7 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
 
                 expected_type = structure[key]
 
+                # Dynamic status-code dict
                 if isinstance(expected_type, dict) and all(k.isdigit() for k in expected_type.keys()):
                     sub_result = {}
                     for code in expected_type.keys():
@@ -208,59 +278,57 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
                             sub_result[code] = {"": ""}
                     parts[key] = sub_result
 
+                # Nested object
                 elif isinstance(expected_type, dict):
-                            # detect “status‐code” dicts (all keys are digits) and skip debug for those
-                            is_status_mapping = all(str(k).isdigit() for k in expected_type.keys())
-                
-                            if not is_status_mapping:
-                                # — only for real object‐like fields (e.g. os, distribution, target…) —
-                                print(f"[DEBUG] Recursing into object key={key!r}")
-                                print(f"[DEBUG]   raw block_text for {key!r}: {block_text!r}")
-                            # strip leading punctuation so inner keys line up
-                            cleaned_block = block_text.lstrip(': {\'"')
-                            if not is_status_mapping:
-                                print(f"[DEBUG]   cleaned block_text for {key!r}: {cleaned_block!r}")
-                            # recurse
-                            sub_result, _ = extract_json_parts_recursive(cleaned_block, expected_type)
-                            if not is_status_mapping:
-                                print(f"[DEBUG]   result for {key!r}: {sub_result!r}")
-                            parts[key] = sub_result
+                    is_status_mapping = all(str(k).isdigit() for k in expected_type.keys())
+                    if not is_status_mapping:
+                        print(f"[DEBUG] Recursing into object key={key!r}")
+                        print(f"[DEBUG]   raw block_text for {key!r}: {block_text!r}")
+                    cleaned_block = block_text.lstrip(': {\'\"')
+                    if not is_status_mapping:
+                        print(f"[DEBUG]   cleaned block_text for {key!r}: {cleaned_block!r}")
+                    sub_result, _ = extract_json_parts_recursive(cleaned_block, expected_type)
+                    if not is_status_mapping:
+                        print(f"[DEBUG]   result for {key!r}: {sub_result!r}")
+                    parts[key] = sub_result
 
                 elif isinstance(expected_type, list) and expected_type and isinstance(expected_type[0], dict):
-                    list_result = []
-                    item_structure = expected_type[0]
-                    item_pos = 0
-                    current_item = {}
+                    # grab the one‐item schema so we don’t clobber the outer `keys`
+                    item_struct = expected_type[0]
+                    item_keys   = list(item_struct.keys())
 
-                    while item_pos < len(block_text):
-                        subtext = block_text[item_pos:]
-                        matched = False
-                        for field in item_structure:
-                            if subtext.startswith(field):
-                                val, jump = extract_value_after_key(subtext, field, next_keys=list(item_structure.keys()))
-                                if val:
-                                    current_item[field] = val
-                                item_pos += jump
-                                matched = True
-                                break
-                        if matched:
-                            if all(k in current_item for k in item_structure):
-                                cleaned_item = {f: clean_input_string(current_item[f]) for f in item_structure}
-                                list_result.append(cleaned_item)
-                                current_item = {}
-                        else:
-                            item_pos += 1
+                    # split into raw text chunks whenever the first field repeats
+                    raw_items = split_items_on_repeat(block_text, [item_keys[0]])
+                    print(f"[DEBUG] raw_items splits: {raw_items}")
+
+                    list_result = []
+                    for raw in raw_items:
+                        current = {}
+                        # 1) extract all fields into current
+                        for field in item_keys:
+                            val, _ = extract_value_after_key(raw, field, next_keys=item_keys)
+                            current[field] = clean_input_string(val or "")
+
+                        # 2) force any list-fields back to the schema placeholder
+                        for field, exp in item_struct.items():
+                            if isinstance(exp, list) and not isinstance(current.get(field), list):
+                                current[field] = copy.deepcopy(exp)
+
+                        # 3) only append this item if the mandatory field is non-empty
+                        if current.get(item_keys[0], ""):
+                            list_result.append(current)
+
                     parts[key] = list_result
 
+                # Scalar value
                 else:
-                    # strip surrounding punctuation, quotes, commas, braces and whitespace
                     parts[key] = clean_input_string(block_text)
-
 
                 pos += len(key)
                 break
         pos += 1
 
+    # Ensure all expected keys exist
     for key in structure:
         if key not in parts:
             expected_type = structure[key]
@@ -283,40 +351,33 @@ def fill_json_structure(template_json: dict,
     Recursively merge extracted_parts into template_json based on expected_structure.
     - Scalars: only set if template_json[key] is empty.
     - Dicts: recurse into sub-dicts.
-    - Lists of dicts: append any item not already present (by full-item equality).
+    - Lists of dicts: append any item that has a non-empty 'port'.
     """
-    print(f"template_json: {template_json}")
     for key, expected in expected_structure.items():
-        # אם לא הוצא כלום – דילוג
         if key not in extracted_parts:
             continue
 
-        # ── Branch for dynamic status–code dicts (כל המקשים הם ספרות) ──
+        # Dynamic status–code dicts (כל המקשים ספרות) – נשאר איך שהיה
         if isinstance(expected, dict) and all(str(k).isdigit() for k in expected.keys()):
-            # קח עותק של המצב הקיים, בלי placeholder:
             merged = {
                 code: dirs
                 for code, dirs in template_json.get(key, {}).items()
-                if code  # רק אם הקוד לא ריק
+                if code
             }
-            print(f"[DEBUG] before merge status={key}: {merged!r}")
-            # וננדס איך שהתקבלו ב־extracted_parts
             for code, dirs in extracted_parts[key].items():
                 if not isinstance(dirs, dict):
                     continue
-                # מחשב רק התיקיות האמיתיות מתוך extracted
                 real = {d: v for d, v in dirs.items() if d}
                 if real:
                     merged.setdefault(code, {}).update(real)
                 else:
-                    # אין ערכים אמיתיים -> שמור placeholder
                     merged.setdefault(code, {})[""] = ""
-            print(f"[DEBUG] after  merge status={key}: {merged!r}")
             template_json[key] = merged
-            # המשך ללולאה מבלי לגרום לרקורסיה הרגילה
             continue
+
         value = extracted_parts[key]
-        # 1) Scalar field
+
+        # 1) Scalar
         if not isinstance(expected, (dict, list)):
             if value and not template_json.get(key):
                 template_json[key] = value
@@ -324,11 +385,9 @@ def fill_json_structure(template_json: dict,
 
         # 2) Nested dict
         if isinstance(expected, dict):
-            # get or init a dict in the template
             sub_template = template_json.get(key, {})
             if not isinstance(sub_template, dict):
                 sub_template = {}
-            # recurse
             template_json[key] = fill_json_structure(
                 sub_template,
                 value if isinstance(value, dict) else {},
@@ -336,27 +395,27 @@ def fill_json_structure(template_json: dict,
             )
             continue
 
-        # 3) List-of-dicts
+        # 3) List-of-dicts (services ועוד) – נשמור כל אייטם עם 'port'
         if isinstance(expected, list) and expected and isinstance(expected[0], dict):
-            # get or init a list in the template
             sub_template_list = template_json.get(key, [])
             if not isinstance(sub_template_list, list):
                 sub_template_list = []
 
-            # each item in `value` should be a dict matching expected[0]
             for item in value:
                 if not isinstance(item, dict):
                     continue
-                # drop any empty items
-                if any(not item.get(f) for f in expected[0].keys()):
+                # רק אם יש port – שדה חובה
+                if not item.get('port'):
                     continue
-                # append if not already there
+                # אם עדיין לא מופיע, נוסיף אותו
                 if item not in sub_template_list:
                     sub_template_list.append(item)
 
             template_json[key] = sub_template_list
+            continue
 
     return template_json
+
 def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
     """
     מסיר רק placeholders דינמיים בתוך json_data לפי expected_structure:
@@ -487,9 +546,30 @@ def fix_json(state: dict, new_data: str) -> dict:
     # 1) Extract parts and report (use EXPECTED_STRUCTURE)
     EXPECTED_STRUCTURE=initialize_blackboard()
     extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
+
+    # נירמול רקורסיבי:
+    def _apply_normalization(parts, schema):
+        # הסבה רקורסיבית – מחזירה את parts או החלפה
+        if isinstance(schema, list) and schema and isinstance(schema[0], dict):
+            if not isinstance(parts, list):
+                return []
+            for idx, itm in enumerate(parts):
+                if isinstance(itm, dict):
+                    parts[idx] = _apply_normalization(itm, schema[0])
+            return parts
+        elif isinstance(schema, dict) and isinstance(parts, dict):
+            for k, exp in schema.items():
+                if k in parts:
+                    parts[k] = _apply_normalization(parts[k], exp)
+            return parts
+        else:
+            return parts
+
+    extracted_parts = _apply_normalization(extracted_parts, EXPECTED_STRUCTURE)  
+
     if extracted_parts:
         print("✅ JSON extracted successfully.")
-        print_json_parts(extracted_parts)
+       # print_json_parts(extracted_parts)
     else:
         print("❌ Failed to extract valid JSON.")
 
@@ -527,128 +607,72 @@ if __name__ == "__main__":
     state = """
         {
         "target": {
-            "ip": "192.168.56.101",
             "os": {
+            "distribution": {
                 "name": "",
-                "distribution": {
-                    "name": "", "version": ""
-                },
-                "kernel": "",
+                "version": "",
                 "architecture": ""
+            },
+            "kernel": "",
+            "name": "Linux"
             },
             "services": [
             {
                 "port": "",
                 "protocol": "",
-                "service": ""
-            },
-            {
-                "port": "",
-                "protocol": "",
-                "service": ""
-            },
-            {
-                "port": "",
-                "protocol": "",
-                "service": ""
+                "service": "",
+                "server_type": "",
+                "server_version": "",
+                "supported_protocols": [
+                ""
+                ],
+                "softwares": [
+                {
+                    "name": "",
+                    "version": ""
+                }
+                ]
             }
             ]
         },
         "web_directories_status": {
             "200": {
-                "": "",
-                "/dav/": "OK",
-                "/index": "OK",
-                "/index.php": "OK",
-                "/phpinfo": "OK",
-                "/phpinfo.php": "OK",
-                "/test/": "OK",
-                "/twiki/": "OK"
+            "": ""
             },
             "301": {
-                "": "",
-                "/dav": "Moved Permanently",
-                "/phpMyAdmin": "Moved Permanently"
+            "": ""
             },
             "302": {
-                "": ""
+            "": ""
             },
             "307": {
-                "": ""
+            "": ""
             },
             "401": {
-                "": ""
+            "": ""
             },
             "403": {
-                "": "",
-                "/.hta": "Forbidden",
-                "/.htaccess": "Forbidden",
-                "/.htpasswd": "Forbidden",
-                "/cgi-bin/": "Forbidden",
-                "/server-status": "Forbidden"
+            "": ""
             },
             "500": {
-                "": ""
+            "": ""
             },
             "502": {
-                "": ""
+            "": ""
             },
             "503": {
-                "": ""
+            "": ""
             },
             "504": {
-                "": ""
+            "": ""
             }
-        },
-        "actions_history": [],
-        "cpes": [],
-        "vulnerabilities_found": [],
-        "failed_CVEs": []
+        }
         }
         """
 
     new_data = """
-    "target": {
-        "os": 
-            "name": "Linux
-distributionname": "ubunto", "version": "1.0"
-            
-            "kernel76543garchitecture": "19
-        },
-        "services
-
-        {"port": "139", "protocol": "tcp", "service": "netbios-ssn"},
-        {"port": "445", "protocol": "tcp", "service": "microsoft-ds"}port": "512", "protocol": "tcp", "service": "exec"},
-        port513", "protocol": "tcp", "servicelogin
-
-        {"port": "8180", "protocol": "tcp", "service": "unknown"}
-        ]
-    },
-    "web_directories_status200": {
-        "/": "",
-        "/admin": "",
-        "/login": ""public": ""
-        },
-        "400
-        "": "
-        "401": {
-        "": ""
-        },
-        "403": {
-        "": ""
-        },
-        "404": {
-        "": ""
-        },
-        "500": {
-        "": ""
-        },
-        "503
-        "b": "sdf"
-        }
-    }
-    }
+    {"target":{"ip":"192.168.56.101","os":{"name":"Linux","distribution":{},"kernel":""},"services":[{"port":"21","protocol":"tcp","service":"ftp","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"22","protocol":"tcp","service":"ssh","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"23","protocol":"tcp","service":"telnet","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"25","protocol":"tcp","service":"smtp","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"53","protocol":"tcp","service":"domain","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"80","protocol":"tcp","service":"http","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"111","protocol":"tcp","service":"rpcbind","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"139","protocol":"tcp","service":"netbios-ssn","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"445","protocol":"tcp","service":"microsoft-ds","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"512","protocol":"tcp","service":"exec","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"513","protocol":"tcp","service":"login","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"514","protocol":"tcp","service":"shell","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"1099","protocol":"tcp","service":"rmiregistry","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"1524","protocol":"tcp","service":"ingreslock","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"2049","protocol":"tcp","service":"nfs","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"2121","protocol":"tcp","service":"ccproxy-ftp","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"3306","protocol":"tcp","service":"mysql","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"5432","protocol":"tcp","service":"postgresql","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"5900","protocol":"tcp","service":"vnc","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"6000","protocol":"tcp","service":"X11","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"6667","protocol":"tcp","service":"irc","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"8009","protocol":"tcp","service":"ajp13","server_type":"","server_version":"","supported_protocols":[],"softwares":[]},{"port":"","protocol":"","service":"","server_type":"","server_version":"","supported_protocols":[],"softwares":[]}],"web_directories_status":{"200":{},"301":{},"302":{},"307":{},"401":{},"403":{},"500":{},"502":{},"503":{},"504":{}}}.
+[DEBUG] extract_json_parts_recursive(text_snippet='{"target":{"ip":"192.168.56.101","os":{"name":"Linux","distribution":{},"kernel"', keys=['target', 'web_directories_status'])
     """
-    extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
-    data_for_cache = build_state_from_parts(extracted_parts, EXPECTED_STRUCTURE)
-    print(data_for_cache)
+    state_dict = json.loads(state)
+    print(fix_json(state_dict, new_data))

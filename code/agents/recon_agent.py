@@ -6,6 +6,45 @@ from collections import Counter
 from config import STATE_SCHEMA
 from utils.utils import get_nested
 
+
+def traverse_schema_key(data, key_parts):
+        """
+        Recursively retrieves all values pointed to by the schema key parts.
+        Supports nested dicts and lists (using '[]' to indicate lists).
+
+        Args:
+            data (dict or list): The current level of the data to examine.
+            key_parts (list): List of key parts from a parsed schema key.
+
+        Returns:
+            list: All values reached by traversing the key parts.
+        """
+        if not key_parts:
+            return [data]
+
+        current = key_parts[0]
+        rest = key_parts[1:]
+
+        results = []
+
+        if isinstance(data, dict):
+            if current.endswith("[]"):
+                list_key = current[:-2]
+                sublist = data.get(list_key, [])
+                if isinstance(sublist, list):
+                    for item in sublist:
+                        results.extend(traverse_schema_key(item, rest))
+            else:
+                next_data = data.get(current)
+                if next_data is not None:
+                    results.extend(traverse_schema_key(next_data, rest))
+
+        elif isinstance(data, list):
+            for item in data:
+                results.extend(traverse_schema_key(item, key_parts))
+
+        return results
+
 class ReconAgent(BaseAgent):
     """
     A specialized agent for reconnaissance actions in the attack simulation.
@@ -98,98 +137,86 @@ class ReconAgent(BaseAgent):
             return False
 
         return True
+    
     def get_reward(self, prev_dict: dict, action: str, next_dict: dict) -> float:
         """
-        מחשבת תגמול כללי לפי STATE_SCHEMA:
-        - תגמול עבור גילוי שדות חדשים בהתאם ל-reward שב-schema
-        - עונש על חזרה על פעולה
-        - עונש אם לא התגלה כלום
+        Generic reward calculation based solely on STATE_SCHEMA.
+        - Rewards discovery of new primitive or dict-keys/list-items per schema key.
+        - Penalizes repeated actions and no discoveries.
         """
         reward = 0.0
         reasons = []
 
-        # 1) חזרה על פעולה / פעולה ראשונה
+        schema = self.state_encoder.schema
+
+        # 1) Action repeat penalty / first-time bonus
         if action in self.actions_history:
-            count = self.actions_history.count(action)
-            penalty = -0.5 * count
-            reward += penalty
-            reasons.append(f"Action repeated {count} times {penalty:+.1f}")
+            cnt = self.actions_history.count(action)
+            pen = -0.5 * cnt
+            reward += pen
+            reasons.append(f"Action repeated {cnt} times {pen:+.1f}")
         else:
             reward += 0.1
             reasons.append("First time action +0.1")
 
-        schema = self.state_encoder.schema
+        # helper to flatten any schema-extracted value v into primitives (strings)
+        def flatten_value(v):
+            if isinstance(v, dict):
+                return [str(k).strip() for k in v.keys() if str(k).strip()]
+            if isinstance(v, list):
+                flat = []
+                for x in v:
+                    flat.extend(flatten_value(x))
+                return flat
+            return [str(v).strip()] if str(v).strip() else []
 
-        # 2) מעבר על כל שדה בסכמה
-        for raw_key, info in schema.items():
-            weight = info.get("reward", 0)
+        # traverse and compare for each schema key
+        for raw_key, meta in schema.items():
+            weight = meta.get("reward", 0.0)
             if weight <= 0:
                 continue
 
-            enc = info.get("encoder", "")
+            # parse key parts for list recursion
+            parts = []
+            for part in raw_key.split("."):
+                if part.endswith("[]"):
+                    parts.append(part[:-2] + "[]")
+                else:
+                    parts.append(part)
 
-            # A) count_encoder: ספירת פריטים בהבדל בין prev ל-next
-            if enc == "count_encoder":
-                prev_container = get_nested(prev_dict, raw_key) or {}
-                next_container = get_nested(next_dict, raw_key) or {}
-                try:
-                    prev_count = len(prev_container)
-                    next_count = len(next_container)
-                except Exception:
-                    continue
-                diff = next_count - prev_count
-                if diff > 0:
-                    total = weight * diff
-                    reward += total
-                    reasons.append(
-                        f"Discovered {diff} new items under {raw_key} +{total:.2f}"
-                    )
-                continue
+            prev_vals = traverse_schema_key(prev_dict, parts)
+            next_vals = traverse_schema_key(next_dict, parts)
 
-            # B) list-element fields: raw_key contains "[]"
-            if "[]" in raw_key:
-                prefix, field = raw_key.split("[].")
-                prev_list = get_nested(prev_dict, prefix) or []
-                next_list = get_nested(next_dict, prefix) or []
-                prev_vals = {
-                    str(item.get(field, "")).strip()
-                    for item in prev_list
-                    if isinstance(item, dict)
-                }
-                next_vals = {
-                    str(item.get(field, "")).strip()
-                    for item in next_list
-                    if isinstance(item, dict)
-                }
-                new_vals = next_vals - prev_vals
-                if new_vals:
-                    total = weight * len(new_vals)
-                    reward += total
-                    reasons.append(
-                        f"Discovered {len(new_vals)} new '{field}' under {prefix} +{total:.2f}"
-                    )
-                continue
+            # flatten all values/dict-keys/list-items to primitive strings
+            prev_set = set()
+            for v in prev_vals:
+                prev_set.update(flatten_value(v))
 
-            # C) שדות רגילים (string / number)
-            prev_val = str(get_nested(prev_dict, raw_key) or "").strip()
-            next_val = str(get_nested(next_dict, raw_key) or "").strip()
-            if not prev_val and next_val:
-                reward += weight
-                reasons.append(f"Discovered {raw_key} = '{next_val}' +{weight:.2f}")
+            next_set = set()
+            for v in next_vals:
+                next_set.update(flatten_value(v))
 
-        # 3) עונש אם לא התגלה כלום (מלבד repeat/first-time)
+            new_items = next_set - prev_set
+            if new_items:
+                total = weight * len(new_items)
+                reward += total
+                reasons.append(
+                    f"Discovered {len(new_items)} new values for {raw_key} +{total:.2f}"
+                )
+
+        # 3) Fallback penalty if nothing found beyond the action step
         if len(reasons) == 1:
             reward -= 1.0
             reasons.append("No new fields discovered -1.0")
 
-        # Debug
+        # Debug output
         print("\n[Reward Debug]")
         print(f"Action: {action}")
         for r in reasons:
             print("  ", r)
         print(f"Total raw reward: {reward:.2f}\n")
 
-        # 4) עדכון היסטוריה
+        # 4) Update history
         self.prev_state = dict(next_dict)
 
         return reward

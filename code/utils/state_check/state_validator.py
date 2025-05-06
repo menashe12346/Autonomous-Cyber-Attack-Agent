@@ -24,17 +24,19 @@ def recursive_setdefault(base: dict, default: dict):
 
 def clean_list_entries_by_template(actual_list, template_list):
     """
-    מנקה איברים לא חוקיים מתוך actual_list על פי המבנה הצפוי ב-template_list.
-    כרגע תומך רק בניקוי services לפי port/protocol/service.
+    מסיר רק את הפריט הריק המייצג placeholder (התבנית), ומשאיר כל שאר השירותים.
     """
+    # אם אין תבנית או שהתבנית אינה dict — אין מה לנקות
     if not template_list or not isinstance(template_list[0], dict):
-        return actual_list  # אין תבנית להשוואה
-    expected_keys = set(template_list[0].keys())
-    return [
-        item for item in actual_list
-        if isinstance(item, dict) and
-           all(k in item and item[k] for k in expected_keys)
-    ]
+        return actual_list
+
+    default_template = template_list[0]
+    cleaned = []
+    for item in actual_list:
+        # נשמור כל פריט שאינו זהה במלואו לתבנית
+        if not (isinstance(item, dict) and item == default_template):
+            cleaned.append(item)
+    return cleaned
 
 def recursive_clean(base: dict, default: dict):
     """
@@ -140,3 +142,247 @@ def validate_state(state: dict) -> dict:
     state = ensure_structure(state)
 
     return state
+
+
+if __name__ == "__main__":
+
+    state = """
+{
+  "target": {
+    "ip": "192.168.56.101",
+    "os": {
+      "name": "Linux",
+      "distribution": {
+        "name": "",
+        "version": "",
+        "architecture": ""
+      },
+      "kernel": ""
+    },
+    "services": [
+      {
+        "port": "",
+        "protocol": "",
+        "service": "",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [
+          ""
+        ],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "21",
+        "protocol": "",
+        "service": "",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "22",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "ssh",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "telnet",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "smtp",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "domain",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "139",
+        "protocol": "tcp",
+        "service": "rpcbind",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "512",
+        "protocol": "tcp",
+        "service": "microsoft-ds",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "exec",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "1099",
+        "protocol": "tcp",
+        "service": "login",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "1524",
+        "protocol": "tcp",
+        "service": "rmiregistry",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "ingreslock",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "nfs",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "ccproxy-ftp",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "mysql",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "postgresql",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "vnc",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "6667",
+        "protocol": "tcp",
+        "service": "X11",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      },
+      {
+        "port": "8009",
+        "protocol": "tcp",
+        "service": "irc",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": "",
+        "softwares": ""
+      }
+    ]
+  },
+  "web_directories_status": {
+    "200": {},
+    "301": {},
+    "302": {},
+    "307": {},
+    "401": {},
+    "403": {},
+    "500": {},
+    "502": {},
+    "503": {},
+    "504": {}
+  },
+  "actions_history": [],
+  "cpes": [],
+  "vulnerabilities_found": []
+}
+    """
+    state_dict = json.loads(state)
+    print(validate_state(state_dict))

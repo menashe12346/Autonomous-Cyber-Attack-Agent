@@ -16,7 +16,66 @@ All response should be one line.
 Here is the structure:
 {current_state}
 """
+
 def PROMPT_2(command_output: str, Custom_prompt: str) -> str:
+  top_level_keys = list(DEFAULT_STATE_STRUCTURE.keys())
+  
+  if len(top_level_keys) == 1:
+      top_level_keys_string = top_level_keys[0]
+  elif len(top_level_keys) == 2:
+      top_level_keys_string = " and ".join(top_level_keys)
+  else:
+      top_level_keys_string = ", ".join(top_level_keys[:-1]) + ", and " + top_level_keys[-1]
+
+  part_1 = f"""
+You are about to receive a specific JSON structure.
+
+You must remember it exactly as-is. Do not explain, summarize, or transform it in any way. 
+Just memorize it internally — you will be asked to use it later.
+
+Here is the structure: 
+{clean_prompt(json.dumps(DEFAULT_STATE_STRUCTURE, indent=4, separators=(',',':')))}.
+
+You were previously given a specific JSON structure. 
+You MUST now return ONLY that same structure, filled correctly. 
+Do NOT rename fields, add another keys, nest or restructure fileds, remove or replace any part of the format, guess or invent values, capitalize fields or names. 
+You MUST return JSON with exactly {len(top_level_keys)} top-level keys: {top_level_keys_string}. 
+Include all and only real fileds found.
+
+The "os" field includes name (e.g. "Linux"), distribution with name (e.g. "Ubuntu"), version (e.g. "20.04") and architecture (e.g. "x86_64"), kernel (e.g. "5.15.0-85-generic").The name of the os can be only Linux and the name of the distribution is the type of linux like ubunto or arch and etc.
+
+For each line of the scan, fill one object in the "services" array.  
+- port: numeric (e.g. 22)  
+- protocol: "tcp" or "udp"  
+- service: service name (e.g. "ssh")  
+- server_type: software name (e.g. "OpenSSH", "Apache")  
+- server_version: version string (e.g. "7.2p2", "2.4.18")  
+- supported_protocols: list of strings (e.g. ["SSH-2.0", "HTTP/1.1"]) – if unknown, use []  
+- softwares: list of objects like {{"name": ..., "version": ...}} – if none, use []
+
+**Do not** omit any of these keys. If you can’t find a value, set it to "" or [] explicitly.
+
+In "web_directories_status", for each status ({json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':'))}): Map any discovered paths (like "/admin") to their message (or use "" if no message) like this pattern {{ "{{" }}"": ""{{ }}" }}.
+
+Do not invent or guess data.
+Do not rename, add, or remove any fields. 
+Return only the completed JSON. No extra text or formatting. Return only one-line compact JSON with same structure, no newlines, no indentations. Response must be one line.
+Instructions for this specific command:
+"""
+
+  part_2 = f""" {Custom_prompt}."""
+
+  part_3 = f"""Here is the new data:"""
+
+  part_4 = f"""{command_output}."""
+
+  part_5 = f"""Before returning your answer: Compare it to the original json structure character by character. Return ONLY ONE JSON — no explanation, no formatting, no comments"""
+
+  final_prompt = part_1 + part_2 + part_3 + part_4 + part_5
+
+  return final_prompt
+
+def PROMPT_2_real(command_output: str, Custom_prompt: str) -> str:
   top_level_keys = list(DEFAULT_STATE_STRUCTURE.keys())
   
   if len(top_level_keys) == 1:
@@ -317,4 +376,4 @@ No emojis!!
   return final_prompt
 
 if __name__ == "__main__":
-  print(build_state_explanation(STATE_SCHEMA, DEFAULT_STATE_STRUCTURE))
+  print("""In "services", add an entry for each service found: "port": numeric (e.g. 22, 80), "protocol": "tcp" or "udp", "service": service name (e.g. http, ssh), "server_type": software name (e.g. Apache, nginx), "server_version": version string (e.g. 2.2.8), "supported_protocols": list of strings (e.g. ["HTTP/1.1", "DAV"]). Also include a "softwares" list with entries of the form {{"name": software name, "version": version string}}. If any value is missing, use "" or empty list as appropriate.""")

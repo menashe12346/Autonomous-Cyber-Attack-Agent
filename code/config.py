@@ -2,9 +2,9 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 500
-MAX_STEPS_PER_EPISODE = 2
-EPSILON =1.0
+NUM_EPISODES = 1
+MAX_STEPS_PER_EPISODE = 1
+EPSILON = 0.6
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
@@ -198,7 +198,7 @@ STATE_SCHEMA = {
         "llm_prompt": ""
     },
     "target.services[].supported_protocols": {
-        "type": "dict",
+        "type": "list",
         "llm_prompt": ""
     },
     "target.services[].supported_protocols[]": {
@@ -208,7 +208,7 @@ STATE_SCHEMA = {
         "llm_prompt": ""
     },
     "target.services[].softwares": {
-        "type": "dict",
+        "type": "list",
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": ""

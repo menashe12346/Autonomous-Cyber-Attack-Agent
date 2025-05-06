@@ -112,6 +112,7 @@ class BaseAgent(ABC):
         print("\033[1;32m" + str(result) + "\033[0m")
 
         # Step 4: clean output (if long)
+        """
         if len(result.split()) > 300:
             try:
                 cleaned_output = self.clean_output(clean_output_prompt(result))
@@ -121,9 +122,10 @@ class BaseAgent(ABC):
         else:
             cleaned_output = result
         print(f"\033[94mcleaned_output - {cleaned_output}\033[0m")
+        """
 
         # Step 5: parse, validate and update blackboard
-        parsed_info = self.parse_output(cleaned_output)
+        parsed_info = self.parse_output(result)
         #print(f"parsed_info - {parsed_info}")
 
         self.blackboard_api.update_state(self.name, parsed_info)
@@ -232,7 +234,7 @@ class BaseAgent(ABC):
         self.command_cache[action] = output
         return output
         
-    def parse_output(self, command_output: str, retries: int = 3) -> dict:
+    def parse_output(self, command_output: str, context_num = 1, retries: int = 3) -> dict:
         """
         Parse command output using the LLM. Use cache if available.
         Retry recursively if the model response is too short.
@@ -260,12 +262,12 @@ class BaseAgent(ABC):
             print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
         else:
             prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-            inner_prompt = self.model.run([prompt_for_prompt])[0]
+            inner_prompt = self.model.run([prompt_for_prompt], context_num)[0]
             self.command_llm_cache.set(self.last_action, inner_prompt)
 
         final_prompt = PROMPT_2(command_output, inner_prompt)
 
-        responses = self.model.run([final_prompt])
+        responses = self.model.run([final_prompt], context_num)
 
         if responses and isinstance(responses, list) and len(responses) > 0:
             full_response = responses[0].strip()
@@ -273,10 +275,10 @@ class BaseAgent(ABC):
                 print(f"[✓] Model returned valid response with {len(full_response)} characters.")
             else:
                 print(f"[✗] Response too short ({len(full_response)} characters). Retrying... (retries left: {retries-1})")
-                return self.parse_output(command_output, retries=retries-1)
+                return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
         else:
             print("[✗] Model run failed or empty response. Retrying...")
-            return self.parse_output(command_output, retries=retries-1)
+            return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
 
         print(f"full_response - {full_response}")
 

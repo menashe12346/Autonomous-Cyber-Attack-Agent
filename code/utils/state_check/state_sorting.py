@@ -1,11 +1,25 @@
 import json
 from copy import deepcopy
-
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+# allow import of project modules
+toplevel = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if toplevel not in sys.path:
+    sys.path.append(toplevel)
 
 from config import STATE_SCHEMA
+
+def _make_hashable(v):
+    """
+    Convert lists and dicts into hashable tuples for use in deduplication keys.
+    """
+    if isinstance(v, list):
+        return tuple(_make_hashable(x) for x in v)
+    if isinstance(v, dict):
+        # sort dict items to ensure deterministic order
+        return tuple((k, _make_hashable(w)) for k, w in sorted(v.items()))
+    return v
 
 def _generic_sort_list(raw_key: str, items: list) -> list:
     """
@@ -15,7 +29,7 @@ def _generic_sort_list(raw_key: str, items: list) -> list:
     """
     # Find all child field names for this list in STATE_SCHEMA
     child_fields = [
-        k.split("[].", 1)[1]
+        k.split("[]", 1)[1].lstrip('.')
         for k, info in STATE_SCHEMA.items()
         if k.startswith(raw_key + "[]")
     ]
@@ -26,7 +40,8 @@ def _generic_sort_list(raw_key: str, items: list) -> list:
     for item in items:
         if not isinstance(item, dict):
             continue
-        key = tuple(item.get(f) for f in child_fields)
+        # build hashable key
+        key = tuple(_make_hashable(item.get(f, "")) for f in child_fields)
         if key not in seen:
             seen.add(key)
             unique.append(item)
@@ -43,6 +58,7 @@ def _generic_sort_list(raw_key: str, items: list) -> list:
         return tuple(parts)
 
     return sorted(unique, key=sort_key)
+
 
 def _sort_recursive(obj, prefix=""):
     """
@@ -74,6 +90,7 @@ def _sort_recursive(obj, prefix=""):
     # base case (neither dict nor list)
     return obj
 
+
 def sort_state(state: dict) -> dict:
     """
     Deep-copies `state`, then applies recursive sorting/deduplication
@@ -81,7 +98,7 @@ def sort_state(state: dict) -> dict:
     """
     return _sort_recursive(deepcopy(state))
 
-# Example
+# Example usage
 if __name__ == "__main__":
     example = {
         "target": {
@@ -92,7 +109,7 @@ if __name__ == "__main__":
             ]
         },
         "web_directories_status": {
-            "200": {"/admin": "", "/login": ""},
+            "200": {"/admin": ""},
             "404": {"/x": "", "/y": ""}
         }
     }
