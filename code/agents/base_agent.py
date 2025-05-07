@@ -16,9 +16,10 @@ from Cache.commandLLM_cache import CommandLLMCache
 from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
 from utils.utils import remove_comments_and_empty_lines
 from utils.state_check.state_validator import validate_state
-from utils.state_check.state_correctness import correct_state, clean_state
+from utils.state_check.state_correctness import correct_state, clean_state, merge_state
 from utils.state_check.state_sorting import sort_state
 from utils.json_fixer import fix_json
+from tools.run_manual import run_clean_output
 
 def remove_untrained_categories(state: dict, trained_categories: dict):
     # מחיקת קטגוריות ראשיות לא מאומנות
@@ -224,9 +225,11 @@ class BaseAgent(ABC):
         if action in self.command_cache:
             print(f"[Cache] Returning cached result for action: {action}")
             return self.command_cache[action]
-
+        
         try:
-            output = subprocess.check_output(command.split(), timeout=10).decode()
+            #output = subprocess.check_output(command.split(), timeout=10).decode()
+            output = run_clean_output(command, timeout=60*5)
+            #print(f"output: {output}")
         except Exception as e:
             self.blackboard_api.add_error(self.name, action, str(e))
             output = ""
@@ -242,45 +245,45 @@ class BaseAgent(ABC):
         if retries == 0:
             print("[✗] Reached maximum retries. Returning last known good state.")
             return self.get_state_raw()
-
-        state = self.get_state_raw()
-
-        cached = self.llm_cache.get(self.last_action)
-        if cached:
-            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
-            return cached
-
+        
         trained_categories = {
-            "target": {"os", "services"},
+            "target": {"hostname", "netbios_name", "os", "services", "rpc_services"},
             "web_directories_status": None
         }
-        remove_untrained_categories(state, trained_categories)
 
-        cached_inner_prompt = self.command_llm_cache.get(self.last_action)
-        if cached_inner_prompt:
-            inner_prompt = cached_inner_prompt
-            print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
+        cached = self.llm_cache.get(self.last_action)
+
+        if cached:
+            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
+            full_response = cached
+            if not isinstance(full_response, str):
+                full_response = json.dumps(full_response)
         else:
-            prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-            inner_prompt = self.model.run([prompt_for_prompt], context_num)[0]
-            self.command_llm_cache.set(self.last_action, inner_prompt)
-
-        final_prompt = PROMPT_2(command_output, inner_prompt)
-
-        responses = self.model.run([final_prompt], context_num)
-
-        if responses and isinstance(responses, list) and len(responses) > 0:
-            full_response = responses[0].strip()
-            if len(full_response) >= 20:
-                print(f"[✓] Model returned valid response with {len(full_response)} characters.")
+            cached_inner_prompt = self.command_llm_cache.get(self.last_action)
+            if cached_inner_prompt:
+                inner_prompt = cached_inner_prompt
+                print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
             else:
-                print(f"[✗] Response too short ({len(full_response)} characters). Retrying... (retries left: {retries-1})")
-                return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
-        else:
-            print("[✗] Model run failed or empty response. Retrying...")
-            return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
+                prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
+                inner_prompt = self.model.run([prompt_for_prompt], context_num)[0]
+                self.command_llm_cache.set(self.last_action, inner_prompt)
 
-        print(f"full_response - {full_response}")
+            final_prompt = PROMPT_2(command_output, inner_prompt)
+
+            responses = self.model.run([final_prompt], context_num)
+
+            if responses and isinstance(responses, list) and len(responses) > 0:
+                full_response = responses[0].strip()
+                if len(full_response) >= 20:
+                    print(f"[✓] Model returned valid response with {len(full_response)} characters.")
+                else:
+                    print(f"[✗] Response too short ({len(full_response)} characters). Retrying... (retries left: {retries-1})")
+                    return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
+            else:
+                print("[✗] Model run failed or empty response. Retrying...")
+                return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
+
+        print(f"[DEBUG] full_response - {full_response}")
 
         parsed, data_for_cache = fix_json(self.last_state, full_response)
         parsed = self.check_state(parsed)
@@ -318,11 +321,14 @@ class BaseAgent(ABC):
     def check_state(self, current_state: str):
         # Validate and correct the state
         new_state = validate_state(current_state)
-        print(f"validate_state: {new_state}")
+        print(f"[DEBUG] validate_state: {new_state}")
+        
+        new_state = merge_state(new_state)
+        print(f"[DEBUG] merge_state: {new_state}")
         
         # Correct the state based on predefined rules
         new_state = new_state = correct_state(state=new_state, os_linux_dataset=self.os_linux_dataset, os_linux_kernel_dataset=self.os_linux_kernel_dataset)
-        print(f"correct_state: {new_state}")
+        print(f"[DEBUG] correct_state: {new_state}")
 
         new_state = clean_state(new_state, DEFAULT_STATE_STRUCTURE)
 
@@ -332,6 +338,6 @@ class BaseAgent(ABC):
             new_state = dict(new_state)
         
         new_state = sort_state(new_state)
-        print(f"sort_state: {new_state}")
+        print(f"[DEBUG] sort_state: {new_state}")
 
         return new_state

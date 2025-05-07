@@ -466,5 +466,109 @@
     "Not Found"
   ],
   "port_open:192.168.56.101:1221": null,
-  "port_open:192.168.56.101:10000": null
+  "port_open:192.168.56.101:10000": null,
+  "os_detection:": {
+    "name": "linux",
+    "distribution": {
+      "name": "",
+      "version": "",
+      "architecture": ""
+    },
+    "kernel": ""
+  },
+  "url_check:http:///": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///twiki/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///phpMyAdmin/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///mutillidae/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///dvwa/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///dav/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "os_detection:192.168.1.100": {
+    "name": "linux",
+    "distribution": {
+      "name": "",
+      "version": "",
+      "architecture": ""
+    },
+    "kernel": ""
+  },
+  "os_detection:192.168.0.1": {
+    "name": "linux",
+    "distribution": {
+      "name": "",
+      "version": "",
+      "architecture": ""
+    },
+    "kernel": ""
+  },
+  "os_detection:192.168.1.1": {
+    "name": "linux",
+    "distribution": {
+      "name": "",
+      "version": "",
+      "architecture": ""
+    },
+    "kernel": ""
+  },
+  "url_check:http:///index": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///index.php": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///dav": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///phpMyAdmin": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///test": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///twiki": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///.hta": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///.htaccess": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///.htpasswd": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///cgi-bin/": [
+    "404",
+    "Error or Timeout"
+  ],
+  "url_check:http:///server-status": [
+    "404",
+    "Error or Timeout"
+  ]
 }

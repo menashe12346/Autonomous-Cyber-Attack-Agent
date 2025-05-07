@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 1
-MAX_STEPS_PER_EPISODE = 1
+NUM_EPISODES = 200
+MAX_STEPS_PER_EPISODE = 4
 EPSILON = 0.6
 
 # Target configuration
@@ -78,6 +78,8 @@ EXPECTED_STATUS_CODES = [
 _BASE_DEFAULT_STATE = {
     "target": {
         "ip": "",
+        "hostname": "",
+        "netbios_name": "",
         "os": {
             "name": "",
             "distribution": {"name": "", "version": "", "architecture": ""},
@@ -95,6 +97,15 @@ _BASE_DEFAULT_STATE = {
                     {"name": "", "version": ""},
                 ]
             },
+        ],
+        "rpc_services": [
+            {
+                "program_number": "",        # לדוג' 100003
+                "version": "",               # לדוג' 3
+                "protocol": "",              # "tcp" או "udp"
+                "port": "",                  # לדוג' 2049
+                "service_name": ""           # לדוג' "nfs", "mountd"
+            }
         ]
     },
     "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
@@ -125,6 +136,18 @@ STATE_SCHEMA = {
     "target": {
         "type": "dict",
         "llm_prompt": False
+    },
+    "target.netbios_name": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.hostaname": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.2,
+        "llm_prompt": ""
     },
     "target.os": {
         "type": "dict",
@@ -158,7 +181,6 @@ STATE_SCHEMA = {
         "type": "string",
         "encoder": "base100_encode",
         "reward": 0.1,
-        "correction_func": "fix_os",
         "llm_prompt": "Kernel version string, e.g., '6.6.59'."
     },
     "target.services": {
@@ -225,9 +247,46 @@ STATE_SCHEMA = {
         "reward": 0.1,
         "llm_prompt": ""
     },
+     "target.rpc_services": {
+        "type": "list",
+        "correction_func": "correct_rpc_services",
+        "llm_prompt": ""
+    },
+    "target.services[].program_number": {
+        "type": "int",
+        "encoder": "normalize_by_specific_number",
+        "num_for_normalization": 999999,
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].version": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0,
+        "llm_prompt": ""
+    },
+    "target.services[].protocol": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].port": {
+        "type": "int",
+        "encoder": "normalize_by_specific_number",
+        "num_for_normalization": 999999,
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.services[].service_name": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
     "web_directories_status": {
         "type": "dict",
-        "correction_func": "fix_web_status",
+        "correction_func": "correct_web_directories",
         "llm_prompt": f"For each status ({', '.join(EXPECTED_STATUS_CODES)}): discovered paths (like '/admin') to their message (or use \"\" if none), format: {{ \"path\": \"message\" }}."
     }
 }

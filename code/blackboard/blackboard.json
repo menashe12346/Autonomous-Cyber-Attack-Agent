@@ -1,25 +1,397 @@
 {
   "target": {
-    "ip": "192.168.56.101",
+    "hostname": "",
+    "netbios_name": "",
     "os": {
-      "name": "",
       "distribution": {
         "name": "",
         "version": "",
         "architecture": ""
       },
-      "kernel": ""
+      "kernel": "",
+      "name": "linux"
     },
+    "rpc_services": [
+      {
+        "program_number": "",
+        "version": "",
+        "protocol": "",
+        "port": "",
+        "service_name": ""
+      }
+    ],
     "services": [
       {
-        "port": "",
-        "protocol": "",
-        "service": "",
+        "port": "21",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "vsftpd",
+        "server_version": "2.3.4",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "22",
+        "protocol": "tcp",
+        "service": "ssh",
+        "server_type": "OpenSSH",
+        "server_version": "4.7p1",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "telnet",
+        "server_type": "Linux",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "smtp",
+        "server_type": "Postfix",
+        "server_version": "3.5.10",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "domain",
+        "server_type": "ISC",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "2.4.29",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "110",
+        "protocol": "tcp",
+        "service": "pop3",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [
-          ""
-        ],
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "rpcbind",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "139",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "Samba",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "143",
+        "protocol": "tcp",
+        "service": "imap2",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "443",
+        "protocol": "tcp",
+        "service": "https",
+        "server_type": "OpenSSL",
+        "server_version": "1.1.1",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "Samba",
+        "server_version": "4.7.6",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "512",
+        "protocol": "tcp",
+        "service": "exec",
+        "server_type": "Netkit",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login",
+        "server_type": "OpenBSD",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "514",
+        "protocol": "tcp",
+        "service": "shell",
+        "server_type": "Netkit",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "1099",
+        "protocol": "tcp",
+        "service": "java-rmi",
+        "server_type": "GNU",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "1524",
+        "protocol": "tcp",
+        "service": "bindshell",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "nfs",
+        "server_type": "2-4",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "ProFTPD",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "mysql",
+        "server_type": "MySQL",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "postgresql",
+        "server_type": "PostgreSQL",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "vnc",
+        "server_type": "VNC",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "X11",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "6667",
+        "protocol": "tcp",
+        "service": "irc",
+        "server_type": "UnrealIRCd",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "8009",
+        "protocol": "tcp",
+        "service": "ajp13",
+        "server_type": "Apache",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "8180",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "",
+        "supported_protocols": [],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
+      },
+      {
+        "port": "10000",
+        "protocol": "tcp",
+        "service": "unknown",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [],
         "softwares": [
           {
             "name": "",

@@ -43,7 +43,7 @@ def correct_port(ip: str, port: str) -> tuple[str, str]:
     cache.set(key, None)
     return None, None
 
-
+"""
 def correct_services(ip: str, services: list[dict]) -> list[dict]:
     print(f"[+] Verifying declared services individually on {ip}...")
     verified_services = []
@@ -62,6 +62,7 @@ def correct_services(ip: str, services: list[dict]) -> list[dict]:
             })
 
     return verified_services
+"""
 
 def correct_os(
     ip: str,
@@ -194,49 +195,52 @@ def is_valid_url_path(path: str) -> bool:
     A–Z, a–z, 0–9, -, ., _, ~, /
     """
     return isinstance(path, str) and bool(ALLOWED_PATH_CHARS_REGEX.fullmatch(path))
-
+    
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
     verified = {code: {} for code in EXPECTED_STATUS_CODES}
 
     for code, entries in web_dirs.items():
-        for path in list(entries):  # נוודא שנוכל למחוק מהאיטרציה אם נרצה
+        for path in entries:
+            # אם הנתיב לא מתחיל ב־'/', נכין לו גם גרסה מתוקנת
+            paths_to_check = [path]
             if not path.startswith("/"):
-                print(f"[WARNING] Removing path that doesn't start with '/': {path!r}")
-                continue
+                corrected = "/" + path
+                paths_to_check.append(corrected)
 
-            if not is_valid_url_path(path):
-                print(f"[WARNING] Skipping invalid path: {path!r}")
-                continue
+            for p in paths_to_check:
+                # ודא שבכל מקרה הנתיב מתחיל '/'
+                if not p.startswith("/"):
+                    p = "/" + p
 
-            full_url = f"http://{ip}{path}"
-            key = f"url_check:{full_url}"
-            cached_result = cache.get(key)
+                if not is_valid_url_path(p):
+                    print(f"[WARNING] Skipping invalid path: {p!r}")
+                    continue
 
-            if cached_result is None:
-                try:
-                    response = subprocess.check_output(
-                        ["curl", "-i", "-s", full_url],
-                        timeout=5
-                    ).decode()
+                full_url = f"http://{ip}{p}"
+                key = f"url_check:{full_url}"
+                cached_result = cache.get(key)
 
-                    first_line = next((line for line in response.splitlines() if line.startswith("HTTP/")), "")
-                    parts = first_line.strip().split(" ", 2)
-                    status_code = parts[1] if len(parts) > 1 else "404"
-                    reason = parts[2] if len(parts) > 2 else ""
+                if cached_result is None:
+                    try:
+                        response = subprocess.check_output(
+                            ["curl", "-i", "-s", full_url],
+                            timeout=5
+                        ).decode()
+                        first_line = next((line for line in response.splitlines() if line.startswith("HTTP/")), "")
+                        parts = first_line.strip().split(" ", 2)
+                        status_code = parts[1] if len(parts) > 1 else "404"
+                        reason = parts[2] if len(parts) > 2 else ""
+                        cached_result = (status_code.strip(), reason.strip())
+                    except Exception:
+                        cached_result = ("404", "Error or Timeout")
+                    cache.set(key, cached_result)
 
-                    cached_result = (status_code.strip(), reason.strip())
-                except Exception:
-                    cached_result = ("404", "Error or Timeout")
-
-                cache.set(key, cached_result)
-
-            status_code, reason = cached_result
-            if status_code in verified:
-                verified[status_code][path] = reason
+                status_code, reason = cached_result
+                if status_code in verified:
+                    # שמירה במפתח העיקרי p (המתוקן או המקורי)
+                    verified[status_code][p] = reason
 
     return verified
-import inspect
-import copy
 
 def correct_state(*, state: dict, schema: dict = None, base_path: str = "", **kwargs) -> dict:
     """
@@ -290,14 +294,19 @@ def correct_state(*, state: dict, schema: dict = None, base_path: str = "", **kw
                     call_args = {}
                     for param in sig.parameters.values():
                         pname = param.name
-                        if pname == "value":
-                            call_args[pname] = value
-                        elif pname == "ip":
+
+                        if pname == "ip":
                             call_args[pname] = ip
                         elif pname in kwargs:
                             call_args[pname] = kwargs[pname]
                         elif pname in corrected:
                             call_args[pname] = corrected[pname]
+                        else:
+                            # ניגש לערך הנוכחי אם הוא נדרש (למשל 'current_os' או 'services')
+                            value = target.get(last_part, None)
+                            if value is not None:
+                                call_args[pname] = value
+
 
                     print(f"[INFO] Running {func_name} on '{full_path}'")
                     result = correction_func(**call_args)
@@ -364,6 +373,71 @@ def clean_state(state: dict, structure: dict) -> dict:
             cleaned[key] = clean_state(cleaned[key], expected_value)
 
     return cleaned
+
+def merge_state(state: dict) -> dict:
+    """
+    Merge entries in the state for:
+      - target.services: group by 'port' and combine fields across entries
+      - target.rpc_services: remove duplicate dicts
+    Returns a new state dict with services merged by port and rpc_services deduped.
+    """
+    import copy
+
+    merged = copy.deepcopy(state)
+
+    # 1) Merge target.services by port
+    services = merged.get("target", {}).get("services", [])
+    by_port = {}
+    order = []
+    for svc in services:
+        port = svc.get("port")
+        if port not in by_port:
+            by_port[port] = copy.deepcopy(svc)
+            order.append(port)
+        else:
+            existing = by_port[port]
+            for key, value in svc.items():
+                if key == "port":
+                    continue
+                # Merge strings: keep existing if present, else use new
+                if isinstance(value, str):
+                    if not existing.get(key) and value:
+                        existing[key] = value
+                # Merge lists: union while preserving order
+                elif isinstance(value, list):
+                    merged_list = existing.get(key, [])[:]
+                    for item in value:
+                        if item not in merged_list:
+                            merged_list.append(item)
+                    existing[key] = merged_list
+                # Merge dicts: take non-empty values from new
+                elif isinstance(value, dict):
+                    merged_dict = existing.get(key, {}).copy()
+                    for subk, subv in value.items():
+                        if not merged_dict.get(subk) and subv:
+                            merged_dict[subk] = subv
+                    existing[key] = merged_dict
+                # Other types: only set if missing
+                else:
+                    if not existing.get(key) and value is not None:
+                        existing[key] = value
+    merged_services = [by_port[p] for p in order]
+    if "target" in merged:
+        merged["target"]["services"] = merged_services
+
+    # 2) Deduplicate target.rpc_services if present
+    if "target" in merged and isinstance(merged["target"].get("rpc_services"), list):
+        rpc_list = merged["target"]["rpc_services"]
+        seen = set()
+        unique_rpc = []
+        for rpc in rpc_list:
+            key = tuple(sorted(rpc.items()))
+            if key not in seen:
+                seen.add(key)
+                unique_rpc.append(rpc)
+        merged["target"]["rpc_services"] = unique_rpc
+
+    return merged
 
 if __name__ == "__main__":
     state = {'target': {'ip': '192.168.56.101', 'os': {'name': '', 'distribution': {'name': '', 'version': ''}, 'kernel': '', 'architecture': ''}, 'services': []}, 'web_directories_status': {'200': {'/index.php': '', '/phpinfo.php': '', '/phpinfo': '', '/index': ''}, '301': {'/dav/': '', '/phpMyAdmin/': '', '/test/': '', '/twiki/': ''}, '302': {'': ''}, '307': {'': ''}, '401': {'': ''}, '403': {'/.htaccess': '', '/cgi-bin/': '', '/server-status': '', '/test/': '', '/twiki/': '', '/': ''}, '500': {'': ''}, '502': {'': ''}, '503': {'': ''}, '504': {'': ''}}, 'actions_history': [], 'cpes': [], 'vulnerabilities_found': []}

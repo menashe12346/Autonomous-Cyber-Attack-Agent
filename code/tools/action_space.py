@@ -6,35 +6,48 @@ from config import WORDLISTS, RUN_MANUAL
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "ping": [
-           # "ping -c 1 {ip}"
+            "ping -c 1 {ip}"
         ],
         "nmap": [
-           # "nmap -F {ip}",
-            "nmap {ip}"
+            "nmap -F {ip}",
+            "nmap {ip}",
+            "nmap -sV {ip}",
+            "nmap -A {ip}",
+        ],
+        "rpcinfo": [
+            "rpcinfo -p {ip}"
+        ],
+        "nc": [
+            #"nc -vz {ip} 1-65535"
         ],
         "curl": [
-           # "curl -I http://{ip}",
-           # "curl http://{ip}/"
+            "curl -I http://{ip}",
+            "curl http://{ip}/"
         ],
         "wget": [
-           # "wget http://{ip} -O -"
+            "wget http://{ip} -O -",
+        ],
+        "dig": [
+            "dig -x {ip}",
         ],
         "traceroute": [
-           # "traceroute {ip}"
+            "traceroute {ip}",
+        ],
+        "nbtscan": [
+            "nbtscan {ip}"
         ],
         "whatweb": [
-           # "whatweb http://{ip}"
+            "whatweb http://{ip}"
         ],
         "gobuster": [
-            #"gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
         "whois": [
-            #"whois {ip}"
+            "whois {ip}"
         ],
         "dirb": [
-            #f"{RUN_MANUAL} dirb http://{{ip}}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+            #"dirb http://{ip}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
-
     },
 
     # Example future support:
@@ -43,6 +56,14 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     #         "python3 /path/to/exploit.py {ip}"
     #     ]
     # }
+}
+
+COMMAND_TEMPLATES_debug: Dict[str, Dict[str, List[str]]] = {
+    "recon": {
+        "nmap": [
+            "nmap -sV {ip}",
+        ]
+    },
 }
 
 def build_action_space(agent_type: str, ip: str) -> List[str]:
@@ -67,7 +88,6 @@ def build_action_space(agent_type: str, ip: str) -> List[str]:
             actions.append(cmd.format(ip=ip))
 
     return actions
-
 
 def get_commands_for_agent(agent_type: str, ip: str) -> List[str]:
     """

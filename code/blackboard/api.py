@@ -121,7 +121,6 @@ class BlackboardAPI:
             agent_name (str): The name of the agent performing the update.
             new_state (dict): The new partial state information to merge.
         """
-        print(type(new_state))
         if not isinstance(new_state, dict):
             raise ValueError("new_state must be a dictionary")
 
@@ -147,7 +146,6 @@ class BlackboardAPI:
         #self.blackboard = sort_state(self.blackboard)
         self.blackboard.clear()
         self.blackboard.update(new_state)
-        print(f"final blackboard: {self.blackboard}")
         self._save_to_file()
 
     def _smart_merge(self, base: dict, incoming: dict):

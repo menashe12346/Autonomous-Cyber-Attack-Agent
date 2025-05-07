@@ -247,7 +247,13 @@ def extract_status_block(text_after_status, status_code):
 
 def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict]:
     # ── DEBUG: entering recursion, show a snippet of the text and the keys we expect ──
-    print(f"[DEBUG] extract_json_parts_recursive(text_snippet={text[:80]!r}, keys={list(structure.keys())})")
+    try:
+        text_snippet = json.dumps(text, default=str)[:80]
+    except Exception:
+        text_snippet = str(text)[:80]
+
+    print(f"[DEBUG] extract_json_parts_recursive(type={type(text).__name__}, snippet={text_snippet!r}, keys={list(structure.keys())})")
+    #print(f"[DEBUG] extract_json_parts_recursive(text_snippet={text_snippet!r}, keys={list(structure.keys())})")
     parts: dict = {}
     text = text.replace('\n', ' ').replace('\r', ' ').strip()
     keys = list(structure.keys())
@@ -424,7 +430,7 @@ def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
       - nested dicts: recurse
     לא מוסיף placeholder חדש, לא מוחק מפתחות סקימטיים.
     """
-    print(f"expected_structure: {expected_structure}")
+    print(f"[DEBUG] expected_structure: {expected_structure}")
     for key, expected in expected_structure.items():
         if key not in json_data:
             continue
@@ -516,9 +522,6 @@ def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> d
                 lst = []
             for item in parts:
                 if not isinstance(item, dict):
-                    continue
-                # סינון פריטים ריקים
-                if any(not item.get(f) for f in expected[0].keys()):
                     continue
                 if item not in lst:
                     lst.append(item)
