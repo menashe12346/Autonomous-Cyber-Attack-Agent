@@ -2,8 +2,8 @@
 PROJECT_PATH = "/mnt/linux-data"
 
 # Simulation parameters
-NUM_EPISODES = 200
-MAX_STEPS_PER_EPISODE = 4
+NUM_EPISODES = 400
+MAX_STEPS_PER_EPISODE = 6
 EPSILON = 0.6
 
 # Target configuration

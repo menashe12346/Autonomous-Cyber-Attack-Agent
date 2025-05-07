@@ -30,7 +30,7 @@ class VulnAgent(BaseAgent):
     Agent that scans for CVEs matching known CPEs based on current state.
     """
 
-    def __init__(self, blackboard_api, cve_items):
+    def __init__(self, blackboard_api, cve_items, epsilon, os_linux_dataset, os_linux_kernel_dataset):
         super().__init__(
             name="VulnAgent",
             action_space=[],  # No actions
@@ -40,7 +40,10 @@ class VulnAgent(BaseAgent):
             state_encoder=None,
             action_encoder=None,
             command_cache={},
-            model=None
+            model=None,
+            epsilon=epsilon,
+            os_linux_dataset=os_linux_dataset,
+            os_linux_kernel_dataset=os_linux_kernel_dataset
         )
         self.cve_items = cve_items
 
@@ -87,71 +90,88 @@ class VulnAgent(BaseAgent):
     def match_cves_to_cpes(self, possible_cpes):
         """
         Compare possible CPEs from current state to CVE database and return matching entries.
-        Supports recursive search of cpe_match in nodes and nested children.
-        Optimized for speed.
+        Now matches purely on the product slot (parts[4] of cpe23Uri) vs. detected services.
         """
         vuln_dict = {}
-        
-        # Lower-case once for performance
-        normalized_cpes = {cpe.lower() for cpe in possible_cpes}
-        has_http = any("http" in cpe for cpe in normalized_cpes)
+
+        # build set of detected service names, e.g. {"apache","mysql","vsftpd"}
+        service_names = {
+            s.get("service", "").strip().lower()
+            for s in self.blackboard_api.get_state_for_agent(self.name)
+                         .get("target", {})
+                         .get("services", [])
+        }
 
         for item in self.cve_items:
             try:
                 cve_id = item["cve"]["CVE_data_meta"]["ID"]
-                nodes = item.get("configurations", {}).get("nodes", [])
+                nodes  = item.get("configurations", {}).get("nodes", [])
                 impact = item.get("impact", {})
 
-                # Pre-calculate CVSS
+                # pre-calc CVSS
                 if "baseMetricV3" in impact:
-                    cvss = impact["baseMetricV3"].get("cvssV3", {}).get("baseScore", 0.0)
+                    cvss = impact["baseMetricV3"]["cvssV3"].get("baseScore", 0.0)
                 elif "baseMetricV2" in impact:
-                    cvss = impact["baseMetricV2"].get("cvssV2", {}).get("baseScore", 0.0)
+                    cvss = impact["baseMetricV2"]["cvssV2"].get("baseScore", 0.0)
                 else:
                     cvss = 0.0
 
                 for node in nodes:
                     for match in extract_all_cpe_matches(node):
-                        match_cpe = match.get("cpe23Uri", "").lower()
-
-                        # Direct fnmatch
-                        if any(fnmatch.fnmatch(match_cpe, my_cpe) for my_cpe in normalized_cpes):
+                        uri_parts = match.get("cpe23Uri", "").lower().split(":")
+                        # cpe:2.3:<part>:<vendor>:<product>:...
+                        if len(uri_parts) < 5:
+                            continue
+                        product = uri_parts[4]
+                        if product in service_names:
                             vuln_dict.setdefault(cve_id, {
                                 "cve": cve_id,
                                 "matched_cpes": [],
                                 "cvss": cvss
-                            })["matched_cpes"].append(match_cpe)
-                            break
+                            })["matched_cpes"].append(match.get("cpe23Uri"))
+                            # once we’ve counted this CVE, move to next CVE
+                            raise StopIteration
 
-
-
+            except StopIteration:
+                continue
             except Exception as e:
-                print(f"[!] Failed parsing CVE {item.get('cve', {}).get('CVE_data_meta', {}).get('ID', 'unknown')}: {e}")
+                print(f"[!] Failed parsing CVE {cve_id}: {e}")
                 continue
 
         return list(vuln_dict.values())
-
-        
+            
     def generate_possible_cpes(self, state_dict):
-        """
-        Generate all possible CPE 2.3 URIs from OS, services and web directories using a generic strategy.
-        """
         target = state_dict.get("target", {})
         cpes = set()
 
         # === OS to CPE ===
-        os_raw = target.get("os", "")
-        if os_raw:
-            clean_os = os_raw.strip().lower().replace(" ", "_")
-            cpes.add(f"cpe:2.3:o:{clean_os}:{clean_os}:*:*:*:*:*:*:*:*")
+        os_info = target.get("os", {})
+        # אם יש גרסה בדיסט’ או בארכיטקטורה, אפשר להוסיף פה גרסה קבועה
+        distro = os_info.get("distribution", {})
+        if distro.get("name"):
+            name = distro["name"].strip().lower().replace(" ", "_")
+            # wildcard
+            cpes.add(f"cpe:2.3:o:{name}:{name}:*:*:*:*:*:*:*:*")
+            # version-pinned אם ידוע
+            if distro.get("version"):
+                ver = distro["version"].strip().lower().replace(" ", "_")
+                cpes.add(f"cpe:2.3:o:{name}:{name}:{ver}:*:*:*:*:*:*:*:*")
 
         # === Services to CPE ===
-        cpes |= {
-            cpe
-            for s in target.get("services", [])
-            if (name := s.get("service", "").strip().lower().replace(" ", "_"))
-            for cpe in self._generate_service_cpes(name, name)
-        }
+        for s in target.get("services", []):
+            name = s.get("service", "").strip().lower().replace(" ", "_")
+            version = s.get("server_version", "").strip().lower()
+            if not name:
+                continue
+
+            # 1) התבניות הג׳נריות שלך
+            for cpe in self._generate_service_cpes(name, name):
+                cpes.add(cpe)
+
+            # 2) תבנית עם גרסה קבועה
+            if version:
+                # אפשר גם wildcard ב־vendor או ב־product אם רוצים
+                cpes.add(f"cpe:2.3:a:{name}:{name}:{version}:*:*:*:*:*:*:*:*")
 
         # === Web Directories Heuristics ===
         dirs = state_dict.get("web_directories_status", {})

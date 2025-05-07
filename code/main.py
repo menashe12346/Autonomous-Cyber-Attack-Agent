@@ -151,7 +151,6 @@ def main():
     for episode in range(NUM_EPISODES):
         print(f"\n========== EPISODE {episode + 1} ==========")
 
-
         # --- Initialize Blackboard ---
         blackboard_dict = initialize_blackboard(TARGET_IP)
         #blackboard_dict["target"]["ip"] = TARGET_IP
@@ -170,11 +169,14 @@ def main():
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
-        """
+        
         # --- Create vuln Agent ---
         vuln_agent = VulnAgent(
             blackboard_api=bb_api,
-            cve_items=cve_items
+            cve_items=cve_items,
+            epsilon=epsilon,#debug
+            os_linux_dataset=os_linux_dataset,#debug
+            os_linux_kernel_dataset=os_linux_kernel_dataset#debug
         )
 
         # --- Create exploit Agent ---
@@ -188,11 +190,15 @@ def main():
             model=model,
             metasploit_dataset=metasploit_dataset,
             exploitdb_dataset=exploitdb_dataset,
-            full_exploit_dataset=full_exploit_dataset
+            full_exploit_dataset=full_exploit_dataset,
+            epsilon=epsilon, #debug
+            os_linux_dataset=os_linux_dataset,#debug
+            os_linux_kernel_dataset=os_linux_kernel_dataset#debug
         )
-        """
+        
         # --- Register Agents ---
-        agents = [recon_agent] # , vuln_agent, exploit_agent
+        #agents = [recon_agent] # , vuln_agent, exploit_agent
+        agents = [recon_agent, vuln_agent, exploit_agent] # , vuln_agent, exploit_agent
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
