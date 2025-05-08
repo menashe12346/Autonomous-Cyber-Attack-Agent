@@ -4,22 +4,11 @@ import os
 import sys
 import ast
 import copy
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from config import EXPECTED_STATUS_CODES
 from blackboard.blackboard import initialize_blackboard
 
-EXPECTED_STRUCTURE = initialize_blackboard()
-EXPECTED_STRUCTURE["target"].pop("ip",None)
-
 def normalize_parts(data: any, schema: any):
-    """
-    מתקן בכל מקום שבו הסכמה דורשת list-of-dicts:
-     - אם נתון לא list, מחליף ברשימה ריקה
-     - אם הוא list, מריץ את עצמו רקורסיבית על כל איבר dict
-    וגם מטפל ב־nested dicts.
-    """
-    # מקרה של מיפוי dict
     if isinstance(schema, dict) and isinstance(data, dict):
         for key, exp in schema.items():
             if key not in data:
@@ -27,7 +16,6 @@ def normalize_parts(data: any, schema: any):
             normalize_parts(data[key], exp)
         return
 
-    # מקרה של list-of-dicts
     # Case: schema is a list (either of scalars or of dicts)
     if isinstance(schema, list):
         # placeholder for empty or non-list scraped data
@@ -51,9 +39,7 @@ def normalize_parts(data: any, schema: any):
         # list-of-scalars: assume scraped list is fine
         return data
 
-    # במקרים אחרים (סקלרים או list-of-scalars) – לא נדרש נירמול
     return
-import re
 
 def split_items_on_repeat(text: str, field_keys: list[str]) -> list[str]:
     """
@@ -64,15 +50,13 @@ def split_items_on_repeat(text: str, field_keys: list[str]) -> list[str]:
         return [text]
 
     first = field_keys[0]
-    # 1) קימפול ה־regex עבור המיקום של כל "port" (או כל key אחר) בלי גרשיים
     pattern = re.compile(rf'\b{re.escape(first)}\b')
-    # 2) איסוף כל המיקומים שבהם נמצא המפתח
     positions = [m.start() for m in pattern.finditer(text)]
     if not positions:
         return []
 
     chunks = []
-    # 3) חיתוך הטקסט בין כל שני מופעים סמוכים (או עד סוף הטקסט)
+
     for idx, start in enumerate(positions):
         end = positions[idx + 1] if idx + 1 < len(positions) else len(text)
         chunk = text[start:end].strip(" \t\n\r,")
@@ -82,20 +66,13 @@ def split_items_on_repeat(text: str, field_keys: list[str]) -> list[str]:
 
 
 def clean_input_string(s: str, preserve_prefix: int = 0) -> str:
-    """
-    מנקה מחרוזת מתווים לא רצויים, עם אפשרות לשמר N תווים מההתחלה (למשל '/', './').
-    - מסיר תווים כמו , : " ' ( ) [ ] { } < > .
-    - מבצע strip לתווי קצה כמו רווחים, נקודותיים, גרשיים וכו'.
-    """
     if not isinstance(s, str):
         return s
     s = s.strip()
 
-    # חלק לשימור בתחילת המחרוזת
     prefix = s[:preserve_prefix]
     rest = s[preserve_prefix:]
 
-    # ניקוי שאר המחרוזת
     cleaned_rest = re.sub(r"[,:\"'()\[\]{}<>]", "", rest)
     cleaned_rest = cleaned_rest.strip(' :{},"\n\r\'')
 
@@ -253,7 +230,6 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
         text_snippet = str(text)[:80]
 
     print(f"[DEBUG] extract_json_parts_recursive(type={type(text).__name__}, snippet={text_snippet!r}, keys={list(structure.keys())})")
-    #print(f"[DEBUG] extract_json_parts_recursive(text_snippet={text_snippet!r}, keys={list(structure.keys())})")
     parts: dict = {}
     text = text.replace('\n', ' ').replace('\r', ' ').strip()
     keys = list(structure.keys())
@@ -410,10 +386,10 @@ def fill_json_structure(template_json: dict,
             for item in value:
                 if not isinstance(item, dict):
                     continue
-                # רק אם יש port – שדה חובה
+
                 if not item.get('port'):
                     continue
-                # אם עדיין לא מופיע, נוסיף אותו
+
                 if item not in sub_template_list:
                     sub_template_list.append(item)
 
@@ -423,13 +399,6 @@ def fill_json_structure(template_json: dict,
     return template_json
 
 def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
-    """
-    מסיר רק placeholders דינמיים בתוך json_data לפי expected_structure:
-      - list of dicts: drop items שכל השדות שלהם == ""
-      - dict-of-dicts with digit keys: pop("") בלבד
-      - nested dicts: recurse
-    לא מוסיף placeholder חדש, לא מוחק מפתחות סקימטיים.
-    """
     print(f"[DEBUG] expected_structure: {expected_structure}")
     for key, expected in expected_structure.items():
         if key not in json_data:
@@ -445,7 +414,6 @@ def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
                     item for item in val
                     if any(item.get(field) for field in item_struct.keys())
                 ]
-            # else: לא נוגעים
             continue
 
         # 2) dynamic dict-of-dicts (status codes)
@@ -454,41 +422,34 @@ def remove_empty_fields(json_data: dict, expected_structure: dict) -> dict:
                 for code, dirs in val.items():
                     if isinstance(dirs, dict):
                         dirs.pop("", None)
-            # else: לא נוגעים
             continue
 
         # 3) nested dict
         if isinstance(expected, dict):
             if isinstance(val, dict):
                 json_data[key] = remove_empty_fields(val, expected)
-            # else: לא נוגעים
             continue
 
     return json_data
-
-import copy
 
 def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> dict:
     """
     Returns a new dict based on expected_structure, with extracted_parts merged in.
     Uses the same merging rules as fill_json_structure.
     """
-    # 1) יוצרים עותק עמוק של המבנה
     state = copy.deepcopy(expected_structure)
 
-    # 2) ממזגים פנימה
     for key, expected in expected_structure.items():
         if key not in extracted_parts:
             continue
 
         parts = extracted_parts[key]
 
-        # מצב־קוד דינמי (כל המפתחות ספרות)
         if isinstance(expected, dict) and all(str(k).isdigit() for k in expected):
             merged = {
                 code: dirs
                 for code, dirs in state.get(key, {}).items()
-                if code  # שומרים רק קודים לא ריקים
+                if code
             }
             for code, dirs in parts.items():
                 if not isinstance(dirs, dict):
@@ -501,13 +462,11 @@ def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> d
             state[key] = merged
             continue
 
-        # שדה סקלרי
         if not isinstance(expected, (dict, list)):
             if parts and not state.get(key):
                 state[key] = parts
             continue
 
-        # dict מקונן
         if isinstance(expected, dict):
             sub = state.get(key, {})
             if not isinstance(sub, dict):
@@ -515,7 +474,6 @@ def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> d
             state[key] = build_state_from_parts(parts if isinstance(parts, dict) else {}, expected)
             continue
 
-        # list של dicts
         if isinstance(expected, list) and expected and isinstance(expected[0], dict):
             lst = state.get(key, [])
             if not isinstance(lst, list):
@@ -546,13 +504,11 @@ def print_json_parts(parts):
     print_dict(parts)
 
 def fix_json(state: dict, new_data: str) -> dict:
-    # 1) Extract parts and report (use EXPECTED_STRUCTURE)
-    EXPECTED_STRUCTURE=initialize_blackboard()
-    extracted_parts, missing = extract_json_parts_recursive(new_data, EXPECTED_STRUCTURE)
+    # 1) Extract parts and report
+    extracted_parts, missing = extract_json_parts_recursive(new_data, initialize_blackboard())
 
-    # נירמול רקורסיבי:
     def _apply_normalization(parts, schema):
-        # הסבה רקורסיבית – מחזירה את parts או החלפה
+
         if isinstance(schema, list) and schema and isinstance(schema[0], dict):
             if not isinstance(parts, list):
                 return []
@@ -568,43 +524,38 @@ def fix_json(state: dict, new_data: str) -> dict:
         else:
             return parts
 
-    extracted_parts = _apply_normalization(extracted_parts, EXPECTED_STRUCTURE)  
+    extracted_parts = _apply_normalization(extracted_parts, initialize_blackboard())  
 
     if extracted_parts:
         print("✅ JSON extracted successfully.")
-       # print_json_parts(extracted_parts)
+       # print_json_parts(f"[DEBUG] extracted_parts")
     else:
         print("❌ Failed to extract valid JSON.")
 
     if missing:
-        # ── drop any “missing” שנוצר עבור web_directories_status.<code>. ──
         missing = {
             path: err 
             for path, err in missing.items()
-            if not path.startswith("web_directories_status.") or path == "web_directories_status"
         }
         print("❗ Missing categories/subfields detected:")
         print(json.dumps(missing, indent=2))
     
+    data_for_cache = build_state_from_parts(extracted_parts, initialize_blackboard())
+
     state = copy.deepcopy(state)
 
-    EXPECTED_STRUCTURE=initialize_blackboard()
-    data_for_cache = build_state_from_parts(extracted_parts, EXPECTED_STRUCTURE)
-
-    EXPECTED_STRUCTURE=initialize_blackboard()
     # 2) Merge into the original state using the expected schema
-    filled = fill_json_structure(state, extracted_parts, EXPECTED_STRUCTURE)
+    filled = fill_json_structure(state, extracted_parts, initialize_blackboard())
 
-    EXPECTED_STRUCTURE=initialize_blackboard()
     # 3) Run our generic cleanup (services, status‐codes, etc.)
-    final_json = remove_empty_fields(filled, EXPECTED_STRUCTURE)
+    final_json = remove_empty_fields(filled, initialize_blackboard())
 
     # 4) Show and return
     print("🧹 Final cleaned JSON:")
     print(json.dumps(final_json, indent=2))
     return final_json, data_for_cache
 
-
+# [DEBUG]
 if __name__ == "__main__":
 
     state = """

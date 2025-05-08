@@ -1,83 +1,93 @@
-# Project path
-PROJECT_PATH = "/mnt/linux-data"
+# Main Directories paths
+PROJECT_PATH = "/mnt/linux-data/project"
+WORDLISTS_PATH = "/mnt/linux-data/wordlists"
+
+# Main Directories inside the project
+DATASETS_PATH = f"{PROJECT_PATH}/code/datasets"
+DATABASES_PATH = f"{PROJECT_PATH}/code/databases"
+OS_DATASETS = f"{DATASETS_PATH}/os_datasets"
 
 # Simulation parameters
 NUM_EPISODES = 400
 MAX_STEPS_PER_EPISODE = 6
 EPSILON = 0.6
+MAX_ENCODING_FEATURES = 1024
 
 # Target configuration
 TARGET_IP = "192.168.56.101"
 
-# Model configuration
-LLAMA_RUN = f"{PROJECT_PATH}/project/code/models/llama.cpp/build/bin/llama-run"
-MODEL_PATH = f"file://{PROJECT_PATH}/project/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
-
 # Wordlists paths
 WORDLISTS = {
-    "gobuster_common": f"{PROJECT_PATH}/wordlists/SecLists/Discovery/Web-Content/common.txt"
+    "web_common": f"{WORDLISTS_PATH}/SecLists/Discovery/Web-Content/common.txt"
 }
 
-# LLM cache path
-LLM_CACHE_PATH = f"{PROJECT_PATH}/project/code/Cache/llm_cache.json"
+# LLM Model configuration
+LLAMA_RUN_PATH = f"{PROJECT_PATH}/code/models/llama.cpp/build/bin/llama-run"
+MISTRAL_MODEL_PATH = f"{PROJECT_PATH}/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
 
-# command LLM cache path
-COMMAND_LLM_PATH = f"{PROJECT_PATH}/project/code/Cache/command_llm_cache.pkl"
+# CACHE CONFIGURATION
+
+# LLM cache path
+LLM_CACHE_PATH = f"{PROJECT_PATH}/code/Cache/llm_cache.json"
+
+# Command LLM cache path
+COMMAND_LLM_CACHE_PATH = f"{PROJECT_PATH}/code/Cache/command_llm_cache.pkl"
+
+# Correctness cache
+CORRECTNESS_CACHE = f"{PROJECT_PATH}/code/Cache/correctness_cache.json"
+
+
+# DATASETS CONFIGURATION
 
 # NVD cve dataset path
-CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/nvd_cve_dataset.json"
-
-# Blackboard path
-BLACKBOARD_PATH = f"{PROJECT_PATH}/project/code/blackboard/blackboard.json"
-
-# NVD files path
-NVD_CVE_PATH = f"{PROJECT_PATH}/project/code/datasets/nvd_files/"
-
-# Datasets path
-DATASETS_PATH = f"{PROJECT_PATH}/project/code/datasets"
+DATASET_NVD_CVE_PATH = f"{DATASETS_PATH}/cve/nvd/nvd_cve_dataset.json"
 
 # ExploitDB dataset path
-CVE_EXPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset.csv"
+DATASET_EXPLOITDB_CVE_EXPLOIT_PATH = f"{DATASETS_PATH}/exploitdb/exploitdb_dataset(cve,exploit_path).csv"
 
 # ExploitDB files exploits
-EXPLOITDB_FILES_EXPLOITS_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/files_exploits.csv"
-
-# ExploitDB dataset
-EXPLOITDB_DATASET_PATH = f"{PROJECT_PATH}/project/code/datasets/exploitdb/cve_exploit_dataset.csv"
+DATASET_EXPLOITDB_FILES_EXPLOITS_PATH = f"{DATASETS_PATH}/exploitdb/files_exploits.csv"
 
 # Metasploit dataset
-METASPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit_dataset.json"
+DATASET_METASPLOIT = f"{DATASETS_PATH}/metasploit/metasploit_dataset.json"
 
-# Metasploit path
-METASPLOIT_PATH = f"{PROJECT_PATH}/project/code/datasets/metasploit/metasploit-framework"
+# Full exploit dataset
+DATASET_EXPLOIT = f"{DATASETS_PATH}/exploit_datasets/full_exploit_dataset.json"
 
-EXPLOIT_DATASET = f"{PROJECT_PATH}/project/code/datasets/exploit_datasets/full_exploit_dataset.json"
+# OS Linux dataset
+DATASET_OS_LINUX= f"{DATASETS_PATH}/os_datasets/os_linux_dataset.json"
 
-OS_LINUX_DATASET= f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_dataset.json"
+# OS Linux kernel dataset
+DATASET_OS_LINUX_KERNEL = f"{DATASETS_PATH}/os_datasets/os_linux_kernel_dataset.json"
 
-OS_LINUX_KERNEL_DATASET = f"{PROJECT_PATH}/project/code/datasets/os_datasets/os_linux_kernel_dataset.json"
+#TEMPORARY_FILES
 
-TEMPORARY_DISTROWATCH_FILES = f"{PROJECT_PATH}/project/code/datasets/os_datasets/temporary_DistroWatch_files"
+# NVD temporary files path
+TEMPORARY_NVD_CVE_PATH = f"{DATASETS_PATH}/cve/nvd/temporary_nvd_files/"
 
-DISTROWATCH_FILES =  f"{PROJECT_PATH}/project/code/datasets/os_datasets/DistroWatch_files"
+# Temporary Distrowatch files
+TEMPORARY_DISTROWATCH_FILES = f"{DATASETS_PATH}/os_datasets/DistroWatch_files/temporary_DistroWatch_files"
 
-OS_DATASETS = f"{PROJECT_PATH}/project/code/datasets/os_datasets"
 
-CORRECTNESS_CACHE = f"{PROJECT_PATH}/project/code/Cache/correctness_cache.json"
+# OTHERS
 
-RUN_MANUAL = f"{PROJECT_PATH}/project/code/run_manual.py"
+# Distrowatch files
+DISTROWATCH_FILES =  f"{PROJECT_PATH}/code/datasets/os_datasets/DistroWatch_files"
+
+# Blackboard path
+BLACKBOARD_PATH = f"{PROJECT_PATH}/code/blackboard/blackboard.json"
+
 
 # STATE CONFIGURATION #
 
-# סטטוסים מצופים לדפי Web
+# Web Status codes
 EXPECTED_STATUS_CODES = [
     "200", "301", "302", "307", "401", "403", "500", "502", "503", "504"
 ]
 
-# שמרו את התבנית הבסיסית בשדה פנימי
+# Default state structure
 _BASE_DEFAULT_STATE = {
     "target": {
-        "ip": "",
         "hostname": "",
         "netbios_name": "",
         "os": {
@@ -100,25 +110,27 @@ _BASE_DEFAULT_STATE = {
         ],
         "rpc_services": [
             {
-                "program_number": "",        # לדוג' 100003
-                "version": "",               # לדוג' 3
-                "protocol": "",              # "tcp" או "udp"
-                "port": "",                  # לדוג' 2049
-                "service_name": ""           # לדוג' "nfs", "mountd"
+                "program_number": "",
+                "version": "",
+                "protocol": "",
+                "port": "",
+                "service_name": ""
             }
         ]
     },
     "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
 }
 
+
 import copy
 
+# Making that every use of default stracture will be with deepcopy
 def __getattr__(name):
     if name == "DEFAULT_STATE_STRUCTURE":
-        # כל גישה ל־DEFAULT_STATE_STRUCTURE מחזירה עותק עומק חדש
         return copy.deepcopy(_BASE_DEFAULT_STATE)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+# Web status codes reward
 WEB_DIRECTORIES_STATUS_CODES_REWARD = {
     "200": 0.1,
     "301": 0.05,
@@ -132,6 +144,7 @@ WEB_DIRECTORIES_STATUS_CODES_REWARD = {
     "504": 0.04
 }
 
+# state schema ( An explanation of the state). TODO: fix llm_prompt
 STATE_SCHEMA = {
     "target": {
         "type": "dict",

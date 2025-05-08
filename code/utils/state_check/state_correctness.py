@@ -6,14 +6,15 @@ import builtins
 import copy
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from config import TARGET_IP, EXPECTED_STATUS_CODES, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, STATE_SCHEMA, TARGET_IP
+from config import EXPECTED_STATUS_CODES, STATE_SCHEMA, DATASET_OS_LINUX, DATASET_OS_LINUX_KERNEL
+
 from utils.utils import run_command, load_dataset
 from utils.state_check.correctness_cache import CorrectnessCache
+
 from blackboard.blackboard import initialize_blackboard
 
-DEFAULT_STATE_STRUCTURE = initialize_blackboard()
+# Cache for correcness checks
 cache = CorrectnessCache()
 
 def correct_port(ip: str, port: str) -> tuple[str, str]:
@@ -186,14 +187,10 @@ def correct_os(
     cache.set(cache_key, corrected)
     return corrected
 
-# תווים מותרים ב־URL path לפי RFC 3986 (unreserved characters)
+# Allowed chars for url path
 ALLOWED_PATH_CHARS_REGEX = re.compile(r'^[A-Za-z0-9\-._~/]*$')
 
 def is_valid_url_path(path: str) -> bool:
-    """
-    בודק אם הנתיב מורכב אך ורק מהתווים המותרים ב־URL לפי התקן:
-    A–Z, a–z, 0–9, -, ., _, ~, /
-    """
     return isinstance(path, str) and bool(ALLOWED_PATH_CHARS_REGEX.fullmatch(path))
     
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
@@ -201,14 +198,14 @@ def correct_web_directories(ip: str, web_dirs: dict) -> dict:
 
     for code, entries in web_dirs.items():
         for path in entries:
-            # אם הנתיב לא מתחיל ב־'/', נכין לו גם גרסה מתוקנת
+
             paths_to_check = [path]
             if not path.startswith("/"):
                 corrected = "/" + path
                 paths_to_check.append(corrected)
 
             for p in paths_to_check:
-                # ודא שבכל מקרה הנתיב מתחיל '/'
+
                 if not p.startswith("/"):
                     p = "/" + p
 
@@ -237,7 +234,7 @@ def correct_web_directories(ip: str, web_dirs: dict) -> dict:
 
                 status_code, reason = cached_result
                 if status_code in verified:
-                    # שמירה במפתח העיקרי p (המתוקן או המקורי)
+
                     verified[status_code][p] = reason
 
     return verified
@@ -302,7 +299,7 @@ def correct_state(*, state: dict, schema: dict = None, base_path: str = "", **kw
                         elif pname in corrected:
                             call_args[pname] = corrected[pname]
                         else:
-                            # ניגש לערך הנוכחי אם הוא נדרש (למשל 'current_os' או 'services')
+
                             value = target.get(last_part, None)
                             if value is not None:
                                 call_args[pname] = value
@@ -439,12 +436,13 @@ def merge_state(state: dict) -> dict:
 
     return merged
 
+# [DEBUG]
 if __name__ == "__main__":
     state = {'target': {'ip': '192.168.56.101', 'os': {'name': '', 'distribution': {'name': '', 'version': ''}, 'kernel': '', 'architecture': ''}, 'services': []}, 'web_directories_status': {'200': {'/index.php': '', '/phpinfo.php': '', '/phpinfo': '', '/index': ''}, '301': {'/dav/': '', '/phpMyAdmin/': '', '/test/': '', '/twiki/': ''}, '302': {'': ''}, '307': {'': ''}, '401': {'': ''}, '403': {'/.htaccess': '', '/cgi-bin/': '', '/server-status': '', '/test/': '', '/twiki/': '', '/': ''}, '500': {'': ''}, '502': {'': ''}, '503': {'': ''}, '504': {'': ''}}, 'actions_history': [], 'cpes': [], 'vulnerabilities_found': []}
-    os_linux_dataset = load_dataset(OS_LINUX_DATASET)
+    os_linux_dataset = load_dataset(DATASET_OS_LINUX)
     print(f"✅ OS Linux dataset Loaded Successfully")
 
-    os_linux_kernel_dataset = load_dataset(OS_LINUX_KERNEL_DATASET)
+    os_linux_kernel_dataset = load_dataset(DATASET_OS_LINUX_KERNEL)
     print(f"✅ OS Linux Kernel dataset Loaded Successfully")
 
     #final_state = correct_state(state, os_linux_dataset, os_linux_kernel_dataset)

@@ -47,7 +47,7 @@ class BlackboardAPI:
         Args:
             entry (dict): The action log entry to append.
         """
-        entry["timestamp"] = time.time()
+        #entry["timestamp"] = time.time()
         #self.blackboard.setdefault("actions_log", []).append(entry) Now for debuging
         self._save_to_file()
 
@@ -100,18 +100,6 @@ class BlackboardAPI:
             log for log in reversed(self.blackboard.get("actions_log", []))
             if log.get("agent") == agent
         ][:n]
-
-    def update_target_services(self, new_services: list):
-        """
-        Add new services to the target.services list if not already present.
-
-        Args:
-            new_services (list): List of service dicts to add.
-        """
-        existing = self.blackboard["target"].get("services", [])
-        for service in new_services:
-            if service not in existing:
-                existing.append(service)
     
     def update_state(self, agent_name: str, new_state: dict):
         """

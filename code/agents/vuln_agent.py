@@ -5,9 +5,7 @@ import sys
 import os
 import orjson
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from config import TARGET_IP, LLAMA_RUN, MODEL_PATH, CVE_PATH
+from config import DATASET_NVD_CVE_PATH
 from agents.base_agent import BaseAgent
 
 def extract_all_cpe_matches(node):
@@ -33,7 +31,7 @@ class VulnAgent(BaseAgent):
     def __init__(self, blackboard_api, cve_items, epsilon, os_linux_dataset, os_linux_kernel_dataset):
         super().__init__(
             name="VulnAgent",
-            action_space=[],  # No actions
+            action_space=[],
             blackboard_api=blackboard_api,
             replay_buffer=None,
             policy_model=None,
@@ -146,13 +144,11 @@ class VulnAgent(BaseAgent):
 
         # === OS to CPE ===
         os_info = target.get("os", {})
-        # אם יש גרסה בדיסט’ או בארכיטקטורה, אפשר להוסיף פה גרסה קבועה
         distro = os_info.get("distribution", {})
         if distro.get("name"):
             name = distro["name"].strip().lower().replace(" ", "_")
-            # wildcard
             cpes.add(f"cpe:2.3:o:{name}:{name}:*:*:*:*:*:*:*:*")
-            # version-pinned אם ידוע
+
             if distro.get("version"):
                 ver = distro["version"].strip().lower().replace(" ", "_")
                 cpes.add(f"cpe:2.3:o:{name}:{name}:{ver}:*:*:*:*:*:*:*:*")
@@ -164,13 +160,10 @@ class VulnAgent(BaseAgent):
             if not name:
                 continue
 
-            # 1) התבניות הג׳נריות שלך
             for cpe in self._generate_service_cpes(name, name):
                 cpes.add(cpe)
 
-            # 2) תבנית עם גרסה קבועה
             if version:
-                # אפשר גם wildcard ב־vendor או ב־product אם רוצים
                 cpes.add(f"cpe:2.3:a:{name}:{name}:{version}:*:*:*:*:*:*:*:*")
 
         # === Web Directories Heuristics ===
@@ -203,7 +196,7 @@ class VulnAgent(BaseAgent):
 if __name__ == "__main__":
 
     print("[*] Loading CVE database...")
-    cve_items = load_cve_database(CVE_PATH)
+    cve_items = load_cve_database(DATASET_NVD_CVE_PATH)
     print(f"[+] Loaded {len(cve_items)} CVE entries")
 
     # מצב בדיקה ידני

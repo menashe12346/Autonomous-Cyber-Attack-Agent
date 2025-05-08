@@ -77,7 +77,7 @@ class RLModelTrainer:
 
         # TD Error & loss
         td_errors = (current_q_values - td_target) ** 2
-        td_errors = torch.clamp(td_errors, max=10.0)  # Clip ל-TD Error
+        td_errors = torch.clamp(td_errors, max=10.0)
         loss = (weights * td_errors).mean()
 
         # Backpropagation

@@ -2,18 +2,19 @@ import random
 import subprocess
 import json
 import torch
-from abc import ABC, abstractmethod
-import numpy as np
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+import numpy as np
+from abc import ABC, abstractmethod
 
 from config import DEFAULT_STATE_STRUCTURE
+
+from blackboard.blackboard import initialize_blackboard
 
 from Cache.llm_cache import LLMCache
 from Cache.commandLLM_cache import CommandLLMCache
 
-from utils.prompts import PROMPT_1, PROMPT_2, clean_output_prompt, PROMPT_FOR_A_PROMPT
+from utils.prompts import PROMPT, PROMPT_FOR_A_PROMPT
 from utils.utils import remove_comments_and_empty_lines
 from utils.state_check.state_validator import validate_state
 from utils.state_check.state_correctness import correct_state, clean_state, merge_state
@@ -22,15 +23,14 @@ from utils.json_fixer import fix_json
 from tools.run_manual import run_clean_output
 
 def remove_untrained_categories(state: dict, trained_categories: dict):
-    # מחיקת קטגוריות ראשיות לא מאומנות
+
     keys_to_remove = [key for key in state if key not in trained_categories]
     for key in keys_to_remove:
         state.pop(key, None)
 
-    # סינון שדות פנימיים בתוך קטגוריות
     for key, allowed_fields in trained_categories.items():
         if allowed_fields is None:
-            continue  # שמור הכל בקטגוריה זו
+            continue
         if key in state and isinstance(state[key], dict):
             inner_keys_to_remove = [inner_key for inner_key in state[key] if inner_key not in allowed_fields]
             for inner_key in inner_keys_to_remove:
@@ -86,7 +86,7 @@ class BaseAgent(ABC):
         """
         Main loop of the agent: observe, choose action, perform, parse, learn, update.
         """
-        #step 1: fill state withh all categories
+        #step 1: fill state with all categories
         self.blackboard_api.fill_state(
             actions_history=self.actions_history.copy(),
             )
@@ -109,7 +109,7 @@ class BaseAgent(ABC):
         print(f"    Chosen action: {action}")
 
         # Step 3: execute action
-        result = remove_comments_and_empty_lines(self.perform_action(action)) # TO DO: Improving remove_comments_and_empty_lines
+        result = remove_comments_and_empty_lines(self.perform_action(action)) # TODO: Improving remove_comments_and_empty_lines
         print("\033[1;32m" + str(result) + "\033[0m")
 
         # Step 4: clean output (if long)
@@ -330,7 +330,7 @@ class BaseAgent(ABC):
         new_state = new_state = correct_state(state=new_state, os_linux_dataset=self.os_linux_dataset, os_linux_kernel_dataset=self.os_linux_kernel_dataset)
         print(f"[DEBUG] correct_state: {new_state}")
 
-        new_state = clean_state(new_state, DEFAULT_STATE_STRUCTURE)
+        new_state = clean_state(new_state, initialize_blackboard())
 
         # Ensure the state is a dictionary
         if not isinstance(new_state, dict):

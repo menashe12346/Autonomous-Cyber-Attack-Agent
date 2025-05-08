@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-from config import WORDLISTS, RUN_MANUAL
+from config import WORDLISTS, TARGET_IP
 
 # Mapping of tool categories to their command templates
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
@@ -49,15 +49,9 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
             #"dirb http://{ip}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
     },
-
-    # Example future support:
-    # "exploit": {
-    #     "manual_exploit": [
-    #         "python3 /path/to/exploit.py {ip}"
-    #     ]
-    # }
 }
 
+# [DEBUG] For Debugging
 COMMAND_TEMPLATES_debug: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "nmap": [
@@ -66,13 +60,12 @@ COMMAND_TEMPLATES_debug: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
-def build_action_space(agent_type: str, ip: str) -> List[str]:
+def build_action_space(agent_type: str) -> List[str]:
     """
     Builds a list of actions for the given agent type and target IP address.
 
     Args:
         agent_type (str): Type of the agent (e.g., "recon", "exploit").
-        ip (str): Target IP address.
 
     Returns:
         List[str]: List of formatted commands.
@@ -85,26 +78,24 @@ def build_action_space(agent_type: str, ip: str) -> List[str]:
 
     for tool, templates in COMMAND_TEMPLATES[agent_type].items():
         for cmd in templates:
-            actions.append(cmd.format(ip=ip))
+            actions.append(cmd.format(ip=TARGET_IP))
 
     return actions
 
-def get_commands_for_agent(agent_type: str, ip: str) -> List[str]:
+def get_commands_for_agent(agent_type: str) -> List[str]:
     """
     Retrieves a list of commands for a specific agent.
 
     Args:
         agent_type (str): Agent category ("recon", etc).
-        ip (str): Target IP.
 
     Returns:
         List[str]: List of formatted commands.
     """
-    return build_action_space(agent_type, ip)
+    return build_action_space(agent_type)
 
-
+# [DEBUG]
 if __name__ == "__main__":
-    # Debug output of commands for a given IP and agent type
     target_ip = "192.168.56.101"
     commands = get_commands_for_agent("recon", target_ip)
     for cmd in commands:

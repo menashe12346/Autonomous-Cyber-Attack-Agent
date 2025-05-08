@@ -1,12 +1,7 @@
 import json
-from copy import deepcopy
 import sys
 import os
-
-# allow import of project modules
-toplevel = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-if toplevel not in sys.path:
-    sys.path.append(toplevel)
+from copy import deepcopy
 
 from config import STATE_SCHEMA
 
@@ -59,7 +54,6 @@ def _generic_sort_list(raw_key: str, items: list) -> list:
 
     return sorted(unique, key=sort_key)
 
-
 def _sort_recursive(obj, prefix=""):
     """
     Recursively sort & dedupe according to STATE_SCHEMA:
@@ -90,7 +84,6 @@ def _sort_recursive(obj, prefix=""):
     # base case (neither dict nor list)
     return obj
 
-
 def sort_state(state: dict) -> dict:
     """
     Deep-copies `state`, then applies recursive sorting/deduplication
@@ -98,7 +91,7 @@ def sort_state(state: dict) -> dict:
     """
     return _sort_recursive(deepcopy(state))
 
-# Example usage
+# [DEBUG]
 if __name__ == "__main__":
     example = {
         "target": {

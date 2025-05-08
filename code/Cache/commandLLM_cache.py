@@ -1,14 +1,14 @@
 import os
 import pickle
 
-from config import COMMAND_LLM_PATH
+from config import COMMAND_LLM_CACHE_PATH
 
 class CommandLLMCache:
     """
     Caches LLM outputs based either on command input or command output.
     """
 
-    def __init__(self, cache_file=COMMAND_LLM_PATH, use_input_instead_of_output=True):
+    def __init__(self, cache_file=COMMAND_LLM_CACHE_PATH, use_input_instead_of_output=True):
         self.cache_file = cache_file
         self.use_input_instead_of_output = use_input_instead_of_output
         self.cache = self._load_cache()

@@ -2,7 +2,30 @@ import torch
 import os
 import urllib.parse
 
-from config import NUM_EPISODES, MAX_STEPS_PER_EPISODE, LLAMA_RUN, MODEL_PATH, TARGET_IP, CVE_PATH, NVD_CVE_PATH, PROJECT_PATH, EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH, DATASETS_PATH, METASPLOIT_DATASET, METASPLOIT_PATH, EXPLOITDB_DATASET_PATH, EXPLOIT_DATASET, OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, EPSILON
+from config import (
+    # Reinforcement Learning parameters
+    NUM_EPISODES,
+    MAX_ENCODING_FEATURES,
+    EPSILON,
+
+    # LLM configuration
+    MISTRAL_MODEL_PATH,
+
+    # Target configuration
+    TARGET_IP,
+
+    # CVE paths
+    DATASET_NVD_CVE_PATH,
+
+    # Exploit datasets
+    DATASET_EXPLOITDB_CVE_EXPLOIT_PATH,
+    DATASET_METASPLOIT,
+    DATASET_EXPLOIT,
+
+    # Linux-related datasets
+    DATASET_OS_LINUX,
+    DATASET_OS_LINUX_KERNEL
+)
 
 from blackboard.blackboard import initialize_blackboard
 from blackboard.api import BlackboardAPI
@@ -25,7 +48,7 @@ from encoders.action_encoder import ActionEncoder
 
 from tools.action_space import get_commands_for_agent
 
-from utils.utils import load_dataset
+from utils.utils import load_dataset, check_file_exists
 
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
 
@@ -37,97 +60,69 @@ from create_datasets.create_exploit_dataset.create_full_exploit_dataset import m
 
 from create_datasets.create_os_dataset.distrowatch import download_os_linux_dataset
 
-def strip_file_scheme(path):
-    if path.startswith("file://"):
-        return urllib.parse.urlparse(path).path
-    return path
-
-def check_llm_model_exists(min_size_gb=4):
-    """
-    מאמת שהקובץ קיים ושוקל לפחות 4GB. אחרת מעלה חריגה.
-
-    Args:
-        min_size_gb (int): גודל מינימלי בג'יגה־בייט (ברירת מחדל: 4).
-
-    Raises:
-        FileNotFoundError: אם הקובץ לא קיים.
-        ValueError: אם הקובץ קטן מ־4GB.
-    """
-    model_path = strip_file_scheme(MODEL_PATH)
-
-    if not os.path.isfile(model_path):
-        raise FileNotFoundError(f"❌ File not found: {model_path}, please check README.md on how to download")
-
-    size_bytes = os.path.getsize(model_path)
-    size_gb = size_bytes / (1024 ** 3)
-
-    if size_gb < min_size_gb:
-        raise ValueError(f"❌ file size is lower then {min_size_gb}GB ({size_gb:.2f}GB): {model_path}, maybe corrupted, remove the file and run program again")
-    
-    print(f"✅ File {os.path.basename(model_path)} ({size_gb:.2f}GB) exists")
-
 def main():
 
     # Check mistral llm model exists
     try:
-        check_llm_model_exists()
+        check_file_exists(MISTRAL_MODEL_PATH)
     except Exception as e:
         print(e)
         exit(1)
 
     # LLM Model
-    model = LlamaModel(LLAMA_RUN, MODEL_PATH)
+    model = LlamaModel()
 
     # Download nvd cve dataset
-    download_nvd_cve(NVD_CVE_PATH, CVE_PATH)
+    download_nvd_cve()
 
     # Download exploitdb dataset
-    download_exploitdb(DATASETS_PATH)
+    download_exploitdb()
 
     # Download metasploit
-    download_metasploit(METASPLOIT_PATH)
+    download_metasploit()
 
-    # Create cve exploit dataset
-    create_cve_exploitdb_dataset(EXPLOITDB_FILES_EXPLOITS_PATH, CVE_EXPLOIT_PATH)
+    # Create exploitdb (cve, exploit path) dataset
+    create_cve_exploitdb_dataset()
 
     # Create metasploit dataset
-    create_metasploit_dataset(METASPLOIT_DATASET)
+    create_metasploit_dataset()
 
     # Download and Create os Linux dataset
     download_os_linux_dataset()
 
+    # Load cve dataset
+    #cve_items = load_dataset(DATASET_NVD_CVE_PATH) [DEBUG]
+    #print(f"✅ CVE dataset Loaded Successfully")
+
     # Load metasploit dataset
-    metasploit_dataset = load_dataset(METASPLOIT_DATASET)
+    metasploit_dataset = load_dataset(DATASET_METASPLOIT)
     print(f"✅ Metasploit dataset Loaded Successfully")
 
     # Load exploitdb dataset
-    exploitdb_dataset = load_dataset(EXPLOITDB_DATASET_PATH)
+    exploitdb_dataset = load_dataset(DATASET_EXPLOITDB_CVE_EXPLOIT_PATH)
     print(f"✅ ExploitDB dataset Loaded Successfully")
 
-    # Load cve dataset
-    cve_items = load_dataset(CVE_PATH)
-    print(f"✅ CVE dataset Loaded Successfully")
-
-    full_exploit_dataset = merge_exploit_datasets(metasploit_dataset, exploitdb_dataset, EXPLOIT_DATASET)
+    # Create exploit_dataset that consists metasploit and exploitdb datasets
+    full_exploit_dataset = merge_exploit_datasets(metasploit_dataset, exploitdb_dataset, DATASET_EXPLOIT)
     print(f"✅ Full exploit dataset Loaded Successfully")
 
-    os_linux_dataset = load_dataset(OS_LINUX_DATASET)
+    os_linux_dataset = load_dataset(DATASET_OS_LINUX)
     print(f"✅ OS Linux dataset Loaded Successfully")
 
-    os_linux_kernel_dataset = load_dataset(OS_LINUX_KERNEL_DATASET)
+    os_linux_kernel_dataset = load_dataset(DATASET_OS_LINUX_KERNEL)
     print(f"✅ OS Linux Kernel dataset Loaded Successfully")
 
     # Replay Buffer
     replay_buffer = PrioritizedReplayBuffer(max_size=20000)
 
     # Action Space
-    action_space = get_commands_for_agent("recon", TARGET_IP)
+    action_space = get_commands_for_agent("recon")
     action_encoder = ActionEncoder(action_space)
     state_encoder = StateEncoder(action_space=action_space)
 
     # Policy Model
     action_size = len(action_space)
-    policy_model = PolicyModel(state_size=1024, action_size=action_size)
+    policy_model = PolicyModel(state_size=MAX_ENCODING_FEATURES, action_size=action_size)
 
     # Move to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -144,7 +139,6 @@ def main():
 
     command_cache = {}
     all_actions = []
-
     epsilon = EPSILON
 
     # === EPISODE LOOP ===
@@ -153,7 +147,6 @@ def main():
 
         # --- Initialize Blackboard ---
         blackboard_dict = initialize_blackboard(TARGET_IP)
-        #blackboard_dict["target"]["ip"] = TARGET_IP
         bb_api = BlackboardAPI(blackboard_dict)
 
         # --- Create Recon Agent ---
@@ -165,18 +158,15 @@ def main():
             action_encoder=action_encoder,
             command_cache=command_cache,
             model=model,
-            epsilon=epsilon,
+            epsilon= epsilon,
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
-        
+        """
         # --- Create vuln Agent ---
         vuln_agent = VulnAgent(
             blackboard_api=bb_api,
             cve_items=cve_items,
-            epsilon=epsilon,#debug
-            os_linux_dataset=os_linux_dataset,#debug
-            os_linux_kernel_dataset=os_linux_kernel_dataset#debug
         )
 
         # --- Create exploit Agent ---
@@ -191,14 +181,11 @@ def main():
             metasploit_dataset=metasploit_dataset,
             exploitdb_dataset=exploitdb_dataset,
             full_exploit_dataset=full_exploit_dataset,
-            epsilon=epsilon, #debug
-            os_linux_dataset=os_linux_dataset,#debug
-            os_linux_kernel_dataset=os_linux_kernel_dataset#debug
         )
-        
+        """
         # --- Register Agents ---
-        #agents = [recon_agent] # , vuln_agent, exploit_agent
-        agents = [recon_agent, vuln_agent, exploit_agent] # , vuln_agent, exploit_agent
+        agents = [recon_agent] # [DEBUG]
+        #agents = [recon_agent, vuln_agent, exploit_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
@@ -207,7 +194,6 @@ def main():
         orchestrator = ScenarioOrchestrator(
             blackboard=bb_api,
             agent_manager=agent_manager,
-            max_steps=MAX_STEPS_PER_EPISODE,
             scenario_name=scenario_name,
             target=TARGET_IP
         )
@@ -236,7 +222,7 @@ def main():
     #for episode_info in all_actions:
     #    print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
 
-    trainer.save_model("models/saved_models/policy_model.pth")
+    trainer.save_model("models/saved_models/recon_model.pth")
     print("✅ Final trained model saved.")
 
     # --- Plot Training Curves ---

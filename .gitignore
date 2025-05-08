@@ -6,8 +6,8 @@ hf_models/
 llama-factory/
 all_cves_combined.json
 .python-version
-nvd_files/
-exploitdb/
+nvd_cve_dataset.json
+code/databases/exploitdb
 metasploit-framework/
 metasploit_dataset.json
 full_exploit_dataset.json

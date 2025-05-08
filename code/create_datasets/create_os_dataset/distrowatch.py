@@ -1,29 +1,27 @@
 import time
 import json
 import requests
-from pathlib import Path
-from bs4 import BeautifulSoup
 import re
 import shutil
-
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from pathlib import Path
+from bs4 import BeautifulSoup
 
-from config import OS_LINUX_DATASET, OS_LINUX_KERNEL_DATASET, TEMPORARY_DISTROWATCH_FILES, DISTROWATCH_FILES, OS_DATASETS
+from utils.utils import delete_directory
+from config import DATASET_OS_LINUX, DATASET_OS_LINUX_KERNEL, TEMPORARY_DISTROWATCH_FILES, DISTROWATCH_FILES, OS_DATASETS
 
-# כתובות
 BASE_URL = "https://distrowatch.com"
 DISTRO_PAGE_BASE = f"{BASE_URL}/table.php?distribution="
 
-# קבצים ותיקיות
+# files and folders
 DATA_DIR = Path(TEMPORARY_DISTROWATCH_FILES)
 DISTRO_DIR = DATA_DIR / "distros"
 distro_index_dir = DATA_DIR / "distro_indexes"
 POP_PAGE = Path(DISTROWATCH_FILES) / "popularity.html"
 FINAL_DATASET_PATH = Path(OS_DATASETS) / "os_dataset.json"
 
-# הגדרות
+# Firefox configuration so we can download
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -31,15 +29,12 @@ HEADERS = {
     "Connection": "keep-alive",
 }
 
-# הכנה
+# Create temporary folders
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DISTRO_DIR.mkdir(parents=True, exist_ok=True)
 distro_index_dir.mkdir(parents=True, exist_ok=True)
 
 def extract_distro_names():
-    """
-    מחלץ את שם ההפצה המלא ואת ה-slug (href) מהחלק של Last 12 months.
-    """
     print("[*] Extracting distribution names from Last 12 months section...")
     soup = BeautifulSoup(POP_PAGE.read_text(encoding="utf-8"), "html.parser")
 
@@ -65,7 +60,6 @@ def extract_distro_names():
                 if name and slug:
                     distros.append({"name": name, "slug": slug})
 
-    # הסרת כפילויות לפי name
     seen = set()
     unique_distros = []
     for d in distros:
@@ -78,9 +72,6 @@ def extract_distro_names():
 
 
 def download_distro_pages(distros):
-    """
-    מוריד רק את דפי ההפצות (table.php) לפי שם ההפצה המלא, אם עדיין לא קיימים מקומית.
-    """
     print("[*] Checking for missing distribution pages...")
 
     existing_files = {p.stem.lower() for p in DISTRO_DIR.glob("*.html")}
@@ -111,10 +102,6 @@ def download_distro_pages(distros):
 
 
 def download_distro_indexes(distros):
-    """
-    מוריד גם את index.php?distribution=SLUG לכל הפצה,
-    ושומר בקובץ בשם המלא של ההפצה בתוך תיקיית distro_indexes.
-    """
     print("[*] Downloading distro index pages...")
 
     existing_files = {p.stem.lower() for p in distro_index_dir.glob("*.html")}
@@ -144,22 +131,16 @@ def download_distro_indexes(distros):
         print("[✓] No missing index pages to download.")
 
 def update_versions_in_dataset():
-    """
-    מעדכן גרסאות של כל הפצה לפי קבצי index,
-    ושומר בתוך os_dataset.json ע"י הוספת שדה versions.
-    """
     distro_index_dir = DATA_DIR / "distro_indexes"
-    dataset_path = Path(OS_LINUX_DATASET)
+    dataset_path = Path(DATASET_OS_LINUX)
 
     if not dataset_path.exists():
         print("[!] Dataset file not found.")
         return
 
-    # טען את הקובץ כ- dict (ולא list!)
     with open(dataset_path, "r", encoding="utf-8") as f:
         dataset = json.load(f)
 
-    # עבור כל קובץ index
     for index_file in distro_index_dir.glob("*.html"):
         distro_name = index_file.stem.strip()
         print(f"[*] Processing: {distro_name}")
@@ -182,9 +163,8 @@ def update_versions_in_dataset():
                 a_text = a_tag.get_text(strip=True)
 
                 if "3CX Phone System" in a_text:
-                    continue  # התעלמות מיוחדת
+                    continue
 
-                # חיפוש גרסה (לוקח את המספר הראשון בלבד)
                 match = re.search(r"\d+(\.\d+)*", a_text)
                 if match:
                     version = match.group()
@@ -196,7 +176,6 @@ def update_versions_in_dataset():
         else:
             print(f"[-] {distro_name}: No versions found.")
 
-    # שמירה חזרה לקובץ
     with open(dataset_path, "w", encoding="utf-8") as f:
         json.dump(dataset, f, indent=2)
 
@@ -226,21 +205,18 @@ def fetch_kernel_versions():
         for a in sub_soup.find_all('a', href=True):
             href = a['href']
             if href.endswith(".tar.gz") or href.endswith(".tar.xz"):
-                # דוגמה: linux-6.8.2.tar.xz
+
                 if href.startswith("linux-") and "patch" not in href:
                     version = href.split("linux-")[1].split(".tar")[0]
                     versions.append(version)
     
     versions = sorted(set(versions))
     
-    with open(OS_LINUX_KERNEL_DATASET, "w", encoding="utf-8") as f:
+    with open(DATASET_OS_LINUX_KERNEL, "w", encoding="utf-8") as f:
         json.dump(versions, f, indent=2, ensure_ascii=False)
-    print(f"Saved {len(versions)} kernel versions to {OS_LINUX_KERNEL_DATASET}")
+    print(f"Saved {len(versions)} kernel versions to {DATASET_OS_LINUX_KERNEL}")
 
 def build_architecture_dataset():
-    """
-    בונה קובץ JSON שבו לכל הפצה יש מפתח 'architecture' שמכיל את רשימת הארכיטקטורות שלה.
-    """
     print("[*] Building architecture dataset...")
     architecture_dataset = {}
     distro_files = list(DISTRO_DIR.glob("*.html"))
@@ -257,35 +233,27 @@ def build_architecture_dataset():
         else:
             print(f"[{idx}/{len(distro_files)}] {distro_name}: No architectures found.")
 
-    Path(OS_LINUX_DATASET).write_text(json.dumps(architecture_dataset, indent=2), encoding="utf-8")
+    Path(DATASET_OS_LINUX).write_text(json.dumps(architecture_dataset, indent=2), encoding="utf-8")
 
     update_versions_in_dataset()
 
     print(f"\n[✔] Architecture dataset complete.")
-    print(f"[✔] Saved to: {OS_LINUX_DATASET}")
+    print(f"[✔] Saved to: {DATASET_OS_LINUX}")
     print(f"[✔] Total distributions processed: {len(architecture_dataset)}")
 
 def extract_architectures_from_html(path):
-    """
-    מחלץ ארכיטקטורות ע"י ניתוח ישיר של HTML גולמי:
-    מחפש את <b>Architecture:</b> ואז סורק את הטקסט הגולמי עד סוף רשימת הארכיטקטורות לפי פסיקים.
-    """
     html = path.read_text(encoding="utf-8")
 
-    # מצא את התחלת הקטע שמכיל Architecture
     start_index = html.lower().find("<b>architecture:</b>")
     if start_index == -1:
         return []
 
-    # קח את החלק אחרי Architecture
     sub_html = html[start_index:]
 
-    # חתוך עד ל-<li> הבא או סוף שורה
     end_index = sub_html.lower().find("<li>")
     if end_index != -1:
         sub_html = sub_html[:end_index]
 
-    # מצא את כל הארכיטקטורות לפי תבנית a-tag
     soup = BeautifulSoup(sub_html, "html.parser")
     architectures = []
 
@@ -296,40 +264,21 @@ def extract_architectures_from_html(path):
 
     return architectures
 
-def delete_directory(path: str) -> None:
-    """
-    Deletes the directory at `path` and all its contents.
-    """
-    # ודא שהתיקיה קיימת
-    if not os.path.exists(path):
-        print(f"[!] Directory '{path}' does not exist.")
-        return
-    # ודא שזה באמת תיקיה
-    if not os.path.isdir(path):
-        print(f"[!] Path '{path}' is not a directory.")
-        return
-
-    try:
-        # מחיקת התיקיה וכל תת־התיקיות/קבצים בתוכה
-        shutil.rmtree(path)
-        print(f"[✓] Directory '{path}' removed successfully.")
-    except Exception as e:
-        print(f"[✗] Failed to remove '{path}': {e}")
-
 def clean():
     delete_directory(DATA_DIR)
 
 def download_os_linux_dataset():
-    if not Path(OS_LINUX_DATASET).exists():
+    if not Path(DATASET_OS_LINUX).exists():
         distro_names = extract_distro_names()
         download_distro_pages(distro_names)
         download_distro_indexes(distro_names)
         build_architecture_dataset()
 
-    if not Path(OS_LINUX_KERNEL_DATASET).exists():
+    if not Path(DATASET_OS_LINUX_KERNEL).exists():
         fetch_kernel_versions()
     
     clean()
 
+# [DEBUG]
 if __name__ == "__main__":
     download_os_linux_dataset()

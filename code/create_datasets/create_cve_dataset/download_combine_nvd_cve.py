@@ -7,7 +7,9 @@ import requests
 from tqdm import tqdm
 from pathlib import Path
 
-# שלב 1: הורדת קבצי CVE בפורמט .gz לכל שנה
+from config import TEMPORARY_NVD_CVE_PATH, DATASET_NVD_CVE_PATH
+from utils.utils import delete_directory
+
 def download_file(url, dest_path, json_dest_path):
     if os.path.exists(json_dest_path):
         print(f"✅ File {os.path.basename(json_dest_path)} already exists, skipping...")
@@ -52,7 +54,6 @@ def download_nvd_dataset(download_dir):
 
     print("✅ NVD dataset downloaded and extracted successfully.")
 
-# שלב 2: שילוב כל קבצי ה-CVE לקובץ אחד
 def combine_nvd_files(download_dir, CVE_PATH):
     if os.path.exists(CVE_PATH):
         print(f"✅ Combined CVE file already exists, skipping...")
@@ -78,10 +79,16 @@ def combine_nvd_files(download_dir, CVE_PATH):
 
     print(f"✅ Combined CVE dataset saved : total {len(all_cves)} CVEs\n")
 
-# פונקציה ראשית מאוחדת
-def download_nvd_cve(NVD_CVE_PATH, CVE_PATH):
-    download_dir = os.path.expanduser(NVD_CVE_PATH)
-    os.makedirs(download_dir, exist_ok=True)
+def clean():
+    delete_directory(TEMPORARY_NVD_CVE_PATH)
 
-    download_nvd_dataset(download_dir)
-    combine_nvd_files(download_dir, CVE_PATH)
+def download_nvd_cve():
+    if not Path(DATASET_NVD_CVE_PATH).exists():
+        download_dir = os.path.expanduser(TEMPORARY_NVD_CVE_PATH)
+        os.makedirs(download_dir, exist_ok=True)
+
+        download_nvd_dataset(download_dir)
+        combine_nvd_files(download_dir, DATASET_NVD_CVE_PATH)
+
+        clean()
+

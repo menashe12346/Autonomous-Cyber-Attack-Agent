@@ -1,21 +1,13 @@
 import re
 import copy
 import json
-
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-
 
 from config import EXPECTED_STATUS_CODES, STATE_SCHEMA
 from blackboard.blackboard import initialize_blackboard
 
-DEFAULT_STATE_STRUCTURE = initialize_blackboard()
-
 def recursive_setdefault(base: dict, default: dict):
-    """
-    משלים רקורסיבית ערכים חסרים במילון base לפי מבנה default.
-    """
     for key, default_value in default.items():
         if key not in base:
             base[key] = copy.deepcopy(default_value)
@@ -23,26 +15,17 @@ def recursive_setdefault(base: dict, default: dict):
             recursive_setdefault(base[key], default_value)
 
 def clean_list_entries_by_template(actual_list, template_list):
-    """
-    מסיר רק את הפריט הריק המייצג placeholder (התבנית), ומשאיר כל שאר השירותים.
-    """
-    # אם אין תבנית או שהתבנית אינה dict — אין מה לנקות
     if not template_list or not isinstance(template_list[0], dict):
         return actual_list
 
     default_template = template_list[0]
     cleaned = []
     for item in actual_list:
-        # נשמור כל פריט שאינו זהה במלואו לתבנית
         if not (isinstance(item, dict) and item == default_template):
             cleaned.append(item)
     return cleaned
 
 def recursive_clean(base: dict, default: dict):
-    """
-    מבצע ניקוי מותאם לפי התבנית:
-    אם יש רשימה כמו 'services', היא תסונן לפי המבנה שב-template.
-    """
     for key, default_value in default.items():
         if isinstance(default_value, dict) and isinstance(base.get(key), dict):
             recursive_clean(base[key], default_value)
@@ -50,12 +33,8 @@ def recursive_clean(base: dict, default: dict):
             base[key] = clean_list_entries_by_template(base[key], default_value)
 
 def ensure_structure(state: dict) -> dict:
-    """
-    מבטיח שמבנה ה־state תואם בדיוק ל־DEFAULT_STATE_STRUCTURE לפי config בלבד.
-    אין שימוש במחרוזות קשיחוֹת.
-    """
-    recursive_setdefault(state, DEFAULT_STATE_STRUCTURE)
-    recursive_clean(state, DEFAULT_STATE_STRUCTURE)
+    recursive_setdefault(state, initialize_blackboard())
+    recursive_clean(state, initialize_blackboard())
     return state
 
 def is_valid_type(value: str, expected_type: str) -> bool:
@@ -133,17 +112,22 @@ def validate_categories_types(data: dict, schema: dict, schema_prefix="") -> dic
 
     return fixed
 
-
 def validate_state(state: dict) -> dict:
-    """
-    הפונקציה הראשית שמוודאת שה־state במבנה נכון ובעל ערכים תקניים.
-    """
-    state = validate_categories_types(state, STATE_SCHEMA)
-    state = ensure_structure(state)
+  """
+  Validates and completes a state dictionary based on the predefined schema.
 
-    return state
+  Parameters:
+      state (dict): The raw or partial state to validate.
+
+  Returns:
+      dict: A fully validated and structurally complete state dictionary.
+  """
+  state = validate_categories_types(state, STATE_SCHEMA)
+  state = ensure_structure(state)
+  return state
 
 
+# [DEBUG]
 if __name__ == "__main__":
 
     state = """

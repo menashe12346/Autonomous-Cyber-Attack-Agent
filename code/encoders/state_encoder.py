@@ -6,8 +6,8 @@ import numpy as np
 import re
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from config import STATE_SCHEMA
+
+from config import STATE_SCHEMA, MAX_ENCODING_FEATURES
 from blackboard.blackboard import initialize_blackboard
 
 class StateEncoder:
@@ -20,20 +20,17 @@ class StateEncoder:
         self,
         action_space: list,
         default_state: dict = None,
-        max_features: int = 1024
     ):
         """
         Args:
             action_space (list): List of all valid action strings.
             default_state (dict): A “blank” state dict containing every
                                   possible key (even empty), used to fix our feature order.
-            max_features (int): Fixed length of the output state vector.
         """
         if default_state is None:
             default_state = initialize_blackboard()
             
         self.default_state = default_state 
-        self.max_features = max_features
         self.action_space = action_space
         self.action_to_index = {a: i for i, a in enumerate(action_space)}
         self.encoded_to_state = {}
@@ -69,11 +66,9 @@ class StateEncoder:
         return code / max_code
     
     def count_encoder(self, count: float) -> float:
-        # מנרמל מונה של פריטים – כאן לחלק ב-100 (או כל ערך שתבחר)
         return min(count / 100.0, 1.0)
 
     def normalize_by_specific_number(self, value: float, key: str) -> float:
-        # משתמשים ב־num_for_normalization של הסכמה
         cfg = self.schema.get(key, {})
         norm = cfg.get("num_for_normalization", 1.0)
         return min(value / norm, 1.0)
@@ -83,7 +78,7 @@ class StateEncoder:
         enc = entry.get("encoder")
 
         if enc == "base100_encode":
-            # raw אמור להיות מחרוזת
+
             return self.base100_encode(raw) if isinstance(raw, str) else float(raw)
 
         if enc == "count_encoder":
@@ -92,7 +87,6 @@ class StateEncoder:
         if enc == "normalize_by_specific_number":
             return self.normalize_by_specific_number(raw, key)
 
-        # אם אין encoder מיוחד, ניפול חזרה לנרמול גנרי
         return self._normalize_value(key, raw)
 
     def encode(self, state: dict, actions_history: list) -> torch.Tensor:
@@ -108,7 +102,7 @@ class StateEncoder:
         for i, cnt in enumerate(actions_vector):
             flat[f"action_history_idx_{i}"] = cnt
 
-        # 3) apply encoders לפי schema
+        # 3) apply encoders according to schema
         encoded = []
         for key in self.feature_keys:
             raw = flat.get(key, 0.0)
@@ -116,12 +110,12 @@ class StateEncoder:
             encoded.append(val)
 
         # 4) pad/truncate
-        if len(encoded) < self.max_features:
-            encoded += [0.0] * (self.max_features - len(encoded))
+        if len(encoded) < MAX_ENCODING_FEATURES:
+            encoded += [0.0] * (MAX_ENCODING_FEATURES - len(encoded))
         else:
-            encoded = encoded[: self.max_features]
+            encoded = encoded[: MAX_ENCODING_FEATURES]
 
-        # 5) to tensor + שמירת המיפוי ההפוך
+        # 5)
         vec = torch.tensor(encoded, dtype=torch.float32)
         vk = self._vector_to_key(vec)
         if vk not in self.encoded_to_state:
@@ -165,21 +159,17 @@ class StateEncoder:
     def _flatten_state(self, obj, prefix='') -> dict:
         items = {}
 
-        # ✴️ התעלמות משדות מסוימים
         if prefix.endswith("vulnerabilities_found") or prefix.endswith("cpes"):
             return {}
 
-        # קבלת מפתח כללי לפי הסכמה
         schema_key = self._schema_key(prefix)
         schema_entry = self.schema.get(schema_key, {})
 
-        # 1) count_encoder → פשוט לספור פריטים במילון
         if schema_entry.get("encoder") == "count_encoder" and isinstance(obj, dict):
             return { prefix: float(len(obj)) }
 
-        # 2) list type → בילטרציה גנרית + correction
         if schema_entry.get("type") == "list" and isinstance(obj, list):
-            # תיקון אם צריך
+
             corr = schema_entry.get("correction_func")
             if corr and hasattr(self, corr):
                 obj = getattr(self, corr)(obj)
@@ -190,14 +180,13 @@ class StateEncoder:
                 sub_items.update(self._flatten_state(v, full_key))
             return sub_items
 
-        # 3) dict־bool־number־str כמו קודם
         if isinstance(obj, dict):
             for k, v in obj.items():
                 full_key = f"{prefix}.{k}" if prefix else k
                 items.update(self._flatten_state(v, full_key))
 
         elif isinstance(obj, list):
-            # מקרה מיוחד ל־failed_CVEs (כבר מטופל ע"י הסכמה)
+
             if prefix.endswith("failed_CVEs"):
                 for i, cve in enumerate(obj[:5]):
                     if isinstance(cve, str) and cve.startswith("CVE-"):
@@ -248,7 +237,7 @@ class StateEncoder:
 
         return min(value / 1e6, 1.0)
 
-
+# [DEBUG]
 def main():
     # Define two different blackboard states
     state1 = {
@@ -292,7 +281,7 @@ def main():
     ]
     #torch.set_printoptions(threshold=torch.inf)
     # Create StateEncoder instance
-    encoder = StateEncoder(action_space=action_space, max_features=1024)
+    encoder = StateEncoder(action_space=action_space)
 
     # Encode the states
     encoded_state1 = encoder.encode(state1, state1["actions_history"])

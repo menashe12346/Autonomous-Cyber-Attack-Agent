@@ -1,6 +1,8 @@
 import os
 import tiktoken
 
+from config import PROJECT_PATH
+
 def count_tokens(text):
     enc = tiktoken.get_encoding("cl100k_base")  # for GPT-4o
     return len(enc.encode(text, disallowed_special=()))
@@ -26,10 +28,10 @@ def print_all_python_files(start_dir, output_file):
 
     output = ''
     for root, dirs, files in os.walk(start_dir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]  # מונע חיפוש בתיקיות מסוימות
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
 
-        for file in files:  # לולאת חיפוש על כל הקבצים בתיקייה
-            if file not in skip_files and file.endswith(".py"):  # בדיקה אם הקובץ לא ברשימה
+        for file in files: 
+            if file not in skip_files and file.endswith(".py"):
                 path = os.path.join(root, file)
                 try:
                     with open(path, 'r', encoding='utf-8') as f:
@@ -47,6 +49,6 @@ def print_all_python_files(start_dir, output_file):
     print(f"[Saved to: {output_file}]")
 
 print_all_python_files(
-    "/mnt/linux-data/project/code",
-    "/mnt/linux-data/project/code/get_code/code.txt"
+    f"{PROJECT_PATH}/code",
+    f"{PROJECT_PATH}/code/get_code/code.txt"
 )

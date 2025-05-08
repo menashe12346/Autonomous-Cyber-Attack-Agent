@@ -1,11 +1,11 @@
 import json
 import hashlib
+from collections import Counter
+
 from agents.base_agent import BaseAgent
 from tools.action_space import get_commands_for_agent
-from collections import Counter
-from config import STATE_SCHEMA
 from utils.utils import get_nested
-
+from config import STATE_SCHEMA
 
 def traverse_schema_key(data, key_parts):
         """
@@ -68,7 +68,7 @@ class ReconAgent(BaseAgent):
         super().__init__(
             name="ReconAgent",
             blackboard_api=blackboard_api,
-            action_space=get_commands_for_agent("recon", ip),
+            action_space=get_commands_for_agent("recon"),
             policy_model=policy_model,
             replay_buffer=replay_buffer,
             state_encoder=state_encoder,
@@ -132,9 +132,9 @@ class ReconAgent(BaseAgent):
         if impact.get("detected_by_defenses", False):
             return False
 
-        # ----- DEBUG ----- #
-        if prev_dict.get("os"):
-            return False
+        # ----- [DEBUG] ----- #
+        #if prev_dict.get("os"):
+        #    return False
 
         return True
     

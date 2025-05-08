@@ -1,10 +1,6 @@
 import subprocess
 
 def run_clean_output(cmd, timeout=600):
-    """
-    מריץ פקודת shell, שומר את כל הפלט למשתנה, מחזיר אותו.
-    מציג פלט בזמן אמת.
-    """
     process = subprocess.Popen(
         cmd,
         shell=True,
@@ -19,7 +15,7 @@ def run_clean_output(cmd, timeout=600):
 
     try:
         for line in process.stdout:
-            print(line, end="")  # הדפסה בזמן אמת
+            print(line, end="")  # print in real time
             full_output.append(line.rstrip())
 
         process.wait(timeout=timeout)
@@ -29,7 +25,7 @@ def run_clean_output(cmd, timeout=600):
 
     return "\n".join(full_output)
 
-# שימוש
+# [DEBUG]
 if __name__ == "__main__":
     print("🔥 run_manual.py started")
     try:
@@ -37,9 +33,10 @@ if __name__ == "__main__":
             ["msfconsole", "-q", "-x", "use exploit/unix/ftp/vsftpd_234_backdoor"],
             timeout=60
         )
-        print("\n✅ פלט שנשמר למשתנה:\n")
+        print("\n✅ output: \n")
         print(output)
     except TimeoutError as e:
         print(f"❌ Timeout: {e}")
 
+# Check if port 6200 is used:
 # sudo netstat -plant | grep :6200

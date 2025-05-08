@@ -1,4 +1,5 @@
 from blackboard.blackboard import initialize_blackboard
+from config import MAX_STEPS_PER_EPISODE
 
 class ScenarioOrchestrator:
     """
@@ -11,7 +12,7 @@ class ScenarioOrchestrator:
     - Stop conditions enforcement
     """
 
-    def __init__(self, blackboard, agent_manager, target, max_steps=20, scenario_name="DefaultScenario", stop_conditions=None):
+    def __init__(self, blackboard, agent_manager, target, scenario_name="DefaultScenario", stop_conditions=None):
         """
         Initialize the orchestrator with simulation parameters.
 
@@ -19,13 +20,11 @@ class ScenarioOrchestrator:
             blackboard: BlackboardAPI instance.
             agent_manager: AgentManager instance.
             target (str): Target IP address.
-            max_steps (int): Maximum number of steps to execute.
             scenario_name (str): Human-readable name of the scenario.
             stop_conditions (list): Optional list of callables taking blackboard dict and returning True if scenario should stop.
         """
         self.blackboard = blackboard
         self.agent_manager = agent_manager
-        self.max_steps = max_steps
         self.current_step = 0
         self.scenario_name = scenario_name
         self.stop_conditions = stop_conditions or []
@@ -56,7 +55,7 @@ class ScenarioOrchestrator:
         if not self.active:
             return False
 
-        if self.current_step >= self.max_steps:
+        if self.current_step >= MAX_STEPS_PER_EPISODE:
             print("[!] Max steps reached.")
             return False
 
