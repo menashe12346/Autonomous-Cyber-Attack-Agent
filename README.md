@@ -18,8 +18,10 @@ Welcome to a fully autonomous offensive AI system for cyber attacks, driven by r
 
 ### 👉 Arch Linux:
 ```bash
-sudo pacman -Syu --needed base-devel cmake git python-pip
-pip install pexpect huggingface_hub
+sudo pacman -Syu --needed python python-pip git base-devel cmake nmap metasploit wget curl unzip gcc make
+sudo pacman -S virtualbox docker docker-compose  metasploit
+pip install pexpect huggingface_hub torch numpy requests beautifulsoup4 pandas
+yay -S zenmap armitage
 ```
 
 ### (Optional) Login to HuggingFace if the model is gated:
@@ -43,6 +45,7 @@ https://huggingface.co/NousResearch/Nous-Hermes-2-Mistral-7B-DPO-GGUF/resolve/ma
 ## 🛠️ STEP 3: Clone & Build llama.cpp
 
 ```bash
+cd {your_project_directory}/code/models/
 git clone https://github.com/ggerganov/llama.cpp.git
 cd llama.cpp
 mkdir build
@@ -85,42 +88,6 @@ project/
 └── main.py                   # Entry point
 ```
 
----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ─────────────────────────────────────────────
-
- לפרוייקט:
-
-    1. הוספת רקורסיה של פרומפטים המוודאת שמודל הllm באמת מילא את כל הקטגוריות
-    
 # ─────────────────────────────────────────────
 
 TO DO:
