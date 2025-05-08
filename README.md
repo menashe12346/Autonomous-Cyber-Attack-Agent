@@ -1,83 +1,119 @@
-## ╔════════════════════════════════════════════════════╗
+# ⚔️ Cyber-AI Offensive Framework  
 
+Welcome to a fully autonomous offensive AI system for cyber attacks, driven by reinforcement learning and language models.  
 
+---
 
-## ║        🚀 SETUP & RUN LLAMA.CPP WITH NOUS-HERMES  ║
+## 🔧 SETUP INSTRUCTIONS (ARCH LINUX)
 
+### 📌 Requirements:
+- 🐍 Python 3.9+
+- 🧱 C++17 compiler (e.g., `g++`)
+- ❗ Disk space: ~6GB minimum, 10GB+ recommended
+- 🧠 RAM: 8GB minimum, 16GB+ recommended for larger context
 
-## ╚════════════════════════════════════════════════════╝
+---
 
+## 🚀 STEP 1: Install All Dependencies
 
-
-
-### ─────────────────────────────────────────────
-
-
-### 📦 1. INSTALL DEPENDENCIES (CHOOSE YOUR OS)
-
-
-### ─────────────────────────────────────────────
-
-
-
-
-### 👉 For Arch Linux:
-
+### 👉 Arch Linux:
+```bash
 sudo pacman -Syu --needed base-devel cmake git python-pip
-pip install pexpect
-pip install huggingface_hub
-
-### ─────────────────────────────────────────────
-
-###  2. Requirements
-python version 3.9+
-
-
-### ─────────────────────────────────────────────
-
-
-### 📥 2. DOWNLOAD THE MODEL (.GGUF FORMAT)
-
-
-### ─────────────────────────────────────────────
-
+pip install pexpect huggingface_hub
+```
 
 ### (Optional) Login to HuggingFace if the model is gated:
+```bash
+huggingface-cli login  # ← paste your token
+```
+
+---
+
+## 💾 STEP 2: Download the Model (GGUF Format)
+
+> Download Nous-Hermes-2-Mistral-7B-DPO in quantized `.gguf` format (Q4_K_M recommended):
+
+```bash
+wget -P {your_project_directory}/code/models/nous-hermes/ \
+https://huggingface.co/NousResearch/Nous-Hermes-2-Mistral-7B-DPO-GGUF/resolve/main/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf
+```
+
+---
+
+## 🛠️ STEP 3: Clone & Build llama.cpp
+
+```bash
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release -j$(nproc)
+```
+
+---
+
+## 🧠 STEP 5: Run the Full Autonomous Framework
+
+Once the model and dependencies are ready, launch the full AI system:
+
+```bash
+python main.py
+```
+
+The agent will:
+- Initialize datasets (CVE, Exploits, OS, etc.)
+- Encode the environment state
+- Use the LLM to reason about reconnaissance and attacks
+- Select and execute actions using reinforcement learning
+
+---
+
+## 📂 Directory Structure
+
+```text
+project/
+├── code/
+│   ├── agents/               # Recon, Vuln, Exploit agents
+│   ├── blackboard/           # Shared knowledge base
+│   ├── encoders/             # State/Action encoders
+│   ├── models/               # Policy model, LLM wrapper
+│   ├── orchestrator/         # Scenario manager
+│   └── utils/                # Helpers and tools
+├── datasets/                 # CVE, exploit, OS datasets
+├── models/                   # Saved LLM and policy model
+└── main.py                   # Entry point
+```
+
+---
 
 
-huggingface-cli login   # ← Paste your token when prompted
 
 
 
 
-### 📄 Download the model file:
-
-wget -P ./PATH https://huggingface.co/NousResearch/Nous-Hermes-2-Mistral-7B-DPO-GGUF/resolve/main/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf
-
-### ─────────────────────────────────────────────
 
 
-### 🛠️ 3. CLONE AND BUILD LLAMA.CPP
 
 
-### ─────────────────────────────────────────────
-
-git clone https://github.com/ggerganov/llama.cpp.git  
 
 
-cd llama.cpp  
 
 
-mkdir build  
 
 
-cd build  
 
 
-cmake ..  
 
 
-cmake --build . --config Release -j$(nproc)  
+
+
+
+
+
+
+
+
 
 # ─────────────────────────────────────────────
 
