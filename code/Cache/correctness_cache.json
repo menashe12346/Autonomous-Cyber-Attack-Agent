@@ -570,5 +570,9 @@
   "url_check:http:///server-status": [
     "404",
     "Error or Timeout"
+  ],
+  "url_check:http:///admin": [
+    "404",
+    "Error or Timeout"
   ]
 }

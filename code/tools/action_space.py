@@ -8,11 +8,25 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
         "ping": [
             "ping -c 1 {ip}"
         ],
+        "hping3": [
+            #"sudo hping3 -S -p 80 -c 1 {ip}"
+        ],
+        "httpx": [
+            "httpx http://192.168.56.101",
+        ],
+        "nikto": [
+            "nikto -h {ip}"
+        ],
+        "sslscan": [
+            "sslscan {ip}"
+        ],
         "nmap": [
             "nmap -F {ip}",
             "nmap {ip}",
             "nmap -sV {ip}",
-            "nmap -A {ip}",
+            #"nmap -A {ip}",
+            "nmap -p 80,443 --script=http-title,http-headers,http-methods {ip}",
+            #"sudo nmap -O -Pn --traceroute {ip}",
         ],
         "rpcinfo": [
             "rpcinfo -p {ip}"
@@ -52,7 +66,7 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
 }
 
 # [DEBUG] For Debugging
-COMMAND_TEMPLATES_debug: Dict[str, Dict[str, List[str]]] = {
+COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "nmap": [
             "nmap -sV {ip}",

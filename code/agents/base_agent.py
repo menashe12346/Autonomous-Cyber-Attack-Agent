@@ -247,7 +247,7 @@ class BaseAgent(ABC):
             return self.get_state_raw()
         
         trained_categories = {
-            "target": {"hostname", "netbios_name", "os", "services", "rpc_services"},
+            "target": {"hostname", "netbios_name", "os", "services", "rpc_services", "dns_records", "network_interfaces", "geo_location", "ssl", "http", "trust_relationships", "users", "groups"},
             "web_directories_status": None
         }
 
@@ -265,15 +265,15 @@ class BaseAgent(ABC):
                 print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
             else:
                 prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-                inner_prompt = self.model.run([prompt_for_prompt], context_num)[0]
+                inner_prompt = self.model.run(prompt_for_prompt, context_num)
                 self.command_llm_cache.set(self.last_action, inner_prompt)
 
-            final_prompt = PROMPT_2(command_output, inner_prompt)
+            final_prompt = PROMPT(command_output, inner_prompt)
 
-            responses = self.model.run([final_prompt], context_num)
+            response = self.model.run(final_prompt, context_num)
 
-            if responses and isinstance(responses, list) and len(responses) > 0:
-                full_response = responses[0].strip()
+            if response and len(response) > 0:
+                full_response = response.strip()
                 if len(full_response) >= 20:
                     print(f"[✓] Model returned valid response with {len(full_response)} characters.")
                 else:

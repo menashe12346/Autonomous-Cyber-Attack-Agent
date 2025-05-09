@@ -1955,5 +1955,380 @@
         }
       }
     }
+  },
+  {
+    "action": "sslscan 192.168.56.101",
+    "parsed": {
+      "target": {
+        "hostname": "",
+        "netbios_name": "",
+        "os": {
+          "distribution": {
+            "name": "",
+            "version": "",
+            "architecture": ""
+          },
+          "kernel": "",
+          "name": "linux"
+        },
+        "rpc_services": [
+          {
+            "program_number": "",
+            "version": "",
+            "protocol": "",
+            "port": "",
+            "service_name": ""
+          }
+        ],
+        "services": [
+          {
+            "port": "",
+            "protocol": "",
+            "service": "",
+            "server_type": "",
+            "server_version": "",
+            "supported_protocols": [],
+            "softwares": [
+              {
+                "name": "",
+                "version": ""
+              }
+            ]
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "httpx http://192.168.56.101",
+    "parsed": {
+      "target": {
+        "hostname": "",
+        "netbios_name": "",
+        "os": {
+          "distribution": {
+            "name": "",
+            "version": "",
+            "architecture": ""
+          },
+          "kernel": "",
+          "name": "linux"
+        },
+        "rpc_services": [
+          {
+            "program_number": "",
+            "version": "",
+            "protocol": "",
+            "port": "",
+            "service_name": ""
+          }
+        ],
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http-alt",
+            "server_type": "Apache",
+            "server_version": "2.2.8",
+            "supported_protocols": [],
+            "softwares": [
+              {
+                "name": "",
+                "version": ""
+              }
+            ]
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -p 80,443 --script=http-title,http-headers,http-methods 192.168.56.101",
+    "parsed": {
+      "target": {
+        "hostname": "192.168.56.101",
+        "netbios_name": "",
+        "os": {
+          "distribution": {
+            "architecture": "",
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "name": "linux"
+        },
+        "rpc_services": [
+          {
+            "program_number": "",
+            "version": "",
+            "protocol": "",
+            "port": "",
+            "service_name": ""
+          }
+        ],
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "2.2.8",
+            "supported_protocols": [],
+            "softwares": [
+              {
+                "name": "",
+                "version": ""
+              }
+            ]
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "nikto -h 192.168.56.101",
+    "parsed": {
+      "target": {
+        "hostname": "",
+        "netbios_name": "",
+        "os": {
+          "distribution": {
+            "architecture": "",
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "name": "linux"
+        },
+        "rpc_services": [
+          {
+            "program_number": "",
+            "version": "",
+            "protocol": "",
+            "port": "",
+            "service_name": ""
+          }
+        ],
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "2.2.8",
+            "supported_protocols": [],
+            "softwares": [
+              {
+                "name": "",
+                "version": ""
+              }
+            ]
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
+  },
+  {
+    "action": "sudo hping3 -S -p 80 -c 1 192.168.56.101",
+    "parsed": {
+      "target": {
+        "hostname": "",
+        "netbios_name": "",
+        "os": {
+          "distribution": {
+            "architecture": "",
+            "name": "",
+            "version": ""
+          },
+          "kernel": "",
+          "name": "linux"
+        },
+        "rpc_services": [
+          {
+            "program_number": "",
+            "version": "",
+            "protocol": "",
+            "port": "",
+            "service_name": ""
+          }
+        ],
+        "services": [
+          {
+            "port": "",
+            "protocol": "",
+            "service": "",
+            "server_type": "",
+            "server_version": "",
+            "supported_protocols": [],
+            "softwares": [
+              {
+                "name": "",
+                "version": ""
+              }
+            ]
+          }
+        ]
+      },
+      "web_directories_status": {
+        "200": {
+          "": ""
+        },
+        "301": {
+          "": ""
+        },
+        "302": {
+          "": ""
+        },
+        "307": {
+          "": ""
+        },
+        "401": {
+          "": ""
+        },
+        "403": {
+          "": ""
+        },
+        "500": {
+          "": ""
+        },
+        "502": {
+          "": ""
+        },
+        "503": {
+          "": ""
+        },
+        "504": {
+          "": ""
+        }
+      }
+    }
   }
 ]

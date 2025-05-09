@@ -30,30 +30,144 @@ Do NOT rename fields, add another keys, nest or restructure fileds, remove or re
 You MUST return JSON with exactly {len(top_level_keys)} top-level keys: {top_level_keys_string}. 
 Include all and only real fileds found.
 
-For the detected operating system, fill the "os" object with the following fields
-- name: OS name (e.g. "Linux", "Windows")
-- distribution name: distribution name (e.g. "Ubuntu", "Debian")
-- distribution version: version string (e.g. "20.04", "11")
-- distribution architecture: architecture string (e.g. "x86_64", "aarch64")
-- kernel: kernel version string (e.g. "5.15.0-75-generic") – if unknown, use ""
+Fill the "target" object based on all available scan data.
+For each section below, do not omit any keys. If a value is missing or unknown, set it explicitly to "" for strings or [] for lists.
+Ensure every array contains at least one object with all its keys.
 
-For each line of the scan, fill one object in the "services" array.  
-- port: numeric (e.g. 22)  
-- protocol: "tcp" or "udp"  
-- service: service name (e.g. "ssh")  
-- server_type: software name (e.g. "OpenSSH", "Apache")  
-- server_version: version string (e.g. "7.2p2", "2.4.18")  
-- supported_protocols: list of strings (e.g. ["SSH-2.0", "HTTP/1.1"]) – if unknown, use []  
-- softwares: list of objects like {{"name": ..., "version": ...}} – if none, use []
+Operating System
 
-For each discovered RPC program, fill one object in the "rpc_services" array
-- program_number: numeric program identifier (e.g. 100003)
-- version: version number (e.g. 3)
-- protocol: "tcp" or "udp"
-- port: port number (e.g. 2049)
-- service_name: service name (e.g. "nfs", "mountd") – if unknown, use ""
+For the detected operating system, fill the "os" object:
 
-**Do not** omit any of these keys. If you can’t find a value, set it to "" or [] explicitly.
+    name: general OS name (e.g. "Linux", "Windows")
+
+    distribution name: OS distribution (e.g. "Ubuntu", "Debian")
+
+    distribution version: version string (e.g. "20.04", "11")
+
+    distribution architecture: architecture (e.g. "x86_64", "aarch64")
+
+    kernel: kernel version string (e.g. "5.15.0-75-generic"); if unknown, use ""
+
+Services
+
+For each identified network service, add an object in "services":
+
+    port: numeric port (e.g. 22, 80)
+
+    protocol: either "tcp" or "udp"
+
+    service: service name (e.g. "ssh", "http")
+
+    server_type: software name (e.g. "OpenSSH", "Apache")
+
+    server_version: version string (e.g. "7.2p2", "2.4.18")
+
+    supported_protocols: list of protocol strings (e.g. ["SSH-2.0"]); use [] if unknown
+
+    softwares: list of software objects like:
+    {{"name": "mod_ssl", "version": "2.4.6"}} — if none, use [{{"name": "", "version": ""}}]
+
+RPC Services
+
+For each discovered RPC service, fill an object in "rpc_services":
+
+    program_number: numeric ID (e.g. 100003)
+
+    version: version number (e.g. 3)
+
+    protocol: "tcp" or "udp"
+
+    port: numeric port (e.g. 2049)
+
+    service_name: service name (e.g. "nfs", "mountd"); if unknown, use ""
+
+DNS Records
+
+For each discovered DNS record, add an object to "dns_records":
+
+    type: record type (e.g. "A", "MX", "TXT")
+
+    value: record value (e.g. IP address, domain, or text)
+
+Network Interfaces
+
+For each network interface found, fill an object in "network_interfaces":
+
+    name: interface name (e.g. "eth0", "wlan0")
+
+    ip_address: IP address (e.g. "192.168.1.100")
+
+    mac_address: MAC address (e.g. "00:11:22:33:44:55")
+
+    netmask: netmask (e.g. "255.255.255.0")
+
+    gateway: default gateway (e.g. "192.168.1.1")
+
+Geolocation
+
+If geolocation information is available, fill the "geo_location" object:
+
+    country: country name (e.g. "United States")
+
+    region: region or state (e.g. "California")
+
+    city: city name (e.g. "San Francisco")
+
+SSL/TLS Configuration
+
+If SSL/TLS was detected, fill the "ssl" object:
+
+    issuer: name of the certificate issuer (e.g. "Let's Encrypt")
+
+    protocols: list of supported TLS versions (e.g. ["TLSv1.2", "TLSv1.3"]); use [] if unknown
+
+HTTP Fingerprinting
+
+If a web server was discovered, fill the "http" object:
+
+    headers: fill each if available:
+
+        "Server": server type/version (e.g. "Apache/2.4.6")
+
+        "X-Powered-By": platform (e.g. "PHP/7.4.3")
+
+        "Content-Type": MIME type (e.g. "text/html")
+
+    title: web page title (e.g. "Welcome to nginx!")
+
+    robots_txt: contents of /robots.txt as raw text (or "")
+
+    powered_by: other evidence of frameworks/platforms (e.g. "WordPress")
+
+Trust Relationships
+
+If any trust relationships (e.g., Windows domain trusts) are discovered, fill "trust_relationships" with one object per trust:
+
+    source: the trusting domain/system
+
+    target: the trusted domain/system
+
+    type: type of trust (e.g. "one-way", "transitive")
+
+    direction: "inbound" or "outbound"
+
+    auth_type: authentication method (e.g. "Kerberos")
+
+User Accounts
+
+For each discovered user, add an object to "users":
+
+    username: account username
+
+    group: group name (e.g. "Administrators")
+
+    domain: associated domain (e.g. "WORKGROUP")
+
+Groups
+
+If group names are discovered, add them to the "groups" array as strings (e.g. "Administrators", "Users").
+Even if none are found, the list should still be included as [""].
+omit any of these keys. If you can’t find a value, set it to "" or [] explicitly.
 
 In "web_directories_status", for each status ({clean_prompt(json.dumps(EXPECTED_STATUS_CODES, indent=4, separators=(',',':')))}): Map any discovered paths (like "/admin") to their message (or use "" if no message) like this pattern {{ "{{" }}"": ""{{ }}" }}.
 

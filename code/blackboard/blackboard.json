@@ -1,12 +1,33 @@
 {
   "target": {
+    "dns_records": [
+      {
+        "type": "",
+        "value": ""
+      }
+    ],
+    "geo_location": {
+      "city": "",
+      "country": "",
+      "region": ""
+    },
+    "groups": [],
     "hostname": "",
     "netbios_name": "",
+    "network_interfaces": [
+      {
+        "name": "",
+        "ip_address": "",
+        "mac_address": "",
+        "netmask": "",
+        "gateway": ""
+      }
+    ],
     "os": {
       "distribution": {
+        "architecture": "",
         "name": "",
-        "version": "",
-        "architecture": ""
+        "version": ""
       },
       "kernel": "",
       "name": "linux"
@@ -27,13 +48,8 @@
         "service": "ftp",
         "server_type": "vsftpd",
         "server_version": "2.3.4",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "22",
@@ -41,13 +57,8 @@
         "service": "ssh",
         "server_type": "OpenSSH",
         "server_version": "4.7p1",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "23",
@@ -55,13 +66,8 @@
         "service": "telnet",
         "server_type": "Linux",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "25",
@@ -69,13 +75,8 @@
         "service": "smtp",
         "server_type": "Postfix",
         "server_version": "3.5.10",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "53",
@@ -83,13 +84,8 @@
         "service": "domain",
         "server_type": "ISC",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "80",
@@ -97,13 +93,8 @@
         "service": "http",
         "server_type": "Apache",
         "server_version": "2.4.29",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "110",
@@ -111,13 +102,8 @@
         "service": "pop3",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "111",
@@ -125,13 +111,8 @@
         "service": "rpcbind",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "139",
@@ -139,13 +120,8 @@
         "service": "netbios-ssn",
         "server_type": "Samba",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "143",
@@ -153,13 +129,8 @@
         "service": "imap2",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "443",
@@ -167,13 +138,8 @@
         "service": "https",
         "server_type": "OpenSSL",
         "server_version": "1.1.1",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "445",
@@ -181,13 +147,8 @@
         "service": "netbios-ssn",
         "server_type": "Samba",
         "server_version": "4.7.6",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "512",
@@ -195,13 +156,8 @@
         "service": "exec",
         "server_type": "Netkit",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "513",
@@ -209,13 +165,8 @@
         "service": "login",
         "server_type": "OpenBSD",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "514",
@@ -223,13 +174,8 @@
         "service": "shell",
         "server_type": "Netkit",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "1099",
@@ -237,13 +183,8 @@
         "service": "java-rmi",
         "server_type": "GNU",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "1524",
@@ -251,13 +192,8 @@
         "service": "bindshell",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "2049",
@@ -265,13 +201,8 @@
         "service": "nfs",
         "server_type": "2-4",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "2121",
@@ -279,13 +210,8 @@
         "service": "ftp",
         "server_type": "ProFTPD",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "3306",
@@ -293,13 +219,8 @@
         "service": "mysql",
         "server_type": "MySQL",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "5432",
@@ -307,13 +228,8 @@
         "service": "postgresql",
         "server_type": "PostgreSQL",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "5900",
@@ -321,13 +237,8 @@
         "service": "vnc",
         "server_type": "VNC",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "6000",
@@ -335,13 +246,8 @@
         "service": "X11",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "6667",
@@ -349,13 +255,8 @@
         "service": "irc",
         "server_type": "UnrealIRCd",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "8009",
@@ -363,13 +264,8 @@
         "service": "ajp13",
         "server_type": "Apache",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "8180",
@@ -377,13 +273,8 @@
         "service": "http",
         "server_type": "Apache",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
       },
       {
         "port": "10000",
@@ -391,22 +282,39 @@
         "service": "unknown",
         "server_type": "",
         "server_version": "",
-        "supported_protocols": [],
-        "softwares": [
-          {
-            "name": "",
-            "version": ""
-          }
-        ]
+        "supported_protocols": "",
+        "softwares": []
+      }
+    ],
+    "ssl": {
+      "issuer": "",
+      "protocols": []
+    },
+    "trust_relationships": [
+      {
+        "source": "",
+        "target": "",
+        "type": "",
+        "direction": "",
+        "auth_type": ""
+      }
+    ],
+    "users": [
+      {
+        "username": "",
+        "group": "",
+        "domain": ""
       }
     ]
   },
   "web_directories_status": {
     "200": {
-      "": ""
+      "/": "OK"
     },
     "301": {
-      "": ""
+      "/phpMyAdmin": "Moved Permanently",
+      "/test": "Moved Permanently",
+      "/twiki": "Moved Permanently"
     },
     "302": {
       "": ""
@@ -418,7 +326,11 @@
       "": ""
     },
     "403": {
-      "": ""
+      "/.hta": "Forbidden",
+      "/.htaccess": "Forbidden",
+      "/.htpasswd": "Forbidden",
+      "/cgi-bin/": "Forbidden",
+      "/server-status": "Forbidden"
     },
     "500": {
       "": ""

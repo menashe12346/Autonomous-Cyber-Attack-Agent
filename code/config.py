@@ -8,8 +8,8 @@ DATABASES_PATH = f"{PROJECT_PATH}/code/databases"
 OS_DATASETS = f"{DATASETS_PATH}/os_datasets"
 
 # Simulation parameters
-NUM_EPISODES = 400
-MAX_STEPS_PER_EPISODE = 6
+NUM_EPISODES = 1000
+MAX_STEPS_PER_EPISODE = 4
 EPSILON = 0.6
 MAX_ENCODING_FEATURES = 1024
 
@@ -24,6 +24,7 @@ WORDLISTS = {
 # LLM Model configuration
 LLAMA_RUN_PATH = f"{PROJECT_PATH}/code/models/llama.cpp/build/bin/llama-run"
 MISTRAL_MODEL_PATH = f"{PROJECT_PATH}/code/models/nous-hermes/Nous-Hermes-2-Mistral-7B-DPO.Q4_K_M.gguf"
+
 
 # CACHE CONFIGURATION
 
@@ -116,11 +117,58 @@ _BASE_DEFAULT_STATE = {
                 "port": "",
                 "service_name": ""
             }
-        ]
+        ],
+        "dns_records": [
+            {"type": "", "value": ""},
+        ],
+        "network_interfaces": [
+            {
+                "name": "",
+                "ip_address": "",
+                "mac_address": "",
+                "netmask": "",
+                "gateway": ""
+            }
+        ],
+        "geo_location": {
+            "country": "",
+            "region": "",
+            "city": "",
+        },
+        "ssl": {
+            "issuer": "",
+            "protocols": [""],
+        },
+        "http_category": {
+            "headers": {
+                "Server": "",
+                "X-Powered-By": "",
+                "Content-Type": ""
+            },
+            "title": "",
+            "robots_txt": "",
+            "powered_by": ""
+        },
+        "trust_relationships": [
+            {
+                "source": "",
+                "target": "",
+                "type": "",
+                "direction": "",
+                "auth_type": ""
+            }
+        ],
+        "users": [
+            {
+                "username": "",
+                "group": "",
+                "domain": "",
+            },
+        ],
+        "groups": [""]
     },
     "web_directories_status": {code: {"": ""} for code in EXPECTED_STATUS_CODES}
 }
-
 
 import copy
 
@@ -171,6 +219,10 @@ STATE_SCHEMA = {
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": "General operating system name, e.g., 'linux'."
+    },
+    "target.os.distribution": {
+        "type": "dict",
+        "llm_prompt": ""
     },
     "target.os.distribution.name": {
         "type": "string",
@@ -237,7 +289,7 @@ STATE_SCHEMA = {
         "llm_prompt": ""
     },
     "target.services[].supported_protocols[]": {
-        "type": "str",
+        "type": "string",
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": ""
@@ -249,18 +301,18 @@ STATE_SCHEMA = {
         "llm_prompt": ""
     },
     "target.services[].softwares[].name": {
-        "type": "str",
+        "type": "string",
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": ""
     },
     "target.services[].softwares[].version": {
-        "type": "str",
+        "type": "string",
         "encoder": "base100_encode",
         "reward": 0.1,
         "llm_prompt": ""
     },
-     "target.rpc_services": {
+    "target.rpc_services": {
         "type": "list",
         "correction_func": "correct_rpc_services",
         "llm_prompt": ""
@@ -297,6 +349,214 @@ STATE_SCHEMA = {
         "reward": 0.1,
         "llm_prompt": ""
     },
+    "target.dns_records": {
+        "type": "list",
+        "correction_func": "correct_dns_records",
+        "llm_prompt": ""
+    },
+    "target.dns_records[].type": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.dns_records[].value": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0,
+        "llm_prompt": ""
+    },
+    "target.network_interfaces": {
+        "type": "list",
+        "correction_func": "correct_network_interfaces",
+        "llm_prompt": ""
+    },
+    "target.network_interfaces[].name": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.network_interfaces[].ip_address": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.network_interfaces[].mac_address": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.network_interfaces[].netmask": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.network_interfaces[].gateway": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.geo_location": {
+        "type": "dict",
+        "llm_prompt": ""
+    },
+    "target.geo_location.country": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.geo_location.region": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.geo_location.city": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": ""
+    },
+    "target.ssl": {
+        "type": "dict",
+        "llm_prompt": ""
+    },
+    "target.ssl.issuer": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.ssl.protocols": {
+        "type": "list",
+        "llm_prompt": ""
+    },
+    "target.ssl.protocols[]": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": ""
+    },
+    "target.http_category": {
+        "type": "dict",
+        "llm_prompt": ""
+    },
+    "target.http_category.headers": {
+        "type": "dict",
+        "llm_prompt": ""
+    },
+    "target.http_category.headers.Server": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": "Web server software name and version, e.g., 'Apache/2.4.41'."
+    },
+    "target.http_category.headers.X-Powered-By": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Technologies reported in the X-Powered-By header, e.g., 'PHP/7.4'."
+    },
+    "target.http_category.headers.Content-Type": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "MIME type of the HTTP response, e.g., 'text/html'."
+    },
+    "target.http_category.title": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Title of the web page as seen in the browser tab."
+    },
+    "target.http_category.robots_txt": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Contents of the robots.txt file if present."
+    },
+    "target.http_category.powered_by": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Technologies discovered in meta tags or HTTP headers, e.g., 'WordPress'."
+    },
+
+    "target.trust_relationships": {
+        "type": "list",
+        "llm_prompt": "List of trust relationships between systems or domains."
+    },
+    "target.trust_relationships[].source": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": "The source system or domain in the trust relationship."
+    },
+    "target.trust_relationships[].target": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": "The trusted system or domain in the relationship."
+    },
+    "target.trust_relationships[].type": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Type of trust relationship (e.g., 'one-way', 'transitive')."
+    },
+    "target.trust_relationships[].direction": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Direction of trust: 'inbound' or 'outbound'."
+    },
+    "target.trust_relationships[].auth_type": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Authentication method used in the trust (e.g., 'Kerberos')."
+    },
+
+    "target.users": {
+        "type": "list",
+        "llm_prompt": "List of discovered user accounts."
+    },
+    "target.users[].username": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.1,
+        "llm_prompt": "Username of the account."
+    },
+    "target.users[].group": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Group the user belongs to, e.g., 'Administrators'."
+    },
+    "target.users[].domain": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Domain or hostname associated with the user account."
+    },
+
+    "target.groups": {
+        "type": "list",
+        "llm_prompt": "List of user groups on the system."
+    },
+    "target.groups[]": {
+        "type": "string",
+        "encoder": "base100_encode",
+        "reward": 0.05,
+        "llm_prompt": "Name of the group, e.g., 'Administrators', 'Users'."
+    },
+
     "web_directories_status": {
         "type": "dict",
         "correction_func": "correct_web_directories",

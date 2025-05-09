@@ -192,8 +192,9 @@ ALLOWED_PATH_CHARS_REGEX = re.compile(r'^[A-Za-z0-9\-._~/]*$')
 
 def is_valid_url_path(path: str) -> bool:
     return isinstance(path, str) and bool(ALLOWED_PATH_CHARS_REGEX.fullmatch(path))
-    
+
 def correct_web_directories(ip: str, web_dirs: dict) -> dict:
+    return web_dirs # debug
     verified = {code: {} for code in EXPECTED_STATUS_CODES}
 
     for code, entries in web_dirs.items():
@@ -321,21 +322,22 @@ def correct_state(*, state: dict, schema: dict = None, base_path: str = "", **kw
             )
 
     return corrected
-
-
+    
 def clean_state(state: dict, structure: dict) -> dict:
     """
-    Recursively traverses the state based on DEFAULT_STATE_STRUCTURE and:
-    1. For any list of dicts: removes dicts where all fields are empty.
-    2. If the final list is empty: adds one template item (with all empty fields).
-    3. For dict-of-dicts (e.g., web_directories_status): removes "" keys with "" values.
+    Recursively traverses the state and applies cleaning rules based on the given structure.
+    Supports:
+    - Lists of dicts: removes empty dicts and ensures one template remains.
+    - Lists of strings: removes empty strings and ensures at least one empty string remains.
+    - Dicts of dicts (e.g., status codes): removes entries with both key and value empty.
+    - Recursively cleans nested structures.
 
     Args:
-        state: The actual state dict to be cleaned.
-        structure: The DEFAULT_STATE_STRUCTURE that defines the template.
+        state: Actual state dictionary to clean.
+        structure: Expected structure (e.g. DEFAULT_STATE_STRUCTURE).
 
     Returns:
-        A cleaned state dict with invalid list entries removed and empty templates preserved.
+        Cleaned state dictionary.
     """
     cleaned = copy.deepcopy(state)
 
@@ -343,31 +345,47 @@ def clean_state(state: dict, structure: dict) -> dict:
         if key not in cleaned:
             continue
 
-        if isinstance(expected_value, list) and isinstance(cleaned[key], list):
-            template_item = expected_value[0] if expected_value else {}
-            # Remove dicts with all fields empty
-            cleaned_list = [
-                item for item in cleaned[key]
-                if any(v != "" for v in item.values())
-            ]
-            # If empty after cleaning, insert one blank template
-            if not cleaned_list:
-                cleaned_list = [copy.deepcopy(template_item)]
-            cleaned[key] = cleaned_list
+        value = cleaned[key]
 
-        elif isinstance(expected_value, dict) and isinstance(cleaned[key], dict):
-            # Special case for web_directories_status-like dicts of dicts
-            inner_dict = cleaned[key]
-            for subkey, subdict in inner_dict.items():
-                if isinstance(subdict, dict):
-                    inner_dict[subkey] = {
-                        k: v for k, v in subdict.items() if k != "" or v != ""
-                    }
-                    # If nothing left, ensure one empty entry
-                    if not inner_dict[subkey]:
-                        inner_dict[subkey] = {"": ""}
-            # Continue recursive cleaning
-            cleaned[key] = clean_state(cleaned[key], expected_value)
+        # Handle lists
+        if isinstance(expected_value, list) and isinstance(value, list):
+            if not expected_value:
+                # Empty schema list — cannot infer template
+                continue
+
+            template_item = expected_value[0]
+
+            if isinstance(template_item, dict):
+                # List of dicts
+                cleaned_list = [
+                    item for item in value
+                    if isinstance(item, dict) and any(v != "" for v in item.values())
+                ]
+                if not cleaned_list:
+                    cleaned_list = [copy.deepcopy(template_item)]
+                cleaned[key] = cleaned_list
+
+            elif isinstance(template_item, str):
+                # List of strings
+                cleaned_list = [item for item in value if isinstance(item, str) and item.strip() != ""]
+                if not cleaned_list:
+                    cleaned_list = [""]
+                cleaned[key] = cleaned_list
+
+        # Handle dicts
+        elif isinstance(expected_value, dict) and isinstance(value, dict):
+            # Special case: dict-of-dicts (e.g., web_directories_status)
+            if all(isinstance(v, dict) for v in value.values()):
+                for subkey, subdict in value.items():
+                    if isinstance(subdict, dict):
+                        # Remove entries where key and value are empty
+                        value[subkey] = {
+                            k: v for k, v in subdict.items() if k != "" or v != ""
+                        }
+                        if not value[subkey]:
+                            value[subkey] = {"": ""}
+            # Recurse into nested dicts
+            cleaned[key] = clean_state(value, expected_value)
 
     return cleaned
 

@@ -284,19 +284,20 @@ def extract_json_parts_recursive(text: str, structure: dict) -> tuple[dict, dict
                     print(f"[DEBUG] raw_items splits: {raw_items}")
 
                     list_result = []
+
                     for raw in raw_items:
-                        current = {}
-                        # 1) extract all fields into current
+                        current = {k: "" for k in item_keys}
+                        stop_fields = set(structure.keys()) - set(item_keys)
+                        
                         for field in item_keys:
-                            val, _ = extract_value_after_key(raw, field, next_keys=item_keys)
+                            val, offset = extract_value_after_key(raw, field, next_keys=item_keys)
                             current[field] = clean_input_string(val or "")
+                        
+                        for word in stop_fields:
+                            if re.search(rf'\b{re.escape(word)}\b\s*:', raw):
+                                print(f"[WARNING] Skipping irrelevant field inside block: {word}")
+                                break
 
-                        # 2) force any list-fields back to the schema placeholder
-                        for field, exp in item_struct.items():
-                            if isinstance(exp, list) and not isinstance(current.get(field), list):
-                                current[field] = copy.deepcopy(exp)
-
-                        # 3) only append this item if the mandatory field is non-empty
                         if current.get(item_keys[0], ""):
                             list_result.append(current)
 
@@ -489,19 +490,29 @@ def build_state_from_parts(extracted_parts: dict, expected_structure: dict) -> d
 
 def print_json_parts(parts):
     def print_dict(d, indent=0):
+        if not isinstance(d, dict):
+            print(' ' * indent + str(d))
+            return
+
         for key, value in d.items():
             if isinstance(value, dict):
                 print(' ' * indent + f"{key}:")
                 print_dict(value, indent + 2)
+
             elif isinstance(value, list):
                 print(' ' * indent + f"{key}:")
                 for i, item in enumerate(value):
                     print(f"{' ' * (indent + 2)}Item {i + 1}:")
-                    print_dict(item, indent + 4)
+                    if isinstance(item, dict):
+                        print_dict(item, indent + 4)
+                    else:
+                        print(' ' * (indent + 4) + str(item))
+
             else:
                 print(f"{' ' * indent}{key}: {value}")
 
     print_dict(parts)
+
 
 def fix_json(state: dict, new_data: str) -> dict:
     # 1) Extract parts and report
@@ -523,14 +534,14 @@ def fix_json(state: dict, new_data: str) -> dict:
             return parts
         else:
             return parts
-
-    extracted_parts = _apply_normalization(extracted_parts, initialize_blackboard())  
-
+        
     if extracted_parts:
         print("✅ JSON extracted successfully.")
-       # print_json_parts(f"[DEBUG] extracted_parts")
+        print_json_parts(extracted_parts)
     else:
         print("❌ Failed to extract valid JSON.")
+
+    extracted_parts = _apply_normalization(extracted_parts, initialize_blackboard())  
 
     if missing:
         missing = {
