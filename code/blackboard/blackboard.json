@@ -1,37 +1,34 @@
 {
   "target": {
-    "dns_records": [
-      {
-        "type": "",
-        "value": ""
-      }
-    ],
-    "geo_location": {
-      "city": "",
-      "country": "",
-      "region": ""
-    },
-    "groups": [],
     "hostname": "",
     "netbios_name": "",
-    "network_interfaces": [
-      {
+    "os": {
+      "name": "",
+      "distribution": {
         "name": "",
-        "ip_address": "",
-        "mac_address": "",
-        "netmask": "",
-        "gateway": ""
+        "version": "",
+        "architecture": ""
+      },
+      "kernel": ""
+    },
+    "services": [
+      {
+        "port": "",
+        "protocol": "",
+        "service": "",
+        "server_type": "",
+        "server_version": "",
+        "supported_protocols": [
+          ""
+        ],
+        "softwares": [
+          {
+            "name": "",
+            "version": ""
+          }
+        ]
       }
     ],
-    "os": {
-      "distribution": {
-        "architecture": "",
-        "name": "",
-        "version": ""
-      },
-      "kernel": "",
-      "name": "linux"
-    },
     "rpc_services": [
       {
         "program_number": "",
@@ -41,254 +38,41 @@
         "service_name": ""
       }
     ],
-    "services": [
+    "dns_records": [
       {
-        "port": "21",
-        "protocol": "tcp",
-        "service": "ftp",
-        "server_type": "vsftpd",
-        "server_version": "2.3.4",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "22",
-        "protocol": "tcp",
-        "service": "ssh",
-        "server_type": "OpenSSH",
-        "server_version": "4.7p1",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "23",
-        "protocol": "tcp",
-        "service": "telnet",
-        "server_type": "Linux",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "25",
-        "protocol": "tcp",
-        "service": "smtp",
-        "server_type": "Postfix",
-        "server_version": "3.5.10",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "53",
-        "protocol": "tcp",
-        "service": "domain",
-        "server_type": "ISC",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "80",
-        "protocol": "tcp",
-        "service": "http",
-        "server_type": "Apache",
-        "server_version": "2.4.29",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "110",
-        "protocol": "tcp",
-        "service": "pop3",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "111",
-        "protocol": "tcp",
-        "service": "rpcbind",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "139",
-        "protocol": "tcp",
-        "service": "netbios-ssn",
-        "server_type": "Samba",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "143",
-        "protocol": "tcp",
-        "service": "imap2",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "443",
-        "protocol": "tcp",
-        "service": "https",
-        "server_type": "OpenSSL",
-        "server_version": "1.1.1",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "netbios-ssn",
-        "server_type": "Samba",
-        "server_version": "4.7.6",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "512",
-        "protocol": "tcp",
-        "service": "exec",
-        "server_type": "Netkit",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "513",
-        "protocol": "tcp",
-        "service": "login",
-        "server_type": "OpenBSD",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "514",
-        "protocol": "tcp",
-        "service": "shell",
-        "server_type": "Netkit",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "1099",
-        "protocol": "tcp",
-        "service": "java-rmi",
-        "server_type": "GNU",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "1524",
-        "protocol": "tcp",
-        "service": "bindshell",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "2049",
-        "protocol": "tcp",
-        "service": "nfs",
-        "server_type": "2-4",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ftp",
-        "server_type": "ProFTPD",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "3306",
-        "protocol": "tcp",
-        "service": "mysql",
-        "server_type": "MySQL",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "5432",
-        "protocol": "tcp",
-        "service": "postgresql",
-        "server_type": "PostgreSQL",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "5900",
-        "protocol": "tcp",
-        "service": "vnc",
-        "server_type": "VNC",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "X11",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "6667",
-        "protocol": "tcp",
-        "service": "irc",
-        "server_type": "UnrealIRCd",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "8009",
-        "protocol": "tcp",
-        "service": "ajp13",
-        "server_type": "Apache",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "8180",
-        "protocol": "tcp",
-        "service": "http",
-        "server_type": "Apache",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
-      },
-      {
-        "port": "10000",
-        "protocol": "tcp",
-        "service": "unknown",
-        "server_type": "",
-        "server_version": "",
-        "supported_protocols": "",
-        "softwares": []
+        "type": "",
+        "value": ""
       }
     ],
+    "network_interfaces": [
+      {
+        "name": "",
+        "ip_address": "",
+        "mac_address": "",
+        "netmask": "",
+        "gateway": ""
+      }
+    ],
+    "geo_location": {
+      "country": "",
+      "region": "",
+      "city": ""
+    },
     "ssl": {
       "issuer": "",
-      "protocols": []
+      "protocols": [
+        ""
+      ]
+    },
+    "http_category": {
+      "headers": {
+        "Server": "",
+        "X-Powered-By": "",
+        "Content-Type": ""
+      },
+      "title": "",
+      "robots_txt": "",
+      "powered_by": ""
     },
     "trust_relationships": [
       {
@@ -305,7 +89,11 @@
         "group": "",
         "domain": ""
       }
-    ]
+    ],
+    "groups": [
+      ""
+    ],
+    "ip": "192.168.56.101"
   },
   "web_directories_status": {
     "200": {
