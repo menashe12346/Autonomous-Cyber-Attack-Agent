@@ -309,12 +309,10 @@
   },
   "web_directories_status": {
     "200": {
-      "/": "OK"
+      "": ""
     },
     "301": {
-      "/phpMyAdmin": "Moved Permanently",
-      "/test": "Moved Permanently",
-      "/twiki": "Moved Permanently"
+      "": ""
     },
     "302": {
       "": ""
@@ -326,11 +324,7 @@
       "": ""
     },
     "403": {
-      "/.hta": "Forbidden",
-      "/.htaccess": "Forbidden",
-      "/.htpasswd": "Forbidden",
-      "/cgi-bin/": "Forbidden",
-      "/server-status": "Forbidden"
+      "": ""
     },
     "500": {
       "": ""
