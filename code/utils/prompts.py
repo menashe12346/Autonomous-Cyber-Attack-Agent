@@ -34,8 +34,6 @@ Fill the "target" object based on all available scan data.
 For each section below, do not omit any keys. If a value is missing or unknown, set it explicitly to "" for strings or [] for lists.
 Ensure every array contains at least one object with all its keys.
 
-Operating System
-
 For the detected operating system, fill the "os" object:
 
     name: general OS name (e.g. "Linux", "Windows")
@@ -47,8 +45,6 @@ For the detected operating system, fill the "os" object:
     distribution architecture: architecture (e.g. "x86_64", "aarch64")
 
     kernel: kernel version string (e.g. "5.15.0-75-generic"); if unknown, use ""
-
-Services
 
 For each identified network service, add an object in "services":
 
@@ -67,8 +63,6 @@ For each identified network service, add an object in "services":
     softwares: list of software objects like:
     {{"name": "mod_ssl", "version": "2.4.6"}} — if none, use [{{"name": "", "version": ""}}]
 
-RPC Services
-
 For each discovered RPC service, fill an object in "rpc_services":
 
     program_number: numeric ID (e.g. 100003)
@@ -81,15 +75,11 @@ For each discovered RPC service, fill an object in "rpc_services":
 
     service_name: service name (e.g. "nfs", "mountd"); if unknown, use ""
 
-DNS Records
-
 For each discovered DNS record, add an object to "dns_records":
 
     type: record type (e.g. "A", "MX", "TXT")
 
     value: record value (e.g. IP address, domain, or text)
-
-Network Interfaces
 
 For each network interface found, fill an object in "network_interfaces":
 
@@ -103,8 +93,6 @@ For each network interface found, fill an object in "network_interfaces":
 
     gateway: default gateway (e.g. "192.168.1.1")
 
-Geolocation
-
 If geolocation information is available, fill the "geo_location" object:
 
     country: country name (e.g. "United States")
@@ -113,15 +101,11 @@ If geolocation information is available, fill the "geo_location" object:
 
     city: city name (e.g. "San Francisco")
 
-SSL/TLS Configuration
-
 If SSL/TLS was detected, fill the "ssl" object:
 
     issuer: name of the certificate issuer (e.g. "Let's Encrypt")
 
     protocols: list of supported TLS versions (e.g. ["TLSv1.2", "TLSv1.3"]); use [] if unknown
-
-HTTP Fingerprinting
 
 If a web server was discovered, fill the "http" object:
 
@@ -139,8 +123,6 @@ If a web server was discovered, fill the "http" object:
 
     powered_by: other evidence of frameworks/platforms (e.g. "WordPress")
 
-Trust Relationships
-
 If any trust relationships (e.g., Windows domain trusts) are discovered, fill "trust_relationships" with one object per trust:
 
     source: the trusting domain/system
@@ -153,8 +135,6 @@ If any trust relationships (e.g., Windows domain trusts) are discovered, fill "t
 
     auth_type: authentication method (e.g. "Kerberos")
 
-User Accounts
-
 For each discovered user, add an object to "users":
 
     username: account username
@@ -162,8 +142,6 @@ For each discovered user, add an object to "users":
     group: group name (e.g. "Administrators")
 
     domain: associated domain (e.g. "WORKGROUP")
-
-Groups
 
 If group names are discovered, add them to the "groups" array as strings (e.g. "Administrators", "Users").
 Even if none are found, the list should still be included as [""].

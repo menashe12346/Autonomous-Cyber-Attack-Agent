@@ -136,7 +136,7 @@ class BaseAgent(ABC):
         encoded_next_state = self.state_encoder.encode(next_state, self.actions_history)
 
         # Step 7: reward and update model
-        reward = self.get_reward(state, action, next_state)
+        reward = self.get_reward(state, action, next_state, parsed_info)
         self.episode_total_reward += reward
         #print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 

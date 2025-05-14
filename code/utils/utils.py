@@ -6,6 +6,21 @@ import orjson
 import csv
 import shutil
 
+def get_first_word(s: str) -> str:
+    """
+    Returns the first word in the string.
+    A word is defined as a sequence of non-space characters.
+    """
+    return s.strip().split()[0] if s.strip() else ""
+
+
+def does_not_contain_brackets_pattern(s: str) -> bool:
+    """
+    Returns True if the string does NOT contain the exact pattern '[-]'
+    anywhere in it.
+    """
+    return '[-]' not in s
+
 def get_nested(d: dict, path: str):
     """
     Retrieves a nested value from a dictionary using dot notation.

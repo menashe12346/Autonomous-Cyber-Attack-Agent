@@ -4,7 +4,7 @@ from collections import Counter
 
 from agents.base_agent import BaseAgent
 from tools.action_space import get_commands_for_agent
-from utils.utils import get_nested
+from utils.utils import get_nested, does_not_contain_brackets_pattern, get_first_word
 from config import STATE_SCHEMA
 
 def traverse_schema_key(data, key_parts):
@@ -138,7 +138,7 @@ class ReconAgent(BaseAgent):
 
         return True
     
-    def get_reward(self, prev_dict: dict, action: str, next_dict: dict) -> float:
+    def get_reward(self, prev_dict: dict, action: str, next_dict: dict, output: str) -> float:
         """
         Generic reward calculation based solely on STATE_SCHEMA.
         - Rewards discovery of new primitive or dict-keys/list-items per schema key.
