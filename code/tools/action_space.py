@@ -3,7 +3,7 @@ from typing import List, Dict
 from config import WORDLISTS, TARGET_IP
 
 # Mapping of tool categories to their command templates
-COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
+COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "ping": [
             "ping -c 1 {ip}"
@@ -69,11 +69,14 @@ COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
 }
 
 # [DEBUG] For Debugging
-COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
+COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "nmap": [
-            "nmap -sV {ip}",
-        ]
+            #"nmap -sV {ip}",
+        ],
+        "sslscan": [
+            "sslscan {ip}"
+        ],
     },
 }
 

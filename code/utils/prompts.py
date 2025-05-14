@@ -1,11 +1,31 @@
 import json
 import os
 import sys
-from utils.utils import clean_command_output, clean_prompt
+from utils.utils import clean_command_output, clean_prompt, get_nested
 
 from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE, STATE_SCHEMA
 
-def PROMPT(command_output: str, Custom_prompt: str) -> str:
+def PROMPT(command_output: str, category: str) -> str:
+    {print(category)}
+    result = f"""
+Extract the following field: {STATE_SCHEMA.get(category)["llm_prompt"]}
+
+Rules:
+- You will be given raw output from a scan or system command.
+- Your task is to extract ONLY the specific information you were asked to extract — no more, no less.
+- Base your answer strictly on the requested field.
+
+Response format:
+- If the value exists clearly and exactly in the text, return only the exact value.
+- If the value does NOT appear, return exactly: NO
+- Do NOT guess, explain, expand, or justify anything.
+
+Now extract from the following text:
+{command_output}
+"""
+    return result
+
+def PROMPT_real(command_output: str, Custom_prompt: str) -> str:
   top_level_keys = list(DEFAULT_STATE_STRUCTURE.keys())
   
   if len(top_level_keys) == 1:

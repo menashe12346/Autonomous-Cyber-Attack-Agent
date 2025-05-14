@@ -6,6 +6,7 @@ import os
 import sys
 import numpy as np
 from abc import ABC, abstractmethod
+from typing import Any, List
 
 from config import DEFAULT_STATE_STRUCTURE
 
@@ -237,55 +238,99 @@ class BaseAgent(ABC):
         self.command_cache[action] = output
         return output
         
-    def parse_output(self, command_output: str, context_num = 1, retries: int = 3) -> dict:
+    def parse_output(self, command_output: str, context_num=1, retries: int = 1) -> dict:
         """
-        Parse command output using the LLM. Use cache if available.
-        Retry recursively if the model response is too short.
+        Parse command output using the LLM. Each trained category (including nested ones)
+        gets its own prompt. Caching is done per action::category_path.
         """
         if retries == 0:
             print("[✗] Reached maximum retries. Returning last known good state.")
-            return self.get_state_raw()
-        
+            #return self.get_state_raw()
+
         trained_categories = {
-            "target": {"hostname", "netbios_name", "os", "services", "rpc_services", "dns_records", "network_interfaces", "geo_location", "ssl", "http", "trust_relationships", "users", "groups"},
+            "target": {
+                "hostname", "netbios_name", "os", "services", "rpc_services", "dns_records",
+                "network_interfaces", "geo_location", "ssl", "http", "trust_relationships",
+                "users", "groups"
+            },
             "web_directories_status": None
         }
 
-        cached = self.llm_cache.get(self.last_action)
+        def extract_paths(d: Any, prefix="") -> list[str]:
+            """
+            Extracts all nested paths from a JSON-like structure (dict/list/set).
+            Ignores numeric indices in lists — assumes all list items have same structure.
+            """
+            paths = []
 
-        if cached:
-            print("\033[93m[CACHE] Using cached LLM result.\033[0m")
-            full_response = cached
-            if not isinstance(full_response, str):
-                full_response = json.dumps(full_response)
-        else:
-            cached_inner_prompt = self.command_llm_cache.get(self.last_action)
-            if cached_inner_prompt:
-                inner_prompt = cached_inner_prompt
-                print("\033[96m[PROMPT CACHE] Using cached inner prompt.\033[0m")
+            if isinstance(d, dict):
+                for key, val in d.items():
+                    current_path = f"{prefix}::{key}" if prefix else key
+                    paths.extend(extract_paths(val, current_path))
+
+            elif isinstance(d, list):
+                if d:  # Only process if list is not empty
+                    paths.extend(extract_paths(d[0], prefix))
+
+            elif isinstance(d, set):
+                fake_dict = {key: None for key in d}
+                paths.extend(extract_paths(fake_dict, prefix))
+
             else:
-                prompt_for_prompt = PROMPT_FOR_A_PROMPT(command_output)
-                inner_prompt = self.model.run(prompt_for_prompt, context_num)
-                self.command_llm_cache.set(self.last_action, inner_prompt)
+                paths.append(prefix)
 
-            final_prompt = PROMPT(command_output, inner_prompt)
+            return paths
 
-            response = self.model.run(final_prompt, context_num)
+        def extract_model_response(raw: str) -> str:
+            """
+            מחלץ את הפלט האמיתי של המודל לפי תבנית escape קבועה,
+            ע"י זיהוי התחלה: 'Loading model\\n\\u001b[K\\n\\u001b[33m'
+            וסיום: '\\u001b[0m\\n\\u001b[0m\\n'
+            """
+            start_marker = "Loading model\n\u001b[K\n\u001b[33m"
+            end_marker = "\u001b[0m\n\u001b[0m\n"
 
-            if response and len(response) > 0:
-                full_response = response.strip()
-                if len(full_response) >= 20:
-                    print(f"[✓] Model returned valid response with {len(full_response)} characters.")
-                else:
-                    print(f"[✗] Response too short ({len(full_response)} characters). Retrying... (retries left: {retries-1})")
-                    return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
+            start_index = raw.find(start_marker)
+            if start_index == -1:
+                print("[!] Start marker not found.")
+                return ""
+
+            # המיקום שבו מתחילה התשובה
+            answer_start = start_index + len(start_marker)
+
+            end_index = raw.find(end_marker, answer_start)
+            if end_index == -1:
+                print("[!] End marker not found.")
+                return raw[answer_start:].strip()
+
+            # חותכים בדיוק בין ההתחלה לסיום
+            return raw[answer_start:end_index].strip()
+
+        category_paths = extract_paths(DEFAULT_STATE_STRUCTURE)
+        full_responses = {}
+
+        for cat_path in category_paths:
+            key = f"{self.last_action}::{cat_path}"
+            cached_response = self.llm_cache.get(key)
+
+            if cached_response:
+                print(f"\033[93m[CACHE] Using cached response for {cat_path}\033[0m")
+                response = cached_response if isinstance(cached_response, str) else json.dumps(cached_response)
             else:
-                print("[✗] Model run failed or empty response. Retrying...")
-                return self.parse_output(command_output,context_num=context_num+1, retries=retries-1)
+                prompt = PROMPT(command_output, cat_path.replace("::", "."))
+                response = self.model.run(prompt, context_num)
+                response = extract_model_response(response)
 
-        print(f"[DEBUG] full_response - {full_response}")
+                response = response.strip()
+                self.llm_cache.set(key, response)
 
-        parsed, data_for_cache = fix_json(self.last_state, full_response)
+            full_responses[cat_path] = response
+
+        combined_response = "\n".join(full_responses.values())
+        print(f"[✓] Combined model response length: {len(combined_response)} characters.")
+        print(f"[DEBUG] full_response - {combined_response}")
+
+        parsed, data_for_cache = fix_json(self.last_state, combined_response)
         parsed = self.check_state(parsed)
         remove_untrained_categories(parsed, trained_categories)
 
@@ -295,9 +340,6 @@ class BaseAgent(ABC):
         if parsed is None:
             print("⚠️ parsed is None – skipping this round safely.")
             return self.get_state_raw()
-
-        if data_for_cache:
-            self.llm_cache.set(self.last_action, data_for_cache)
 
         return parsed
 

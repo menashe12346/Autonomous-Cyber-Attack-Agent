@@ -195,374 +195,356 @@ WEB_DIRECTORIES_STATUS_CODES_REWARD = {
 
 # state schema ( An explanation of the state). TODO: fix llm_prompt
 STATE_SCHEMA = {
-    "target": {
-        "type": "dict",
-        "llm_prompt": False
-    },
-    "target.netbios_name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.hostaname": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.2,
-        "llm_prompt": ""
-    },
-    "target.os": {
-        "type": "dict",
-        "correction_func": "correct_os"
-    },
-    "target.os.name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "General operating system name, e.g., 'linux'."
-    },
-    "target.os.distribution": {
-        "type": "dict",
-        "llm_prompt": ""
-    },
-    "target.os.distribution.name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "OS distribution name, e.g., 'ubuntu', 'debian'."
-    },
-    "target.os.distribution.version": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Version of the OS distribution, e.g., '20.04'."
-    },
-    "target.os.distribution.architecture": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "CPU architecture, e.g., 'x86', 'x64'."
-    },
-    "target.os.kernel": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "Kernel version string, e.g., '6.6.59'."
-    },
-    "target.services": {
-        "type": "list",
-        "correction_func": "correct_services",
-        "llm_prompt": "An entry for each service found "
-    },
-    "target.services[].port": {
-        "type": "int",
-        "encoder": "normalize_by_specific_number",
-        "num_for_normalization": 65536,
-        "reward": 0.1,
-        "llm_prompt": "Port number of the service, e.g., 22 or 80."
-    },
-    "target.services[].protocol": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0,
-        "llm_prompt": "Transport protocol used by the service, e.g., 'tcp'."
-    },
-    "target.services[].service": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "Application-level service name, e.g., 'http', 'ftp'."
-    },
-    "target.services[].server_type": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].server_version": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].supported_protocols": {
-        "type": "list",
-        "llm_prompt": ""
-    },
-    "target.services[].supported_protocols[]": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].softwares": {
-        "type": "list",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].softwares[].name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].softwares[].version": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.rpc_services": {
-        "type": "list",
-        "correction_func": "correct_rpc_services",
-        "llm_prompt": ""
-    },
-    "target.services[].program_number": {
-        "type": "int",
-        "encoder": "normalize_by_specific_number",
-        "num_for_normalization": 999999,
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].version": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0,
-        "llm_prompt": ""
-    },
-    "target.services[].protocol": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].port": {
-        "type": "int",
-        "encoder": "normalize_by_specific_number",
-        "num_for_normalization": 999999,
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.services[].service_name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.dns_records": {
-        "type": "list",
-        "correction_func": "correct_dns_records",
-        "llm_prompt": ""
-    },
-    "target.dns_records[].type": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.dns_records[].value": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0,
-        "llm_prompt": ""
-    },
-    "target.network_interfaces": {
-        "type": "list",
-        "correction_func": "correct_network_interfaces",
-        "llm_prompt": ""
-    },
-    "target.network_interfaces[].name": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.network_interfaces[].ip_address": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.network_interfaces[].mac_address": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.network_interfaces[].netmask": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.network_interfaces[].gateway": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.geo_location": {
-        "type": "dict",
-        "llm_prompt": ""
-    },
-    "target.geo_location.country": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.geo_location.region": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.geo_location.city": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": ""
-    },
-    "target.ssl": {
-        "type": "dict",
-        "llm_prompt": ""
-    },
-    "target.ssl.issuer": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.ssl.protocols": {
-        "type": "list",
-        "llm_prompt": ""
-    },
-    "target.ssl.protocols[]": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": ""
-    },
-    "target.http_category": {
-        "type": "dict",
-        "llm_prompt": ""
-    },
-    "target.http_category.headers": {
-        "type": "dict",
-        "llm_prompt": ""
-    },
-    "target.http_category.headers.Server": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "Web server software name and version, e.g., 'Apache/2.4.41'."
-    },
-    "target.http_category.headers.X-Powered-By": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Technologies reported in the X-Powered-By header, e.g., 'PHP/7.4'."
-    },
-    "target.http_category.headers.Content-Type": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "MIME type of the HTTP response, e.g., 'text/html'."
-    },
-    "target.http_category.title": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Title of the web page as seen in the browser tab."
-    },
-    "target.http_category.robots_txt": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Contents of the robots.txt file if present."
-    },
-    "target.http_category.powered_by": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Technologies discovered in meta tags or HTTP headers, e.g., 'WordPress'."
-    },
-
-    "target.trust_relationships": {
-        "type": "list",
-        "llm_prompt": "List of trust relationships between systems or domains."
-    },
-    "target.trust_relationships[].source": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "The source system or domain in the trust relationship."
-    },
-    "target.trust_relationships[].target": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "The trusted system or domain in the relationship."
-    },
-    "target.trust_relationships[].type": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Type of trust relationship (e.g., 'one-way', 'transitive')."
-    },
-    "target.trust_relationships[].direction": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Direction of trust: 'inbound' or 'outbound'."
-    },
-    "target.trust_relationships[].auth_type": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Authentication method used in the trust (e.g., 'Kerberos')."
-    },
-
-    "target.users": {
-        "type": "list",
-        "llm_prompt": "List of discovered user accounts."
-    },
-    "target.users[].username": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.1,
-        "llm_prompt": "Username of the account."
-    },
-    "target.users[].group": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Group the user belongs to, e.g., 'Administrators'."
-    },
-    "target.users[].domain": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Domain or hostname associated with the user account."
-    },
-
-    "target.groups": {
-        "type": "list",
-        "llm_prompt": "List of user groups on the system."
-    },
-    "target.groups[]": {
-        "type": "string",
-        "encoder": "base100_encode",
-        "reward": 0.05,
-        "llm_prompt": "Name of the group, e.g., 'Administrators', 'Users'."
-    },
-
-    "web_directories_status": {
-        "type": "dict",
-        "correction_func": "correct_web_directories",
-        "llm_prompt": f"For each status ({', '.join(EXPECTED_STATUS_CODES)}): discovered paths (like '/admin') to their message (or use \"\" if none), format: {{ \"path\": \"message\" }}."
-    }
+  "target": {
+    "type": "dict",
+  },
+  "target.netbios_name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "NetBIOS name of the target machine, if available."
+  },
+  "target.hostname": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.2,
+    "llm_prompt": "Hostname of the target system."
+  },
+  "target.os": {
+    "type": "dict",
+    "correction_func": "correct_os"
+  },
+  "target.os.name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "General operating system name, e.g., 'linux'."
+  },
+  "target.os.distribution": {
+    "type": "dict",
+    "llm_prompt": "Information about the OS distribution of the target."
+  },
+  "target.os.distribution.name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "OS distribution name, e.g., 'ubuntu', 'debian'."
+  },
+  "target.os.distribution.version": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Version of the OS distribution, e.g., '20.04'."
+  },
+  "target.os.distribution.architecture": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "CPU architecture, e.g., 'x86', 'x64'."
+  },
+  "target.os.kernel": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Kernel version string, e.g., '6.6.59'."
+  },
+  "target.services": {
+    "type": "list",
+    "correction_func": "correct_services",
+    "llm_prompt": "List of discovered network services on the target system."
+  },
+  "target.services[].port": {
+    "type": "int",
+    "encoder": "normalize_by_specific_number",
+    "num_for_normalization": 65536,
+    "reward": 0.1,
+    "llm_prompt": "Port number of the service, e.g., 22 or 80."
+  },
+  "target.services[].protocol": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0,
+    "llm_prompt": "Transport protocol used by the service, e.g., 'tcp'."
+  },
+  "target.services[].service": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Application-level service name, e.g., 'http', 'ftp'."
+  },
+  "target.services[].server_type": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Type of server software, e.g., 'nginx', 'Apache'."
+  },
+  "target.services[].server_version": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Version of the server software."
+  },
+  "target.services[].supported_protocols": {
+    "type": "list",
+    "llm_prompt": "Protocols supported by this service (e.g., 'HTTP/1.1', 'TLS')."
+  },
+  "target.services[].supported_protocols[]": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Supported protocols, e.g., 'TLS', 'HTTP/1.1'."
+  },
+  "target.services[].softwares": {
+    "type": "list",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "List of additional software running on this service."
+  },
+  "target.services[].softwares[].name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Name of the software running, e.g., 'OpenSSH'."
+  },
+  "target.services[].softwares[].version": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Version of the software."
+  },
+  "target.rpc_services": {
+    "type": "list",
+    "correction_func": "correct_rpc_services",
+    "llm_prompt": "List of detected RPC services running on the target."
+  },
+  "target.services[].program_number": {
+    "type": "int",
+    "encoder": "normalize_by_specific_number",
+    "num_for_normalization": 999999,
+    "reward": 0.1,
+    "llm_prompt": "RPC program number associated with the service."
+  },
+  "target.services[].version": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0,
+    "llm_prompt": "Version of the application-level service."
+  },
+  "target.services[].service_name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Name of the service running on this port."
+  },
+  "target.dns_records": {
+    "type": "list",
+    "correction_func": "correct_dns_records",
+    "llm_prompt": "List of DNS records associated with the target."
+  },
+  "target.dns_records[].type": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Type of DNS record, e.g., 'A', 'CNAME', 'MX'."
+  },
+  "target.dns_records[].value": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0,
+    "llm_prompt": "Value associated with the DNS record."
+  },
+  "target.network_interfaces": {
+    "type": "list",
+    "correction_func": "correct_network_interfaces",
+    "llm_prompt": "List of network interfaces available on the target."
+  },
+  "target.network_interfaces[].name": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Name of the network interface, e.g., 'eth0'."
+  },
+  "target.network_interfaces[].ip_address": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "IPv4 or IPv6 address assigned to this interface."
+  },
+  "target.network_interfaces[].mac_address": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "MAC address of the network interface."
+  },
+  "target.network_interfaces[].netmask": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Netmask/subnet mask, e.g., '255.255.255.0'."
+  },
+  "target.network_interfaces[].gateway": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Default gateway for this network interface."
+  },
+  "target.geo_location": {
+    "type": "dict",
+    "llm_prompt": "Geolocation data associated with the target IP."
+  },
+  "target.geo_location.country": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Country where the target is located."
+  },
+  "target.geo_location.region": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Region or state within the country."
+  },
+  "target.geo_location.city": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "City of the target system."
+  },
+  "target.ssl": {
+    "type": "dict",
+    "llm_prompt": "SSL certificate details of the target (if HTTPS)."
+  },
+  "target.ssl.issuer": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Issuer of the SSL certificate."
+  },
+  "target.ssl.protocols": {
+    "type": "list",
+    "llm_prompt": "SSL/TLS protocols supported by the target."
+  },
+  "target.ssl.protocols[]": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Supported SSL/TLS protocol versions."
+  },
+  "target.http_category": {
+    "type": "dict",
+    "llm_prompt": "Information extracted from HTTP response."
+  },
+  "target.http_category.headers": {
+    "type": "dict",
+    "llm_prompt": "Key HTTP headers from the response."
+  },
+  "target.http_category.headers.Server": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Web server software name and version, e.g., 'Apache/2.4.41'."
+  },
+  "target.http_category.headers.X-Powered-By": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Technologies reported in the X-Powered-By header, e.g., 'PHP/7.4'."
+  },
+  "target.http_category.headers.Content-Type": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "MIME type of the HTTP response, e.g., 'text/html'."
+  },
+  "target.http_category.title": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Title of the web page as seen in the browser tab."
+  },
+  "target.http_category.robots_txt": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Contents of the robots.txt file if present."
+  },
+  "target.http_category.powered_by": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Technologies discovered in meta tags or HTTP headers, e.g., 'WordPress'."
+  },
+  "target.trust_relationships": {
+    "type": "list",
+    "llm_prompt": "List of trust relationships between systems or domains."
+  },
+  "target.trust_relationships[].source": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "The source system or domain in the trust relationship."
+  },
+  "target.trust_relationships[].target": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "The trusted system or domain in the relationship."
+  },
+  "target.trust_relationships[].type": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Type of trust relationship (e.g., 'one-way', 'transitive')."
+  },
+  "target.trust_relationships[].direction": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Direction of trust: 'inbound' or 'outbound'."
+  },
+  "target.trust_relationships[].auth_type": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Authentication method used in the trust (e.g., 'Kerberos')."
+  },
+  "target.users": {
+    "type": "list",
+    "llm_prompt": "List of discovered user accounts."
+  },
+  "target.users[].username": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.1,
+    "llm_prompt": "Username of the account."
+  },
+  "target.users[].group": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Group the user belongs to, e.g., 'Administrators'."
+  },
+  "target.users[].domain": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Domain or hostname associated with the user account."
+  },
+  "target.groups": {
+    "type": "list",
+    "llm_prompt": "List of user groups on the system."
+  },
+  "target.groups[]": {
+    "type": "string",
+    "encoder": "base100_encode",
+    "reward": 0.05,
+    "llm_prompt": "Name of the group, e.g., 'Administrators', 'Users'."
+  },
+  "web_directories_status": {
+    "type": "dict",
+    "correction_func": "correct_web_directories",
+    "llm_prompt": "For each status (200, 403, 401, 404, 503): discovered paths (like '/admin') to their message (or use \"\" if none), format: { \"path\": \"message\" }."
+  }
 }
 
 # Dynamic addition of status-specific entries
