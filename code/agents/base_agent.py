@@ -243,9 +243,6 @@ class BaseAgent(ABC):
         Parse command output using the LLM. Each trained category (including nested ones)
         gets its own prompt. Caching is done per action::category_path.
         """
-        if retries == 0:
-            print("[✗] Reached maximum retries. Returning last known good state.")
-            #return self.get_state_raw()
 
         trained_categories = {
             "target": {
@@ -256,30 +253,44 @@ class BaseAgent(ABC):
             "web_directories_status": None
         }
 
-        def extract_paths(d: Any, prefix="") -> list[str]:
+        def extract_paths(d: Any, prefix: str = "", include_brackets: bool = False) -> list[str]:
             """
-            Extracts all nested paths from a JSON-like structure (dict/list/set).
-            Ignores numeric indices in lists — assumes all list items have same structure.
+            Extracts paths from a nested dictionary structure.
+            
+            - Lists are treated as leaf nodes — no recursion into list elements.
+            - If include_brackets=True, list fields will be marked with '[]' (e.g., 'services[]').
+            - All paths use '::' as separator.
+
+            Args:
+                d (Any): The input structure (typically a nested dict).
+                prefix (str): The path prefix used during recursion.
+                include_brackets (bool): Whether to append '[]' for lists.
+
+            Returns:
+                list[str]: List of paths as strings.
             """
             paths = []
 
             if isinstance(d, dict):
                 for key, val in d.items():
                     current_path = f"{prefix}::{key}" if prefix else key
-                    paths.extend(extract_paths(val, current_path))
-
-            elif isinstance(d, list):
-                if d:  # Only process if list is not empty
-                    paths.extend(extract_paths(d[0], prefix))
+                    if isinstance(val, list):
+                        # Treat list as a leaf
+                        list_path = current_path + "[]" if include_brackets else current_path
+                        paths.append(list_path)
+                    else:
+                        paths.extend(extract_paths(val, current_path, include_brackets))
 
             elif isinstance(d, set):
                 fake_dict = {key: None for key in d}
-                paths.extend(extract_paths(fake_dict, prefix))
+                paths.extend(extract_paths(fake_dict, prefix, include_brackets))
 
             else:
                 paths.append(prefix)
 
             return paths
+
+
 
         def extract_model_response(raw: str) -> str:
             """

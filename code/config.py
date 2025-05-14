@@ -104,10 +104,6 @@ _BASE_DEFAULT_STATE = {
                 "service": "", 
                 "server_type": "", 
                 "server_version": "",
-                "supported_protocols": [""],
-                "softwares": [
-                    {"name": "", "version": ""},
-                ]
             },
         ],
         "rpc_services": [
@@ -251,7 +247,12 @@ STATE_SCHEMA = {
   "target.services": {
     "type": "list",
     "correction_func": "correct_services",
-    "llm_prompt": "List of discovered network services on the target system."
+    "llm_prompt": f"""List of discovered network services on the target system: 
+{STATE_SCHEMA.get("target.services[].port")["llm_prompt"]},
+{STATE_SCHEMA.get("target.services[].protocol")["llm_prompt"]},
+{STATE_SCHEMA.get("target.services[].service")["llm_prompt"]},
+{STATE_SCHEMA.get("target.services[].server_type")["llm_prompt"]},
+{STATE_SCHEMA.get("target.services[].server_version")["llm_prompt"]}"""
   },
   "target.services[].port": {
     "type": "int",
@@ -283,34 +284,6 @@ STATE_SCHEMA = {
     "encoder": "base100_encode",
     "reward": 0.1,
     "llm_prompt": "Version of the server software."
-  },
-  "target.services[].supported_protocols": {
-    "type": "list",
-    "llm_prompt": "Protocols supported by this service (e.g., 'HTTP/1.1', 'TLS')."
-  },
-  "target.services[].supported_protocols[]": {
-    "type": "string",
-    "encoder": "base100_encode",
-    "reward": 0.1,
-    "llm_prompt": "Supported protocols, e.g., 'TLS', 'HTTP/1.1'."
-  },
-  "target.services[].softwares": {
-    "type": "list",
-    "encoder": "base100_encode",
-    "reward": 0.1,
-    "llm_prompt": "List of additional software running on this service."
-  },
-  "target.services[].softwares[].name": {
-    "type": "string",
-    "encoder": "base100_encode",
-    "reward": 0.1,
-    "llm_prompt": "Name of the software running, e.g., 'OpenSSH'."
-  },
-  "target.services[].softwares[].version": {
-    "type": "string",
-    "encoder": "base100_encode",
-    "reward": 0.1,
-    "llm_prompt": "Version of the software."
   },
   "target.rpc_services": {
     "type": "list",
