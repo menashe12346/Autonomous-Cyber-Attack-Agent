@@ -26,8 +26,11 @@ class BlackboardAPI:
     def fill_state(self, actions_history: dict):
         self.blackboard["actions_history"] = actions_history.copy()
         self.blackboard["cpes"] = []
-        self.blackboard["vulnerabilities_found"] = []
-    
+        self.blackboard["vulnerabilities_found"] = []   
+        self.blackboard["attack_impact"] = {}
+        self.blackboard["failed_CVEs"] = []
+        
+
     def get_state_for_agent(self, agent_name: str) -> dict:
         """
         Return a deep copy of the current blackboard state for agent use.
@@ -186,8 +189,8 @@ class BlackboardAPI:
         """
         Update fields relevant to VulnAgent. 
         """
-        if "shell" in new_state:
-            self.blackboard["shell"] = new_state["shell"]
+        if "attack_impact" in new_state:
+            self.blackboard["attack_impact"] = new_state["attack_impact"]
         if "failed_CVEs" in new_state:
             self.blackboard["failed_CVEs"] = new_state["failed_CVEs"]
         self._save_to_file()

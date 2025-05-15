@@ -589,7 +589,7 @@
           "kernel": "NO"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": "Since the given text does not contain any information about RPC services, the response should be:\n[\"\"]",
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -658,7 +658,716 @@
           },
           "kernel": "NO"
         },
-        "services": []
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -p 22 --script ssh-hostkey 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "7",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "whatweb http://192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO"
+      }
+    }
+  },
+  {
+    "action": "nmap -O 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "{}",
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "traceroute 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [
+          [
+            ""
+          ]
+        ],
+        "geo_location": {
+          "country": "US",
+          "region": "NO",
+          "city": "Houston"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -sV 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "WIN-7PC123",
+        "os": {
+          "name": "linux",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "20.04",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "21",
+            "protocol": "tcp",
+            "service": "ftp",
+            "server_type": "vsftpd",
+            "server_version": "2.3.4"
+          },
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "OpenSSH",
+            "server_version": "4.7p1 Debian 8ubuntu1 (protocol 2.0)"
+          },
+          {
+            "port": "23",
+            "protocol": "tcp",
+            "service": "telnet",
+            "server_type": "Linux",
+            "server_version": "telnetd"
+          },
+          {
+            "port": "25",
+            "protocol": "tcp",
+            "service": "smtp",
+            "server_type": "Postfix",
+            "server_version": "smtpd"
+          },
+          {
+            "port": "53",
+            "protocol": "tcp",
+            "service": "domain",
+            "server_type": "ISC BIND",
+            "server_version": "9.4.2"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "2.2.8 (Ubuntu) DAV/2"
+          },
+          {
+            "port": "111",
+            "protocol": "tcp",
+            "service": "rpcbind",
+            "server_type": "2 (RPC #100000)"
+          },
+          {
+            "port": "139",
+            "protocol": "tcp",
+            "service": "netbios-ssn",
+            "server_type": "Samba",
+            "server_version": "3.X - 4.X (workgroup: WORKGROUP)"
+          },
+          {
+            "port": "445",
+            "protocol": "tcp",
+            "service": "netbios-ssn",
+            "server_type": "Samba",
+            "server_version": "3.X - 4.X (workgroup: WORKGROUP)"
+          },
+          {
+            "port": "512",
+            "protocol": "tcp",
+            "service": "exec",
+            "server_type": "netkit-rsh",
+            "server_version": "rexecd"
+          },
+          {
+            "port": "513",
+            "protocol": "tcp",
+            "service": "login",
+            "server_type": "OpenBSD or Solaris",
+            "server_version": "rlogind"
+          },
+          {
+            "port": "514",
+            "protocol": "tcp",
+            "service": "shell",
+            "server_type": "Netkit",
+            "server_version": "rshd"
+          },
+          {
+            "port": "1099",
+            "protocol": "tcp",
+            "service": "java-rmi",
+            "server_type": "GNU Classpath",
+            "server_version": "grmiregistry"
+          },
+          {
+            "port": "1524",
+            "protocol": "tcp",
+            "service": "bindshell",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs",
+            "server_type": "2-4 (RPC #100003)"
+          },
+          {
+            "port": "2121",
+            "protocol": "tcp",
+            "service": "ftp",
+            "server_type": "ProFTPD",
+            "server_version": "1.3.1"
+          },
+          {
+            "port": "3306",
+            "protocol": "tcp",
+            "service": "mysql",
+            "server_type": "MySQL",
+            "server_version": "5.0.51a-3ubuntu5"
+          },
+          {
+            "port": "5432",
+            "protocol": "tcp",
+            "service": "postgresql",
+            "server_type": "PostgreSQL",
+            "server_version": "DB 8.3.0 - 8.3.7"
+          },
+          {
+            "port": "5900",
+            "protocol": "tcp",
+            "service": "vnc",
+            "server_type": "VNC",
+            "server_version": "Protocol 3.3"
+          },
+          {
+            "port": "6000",
+            "protocol": "tcp",
+            "service": "X11",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "6667",
+            "protocol": "tcp",
+            "service": "irc",
+            "server_type": "UnrealIRCd",
+            "server_version": ""
+          },
+          {
+            "port": "8009",
+            "protocol": "tcp",
+            "service": "ajp13",
+            "server_type": "Apache Jserv",
+            "server_version": "(Protocol v1.3)"
+          },
+          {
+            "port": "8180",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache Tomcat/Coyote JSP engine",
+            "server_version": "1.1"
+          }
+        ],
+        "rpc_services": [
+          {
+            "program_number": "2",
+            "version": "",
+            "protocol": "tcp",
+            "port": "139",
+            "service_name": "netbios-ssn"
+          },
+          {
+            "program_number": "100000",
+            "version": "",
+            "protocol": "tcp",
+            "port": "111",
+            "service_name": "rpcbind"
+          },
+          {
+            "program_number": "100003",
+            "version": "",
+            "protocol": "tcp",
+            "port": "2049",
+            "service_name": "nfs"
+          }
+        ],
+        "geo_location": {
+          "country": "Israel",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "TLS/SSL protocols are not included in the provided text. Therefore, the answer is: NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "curl -k -v http://192.168.56.101curl http://192.168.56.101/",
+    "categories": {
+      "target": {
+        "hostname": "unknown",
+        "netbios_name": "NO",
+        "os": {
+          "name": "linux",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "Apache/2.2.8 (Ubuntu) DAV/2 PHP/5.2.4-2ubuntu5.10"
+          }
+        ],
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -p 80,443 --script=http-title,http-headers,http-methods 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "linux",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "7",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "Apache/2.2.8 (Ubuntu) DAV/2"
+          },
+          {
+            "port": "443",
+            "protocol": "tcp",
+            "service": "https",
+            "server_type": "",
+            "server_version": "NO"
+          }
+        ],
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "dig -x 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "sslscan 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -F 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "7",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "443",
+            "protocol": "tcp",
+            "service": "https",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "146.190.62.39"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "[SSL/TLS, HTTP, SSH]"
+        }
+      }
+    }
+  },
+  {
+    "action": "nmap -p 80,443 --script=http-title,http-headers,http-methods 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "20.04",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "nginx",
+            "server_version": "1.18.0 (Ubuntu)"
+          },
+          {
+            "port": "443",
+            "protocol": "tcp",
+            "service": "https",
+            "server_type": "nginx",
+            "server_version": "1.18.0 (Ubuntu)"
+          }
+        ],
+        "rpc_services": [
+          [
+            ""
+          ]
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "Tel Aviv"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "whatweb http://146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "[{\"port\": \"\", \"protocol\": \"tcp\", \"service\": \"http\", \"server_type\": \"nginx\", \"server_version\": \"1.18.0 (Ubuntu)\"}, {\"port\": \"\", \"protocol\": \"tcp\", \"service\": \"\", \"server_type\": \"\", \"server_version\": \"\"}],",
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "UNITED STATES",
+          "region": "UNITED STATES",
+          "city": "New York City"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "curl -I http://146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "nbtscan 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "dig -x 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        }
+      }
+    }
+  },
+  {
+    "action": "whois 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "Country: US",
+          "region": "CO"
+        }
       }
     }
   }

@@ -51,6 +51,7 @@ from tools.action_space import get_commands_for_agent
 from utils.utils import load_dataset, check_file_exists
 
 from create_datasets.create_cve_dataset.download_combine_nvd_cve import download_nvd_cve
+from create_datasets.create_cve_dataset.create_cve_cpe_dataset import create_cve_cpe_dataset
 
 from create_datasets.create_exploit_dataset.download_exploitdb import download_exploitdb
 from create_datasets.create_exploit_dataset.create_exploitPath_cve_dataset import create_cve_exploitdb_dataset
@@ -80,6 +81,9 @@ def main():
 
     # Download metasploit
     download_metasploit()
+
+    # Create nvd cve cpe dataset
+    create_cve_cpe_dataset()
 
     # Create exploitdb (cve, exploit path) dataset
     create_cve_exploitdb_dataset()
@@ -112,30 +116,41 @@ def main():
     os_linux_kernel_dataset = load_dataset(DATASET_OS_LINUX_KERNEL)
     print(f"✅ OS Linux Kernel dataset Loaded Successfully")
 
-    # Replay Buffer
-    replay_buffer = PrioritizedReplayBuffer(max_size=20000)
-
-    # Action Space
-    action_space = get_commands_for_agent("recon")
-    action_encoder = ActionEncoder(action_space)
-    state_encoder = StateEncoder(action_space=action_space)
-
-    # Policy Model
-    action_size = len(action_space)
-    policy_model = PolicyModel(state_size=MAX_ENCODING_FEATURES, action_size=action_size)
-
     # Move to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    policy_model.to(device)
 
-    # Trainer
-    trainer = RLModelTrainer(
-    policy_model=policy_model,
-    replay_buffer=replay_buffer,
-    device=device,
-    learning_rate=1e-3,
-    gamma=0.99
+    # --- RECON POLICY ---
+    recon_action_space = get_commands_for_agent("recon")
+    recon_action_encoder = ActionEncoder(recon_action_space)
+    recon_state_encoder = StateEncoder(action_space=recon_action_space)
+    recon_policy_model = PolicyModel(state_size=MAX_ENCODING_FEATURES, action_size=len(recon_action_space))
+    recon_policy_model.to(device)
+    recon_replay_buffer = PrioritizedReplayBuffer(max_size=20000)
+
+    recon_trainer = RLModelTrainer(
+        policy_model=recon_policy_model,
+        replay_buffer=recon_replay_buffer,
+        device=device,
+        learning_rate=1e-3,
+        gamma=0.99
     )
+
+    # --- EXPLOIT POLICY ---
+    exploit_action_space = list({v["cve"] for v in metasploit_dataset if "cve" in v})
+    exploit_action_encoder = ActionEncoder(exploit_action_space)
+    exploit_state_encoder = StateEncoder(action_space=exploit_action_space)
+    exploit_policy_model = PolicyModel(state_size=MAX_ENCODING_FEATURES, action_size=len(exploit_action_space))
+    exploit_policy_model.to(device)
+    exploit_replay_buffer = PrioritizedReplayBuffer(max_size=20000)
+
+    exploit_trainer = RLModelTrainer(
+        policy_model=exploit_policy_model,
+        replay_buffer=exploit_replay_buffer,
+        device=device,
+        learning_rate=1e-3,
+        gamma=0.99
+    )
+
 
     command_cache = {}
     all_actions = []
@@ -152,13 +167,13 @@ def main():
         # --- Create Recon Agent ---
         recon_agent = ReconAgent(
             blackboard_api=bb_api,
-            policy_model=policy_model,
-            replay_buffer=replay_buffer,
-            state_encoder=state_encoder,
-            action_encoder=action_encoder,
+            policy_model=recon_policy_model,
+            replay_buffer=recon_replay_buffer,
+            state_encoder=recon_state_encoder,
+            action_encoder=recon_action_encoder,
             command_cache=command_cache,
             model=model,
-            epsilon= epsilon,
+            epsilon=epsilon,
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
@@ -169,26 +184,27 @@ def main():
             cve_items=cve_items,
             epsilon= epsilon,
             os_linux_dataset=os_linux_dataset,
-            os_linux_kernel_dataset=os_linux_kernel_dataset
+            os_linux_kernel_dataset=os_linux_kernel_dataset,
+            metasploit_dataset=metasploit_dataset,
         )
 
         # --- Create exploit Agent ---
         exploit_agent = ExploitAgent(
             blackboard_api=bb_api,
-            policy_model=policy_model,
-            replay_buffer=replay_buffer,
-            state_encoder=state_encoder,
-            action_encoder=action_encoder,
+            policy_model=exploit_policy_model,
+            replay_buffer=exploit_replay_buffer,
+            state_encoder=exploit_state_encoder,
+            action_encoder=exploit_action_encoder,
             command_cache=command_cache,
             model=model,
             metasploit_dataset=metasploit_dataset,
             exploitdb_dataset=exploitdb_dataset,
             full_exploit_dataset=full_exploit_dataset,
-            epsilon= epsilon,
+            epsilon=epsilon,
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
-        
+
         # --- Register Agents ---
         agents = [recon_agent, vuln_agent, exploit_agent] # [DEBUG]
         #agents = [recon_agent, vuln_agent, exploit_agent]
@@ -213,26 +229,34 @@ def main():
 
         # --- Track Reward ---
         if hasattr(recon_agent, "episode_total_reward"):
-            trainer.record_episode_reward(recon_agent.episode_total_reward)
+            recon_trainer.record_episode_reward(recon_agent.episode_total_reward)
             recon_agent.decay_epsilon()
-            trainer.record_episode_epsilon(recon_agent.epsilon)
+            recon_trainer.record_episode_epsilon(recon_agent.epsilon)
             epsilon = recon_agent.epsilon
 
         # --- Train Policy Model ---
+        # אימון של שניהם
         for _ in range(10):
-            loss = trainer.train_batch(batch_size=32)
-            if loss is not None:
-                print(f"[Episode {episode + 1}] Training loss: {loss:.4f}")
+            recon_loss = recon_trainer.train_batch(batch_size=32)
+            exploit_loss = exploit_trainer.train_batch(batch_size=32)
+
+            if recon_loss is not None:
+                print(f"[Episode {episode + 1}] Recon Loss: {recon_loss:.4f}")
+            if exploit_loss is not None:
+                print(f"[Episode {episode + 1}] Exploit Loss: {exploit_loss:.4f}")
+
 
     #print("\n========== SUMMARY OF ALL EPISODES ==========")
     #for episode_info in all_actions:
     #    print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
 
-    trainer.save_model("models/saved_models/recon_model.pth")
+    recon_trainer.save_model("models/saved_models/recon_model.pth")
+    exploit_trainer.save_model("models/saved_models/exploit_model.pth")
     print("✅ Final trained model saved.")
 
     # --- Plot Training Curves ---
-    trainer.plot_training_progress()
+    recon_trainer.plot_training_progress()
+    exploit_trainer.plot_training_progress()
 
 if __name__ == "__main__":
     main()

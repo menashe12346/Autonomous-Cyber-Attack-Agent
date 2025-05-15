@@ -31,7 +31,7 @@ class VulnAgent(BaseAgent):
     Agent that scans for CVEs matching known CPEs based on current state.
     """
 
-    def __init__(self, blackboard_api, cve_items, epsilon, os_linux_dataset, os_linux_kernel_dataset):
+    def __init__(self, blackboard_api, cve_items, epsilon, os_linux_dataset, os_linux_kernel_dataset, metasploit_dataset):
         super().__init__(
             name="VulnAgent",
             action_space=[],
@@ -47,6 +47,7 @@ class VulnAgent(BaseAgent):
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
         self.cve_items = cve_items
+        self.metasploit_dataset = metasploit_dataset
 
     def should_run(self) -> bool:
         state = self.blackboard_api.get_state_for_agent(self.name)
@@ -90,63 +91,58 @@ class VulnAgent(BaseAgent):
 
     def match_cves_to_cpes(self, possible_cpes):
         """
-        Compare possible CPEs from current state to CVE database and return matching entries.
-        Now matches purely on the product slot (parts[4] of cpe23Uri) vs. detected services.
+        Compare possible CPEs from current state to pre-parsed CVE-CPE mappings.
+        Each entry in self.cve_items is a dict: {"cve": ..., "cpes": [...]}
+        Matching is done by product name (part [4] in CPE URI) vs. detected services.
         """
         vuln_dict = {}
 
-        # build set of detected service names, e.g. {"apache","mysql","vsftpd"}
+        # שלב 1: הפק רשימת שמות שירותים מהמצב
         service_names = {
             s.get("service", "").strip().lower()
             for s in self.blackboard_api.get_state_for_agent(self.name)
-                        .get("target", {})
-                        .get("services", [])
+                .get("target", {})
+                .get("services", [])
         }
 
-        # הרחב את כל השירותים לפי משפחות – מראש
+        # שלב 2: הרחבת שירותים לפי משפחות
         expanded_service_names = set()
         for service in service_names:
             family = SERVICE_FAMILIES.get(service, [service])
             expanded_service_names.update(name.lower() for name in family)
 
+        # שלב 3: בדוק כל CVE אם הוא תואם לאחד מהמוצרים לפי product name
         for item in self.cve_items:
             try:
-                cve_id = item["cve"]["CVE_data_meta"]["ID"]
-                nodes  = item.get("configurations", {}).get("nodes", [])
-                impact = item.get("impact", {})
+                cve_id = item["cve"]
+                cpes = item.get("cpes", [])
+                matched = []
 
-                # pre-calc CVSS
-                if "baseMetricV3" in impact:
-                    cvss = impact["baseMetricV3"]["cvssV3"].get("baseScore", 0.0)
-                elif "baseMetricV2" in impact:
-                    cvss = impact["baseMetricV2"]["cvssV2"].get("baseScore", 0.0)
-                else:
-                    cvss = 0.0
+                for cpe_uri in cpes:
+                    parts = cpe_uri.split(":")
+                    if len(parts) < 5:
+                        continue
+                    product = parts[4].strip().lower()
+                    if product in expanded_service_names:
+                        matched.append(cpe_uri)
 
-                for node in nodes:
-                    for match in extract_all_cpe_matches(node):
-                        uri_parts = match.get("cpe23Uri", "").lower().split(":")
-                        if len(uri_parts) < 5:
-                            continue
-                        product = uri_parts[4].strip().lower()
+                if matched:
+                    vuln_dict[cve_id] = {
+                        "cve": cve_id,
+                        "matched_cpes": matched,
+                        "cvss": 0.0  # ניתן להוסיף ציונים בנפרד אם תרצה
+                    }
 
-                        # השוואה מול רשימת שמות מורחבת
-                        if product in expanded_service_names:
-                            vuln_dict.setdefault(cve_id, {
-                                "cve": cve_id,
-                                "matched_cpes": [],
-                                "cvss": cvss
-                            })["matched_cpes"].append(match.get("cpe23Uri"))
-                            raise StopIteration
-
-            except StopIteration:
-                continue
             except Exception as e:
-                print(f"[!] Failed parsing CVE {cve_id}: {e}")
+                print(f"[!] Failed parsing CVE record: {e}")
                 continue
 
-        return list(vuln_dict.values())
-                
+        # שלב 4: סינון לפי CVEs שבאמת קיימים במאגר Metasploit
+        metasploit_cves = {entry["cve"] for entry in self.metasploit_dataset if "cve" in entry}
+        filtered = [v for v in vuln_dict.values() if v["cve"] in metasploit_cves]
+
+        return filtered
+
     def generate_possible_cpes(self, state_dict):
         target = state_dict.get("target", {})
         cpes = set()
@@ -185,26 +181,6 @@ class VulnAgent(BaseAgent):
                     for cpe in self._generate_service_cpes(dir_name, dir_name):
                         cpes.add(cpe)
 
-        # === Extract additional product names from CVEs that match current CPEs ===
-        extra_services = set()
-        for cpe_uri in list(cpes):
-            for item in self.cve_items:
-                nodes = item.get("configurations", {}).get("nodes", [])
-                for node in nodes:
-                    for match in extract_all_cpe_matches(node):
-                        uri = match.get("cpe23Uri", "").lower()
-                        if uri.startswith(cpe_uri[:20]):  # להשוות לפי vendor:product
-                            parts = uri.split(":")
-                            if len(parts) >= 5:
-                                product = parts[4]
-                                if product not in known_services:
-                                    extra_services.add(product)
-
-        # === Expand once based on new discovered product names ===
-        for new_svc in extra_services:
-            for cpe in self._generate_service_cpes(new_svc, new_svc):
-                cpes.add(cpe)
-
         print(f"[VulnAgent] Generated {len(cpes)} CPEs (initial + level-1 expansion).")
         return list(cpes)
 
@@ -219,47 +195,27 @@ class VulnAgent(BaseAgent):
             f"cpe:2.3:a:{vendor}:*:*:*:*:*:*:*:*:*"
         }
 
-# DEBUG
-if __name__ == "__main__":
-
-    def load_cve_database(path):
-        with open(path, "rb") as f:
-            data = orjson.loads(f.read())
+def load_cve_database(path):
+        data = []
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        data.append(orjson.loads(line))
+                    except Exception as e:
+                        print(f"[!] Failed to parse line: {e}")
         return data
 
-    print("[*] Loading CVE database...")
-    cve_items = load_cve_database(DATASET_NVD_CVE_PATH)
-    print(f"[+] Loaded {len(cve_items)} CVE entries")
+if __name__ == "__main__":
+    from config import DATASET_NVD_CVE_CPE_PATH  # ודא שאתה מייבא את זה
+
+    print("[*] Loading CVE→CPE pre-parsed dataset...")
+    cve_items = load_cve_database(DATASET_NVD_CVE_CPE_PATH)
+    print(f"[+] Loaded {len(cve_items)} CVE→CPE entries")
 
     # מצב בדיקה ידני
-    test_state = {
-        "target": {
-            "ip": "192.168.56.101",
-            "os": {
-                "name": "linux",
-                "distribution": {
-                    "name": "ubuntu",
-                    "version": "20.04"
-                }
-            },
-            "services": [
-                {"port": "80", "protocol": "tcp", "service": "apache"},
-                {"port": "3306", "protocol": "tcp", "service": "mysql"},
-                {"port": "21", "protocol": "tcp", "service": "ftp", "server_version": ""}
-            ]
-        },
-        "web_directories_status": {
-            "200": {
-                "/phpmyadmin/": "",
-                "/dvwa/": ""
-            },
-            "403": {
-                "/webdav/": ""
-            }
-        }
-    }
+    test_state = {'target': {'geo_location': {'city': 'Tel Aviv', 'country': '', 'region': ''}, 'hostname': 'METASPLOITABLE', 'ip': '192.168.56.101', 'netbios_name': 'WIN-101PC56', 'os': {'distribution': {'architecture': 'x86', 'name': 'ubuntu', 'version': '7.95'}, 'kernel': '', 'name': 'linux'}, 'rpc_services': [{'program_number': '111', 'version': '', 'protocol': 'tcp', 'port': '111', 'service_name': 'rpcbind'}], 'services': [{'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': '', 'server_version': ''}, {'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': '', 'server_version': ''}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': '', 'server_version': ''}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': '', 'server_version': ''}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': '', 'server_version': ''}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': '', 'server_version': ''}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': '2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': 'Apache/2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': '', 'server_version': ''}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': '', 'server_version': ''}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': '', 'server_version': ''}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '512', 'protocol': 'tcp', 'service': 'exec', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': '', 'server_version': ''}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '1099', 'protocol': 'tcp', 'service': 'rmiregistry', 'server_type': '', 'server_version': ''}, {'port': '1524', 'protocol': 'tcp', 'service': 'ingreslock', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': '', 'server_version': ''}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '3306', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '3306', 'protocol': 'tcp', 'service': 'mysql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5432', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5432', 'protocol': 'tcp', 'service': 'postgresql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5900', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5900', 'protocol': 'tcp', 'service': 'vnc', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': '', 'server_version': ''}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6667', 'protocol': 'tcp', 'service': 'irc', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '8180', 'protocol': 'tcp', 'service': 'unknown', 'server_type': '', 'server_version': ''}, {'port': '', 'protocol': '', 'service': '', 'server_type': '', 'server_version': 'NO'}], 'ssl': {'issuer': '', 'protocols': []}}, 'actions_history': ['nmap -F 192.168.56.101', 'nmap 192.168.56.101', 'httpx http://192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101'], 'cpes': [], 'vulnerabilities_found': [], 'attack_impact': {}, 'failed_CVEs': []}
 
-    # מחלקת dummy כדי לדמות את ה-API
     class DummyBlackboardAPI:
         def get_state_for_agent(self, name):
             return test_state
@@ -269,15 +225,20 @@ if __name__ == "__main__":
             return {}
 
     # צור את הסוכן והפעל את הפונקציות
-    agent = VulnAgent(blackboard_api=DummyBlackboardAPI(), cve_items=cve_items,
-                      epsilon=0.0, os_linux_dataset=None, os_linux_kernel_dataset=None)
+    agent = VulnAgent(
+        blackboard_api=DummyBlackboardAPI(),
+        cve_items=cve_items,
+        epsilon=0.0,
+        os_linux_dataset=None,
+        os_linux_kernel_dataset=None,
+        metasploit_dataset=[{"cve": m["cve"]} for m in cve_items]  # לבדיקה נניח שכולם במטאספלויט
+    )
 
     possible_cpes = agent.generate_possible_cpes(test_state)
     matches = agent.match_cves_to_cpes(possible_cpes)
     matches = agent.filter_top_vulnerabilities(matches, top_n=900)
 
     print(f"\n[✓] Found top {len(matches)} CVEs matching the generated CPEs:\n")
-
     for match in matches:
         cve_id = match['cve']
         cvss = match.get("cvss", "N/A")

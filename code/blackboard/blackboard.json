@@ -6,8 +6,8 @@
       "name": "",
       "distribution": {
         "name": "",
-        "version": "7.95",
-        "architecture": "x86"
+        "version": "7",
+        "architecture": ""
       },
       "kernel": ""
     },
@@ -20,130 +20,25 @@
         "server_version": ""
       },
       {
-        "port": "21",
-        "protocol": "tcp",
-        "service": "ftp",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
         "port": "22",
         "protocol": "tcp",
         "service": "ssh",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "23",
-        "protocol": "tcp",
-        "service": "telnet",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "25",
-        "protocol": "tcp",
-        "service": "smtp",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "53",
-        "protocol": "tcp",
-        "service": "domain",
-        "server_type": "NO",
-        "server_version": "NO"
+        "server_type": "",
+        "server_version": ""
       },
       {
         "port": "80",
         "protocol": "tcp",
         "service": "http",
-        "server_type": "NO",
-        "server_version": "NO"
+        "server_type": "",
+        "server_version": ""
       },
       {
-        "port": "111",
+        "port": "443",
         "protocol": "tcp",
-        "service": "rpcbind",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "139",
-        "protocol": "tcp",
-        "service": "netbios-ssn",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "microsoft-ds",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "513",
-        "protocol": "tcp",
-        "service": "login",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "514",
-        "protocol": "tcp",
-        "service": "shell",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "2049",
-        "protocol": "tcp",
-        "service": "nfs",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ccproxy-ftp",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "3306",
-        "protocol": "tcp",
-        "service": "mysql",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "5432",
-        "protocol": "tcp",
-        "service": "postgresql",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "5900",
-        "protocol": "tcp",
-        "service": "vnc",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "X11",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "8009",
-        "protocol": "tcp",
-        "service": "ajp13",
-        "server_type": "NO",
-        "server_version": "NO"
+        "service": "https",
+        "server_type": "",
+        "server_version": ""
       }
     ],
     "rpc_services": [
@@ -153,19 +48,12 @@
         "protocol": "",
         "port": "",
         "service_name": ""
-      },
-      {
-        "program_number": "111",
-        "version": "",
-        "protocol": "tcp",
-        "port": "111",
-        "service_name": "rpcbind"
       }
     ],
     "geo_location": {
       "country": "",
       "region": "",
-      "city": "Tel Aviv"
+      "city": "146.190.62.39"
     },
     "ssl": {
       "issuer": "",
@@ -173,11 +61,11 @@
         ""
       ]
     },
-    "ip": "192.168.56.101"
+    "ip": "146.190.62.39"
   },
-  "actions_history": [
-    "nmap -F 192.168.56.101"
-  ],
+  "actions_history": [],
   "cpes": [],
-  "vulnerabilities_found": []
+  "vulnerabilities_found": [],
+  "attack_impact": {},
+  "failed_CVEs": []
 }

@@ -4,6 +4,7 @@ nous-hermes/
 .locks/
 hf_models/
 llama-factory/
+nvd_cve_cpe_dataset.json
 all_cves_combined.json
 .python-version
 nvd_cve_dataset.json

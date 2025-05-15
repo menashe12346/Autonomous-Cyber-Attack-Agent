@@ -8,14 +8,14 @@ DATABASES_PATH = f"{PROJECT_PATH}/code/databases"
 OS_DATASETS = f"{DATASETS_PATH}/os_datasets"
 
 # Simulation parameters
-NUM_EPISODES = 1
+NUM_EPISODES = 200
 MAX_STEPS_PER_EPISODE = 4
 EPSILON = 0.6
 MAX_ENCODING_FEATURES = 1024
 
 # Target configuration
 TARGET_IP = "192.168.56.101" 
-# TARGET_IP = "146.190.62.39" 
+#TARGET_IP = "146.190.62.39" 
 
 # Wordlists paths
 WORDLISTS = {
@@ -43,6 +43,9 @@ CORRECTNESS_CACHE = f"{PROJECT_PATH}/code/Cache/correctness_cache.json"
 
 # NVD cve dataset path
 DATASET_NVD_CVE_PATH = f"{DATASETS_PATH}/cve/nvd/nvd_cve_dataset.json"
+
+# NVD cve cpe dataset path
+DATASET_NVD_CVE_CPE_PATH = f"{DATASETS_PATH}/cve/nvd/nvd_cve_cpe_dataset.json"
 
 # ExploitDB dataset path
 DATASET_EXPLOITDB_CVE_EXPLOIT_PATH = f"{DATASETS_PATH}/exploitdb/exploitdb_dataset(cve,exploit_path).csv"

@@ -66,12 +66,21 @@ class ScenarioOrchestrator:
 
         return True
 
+    """
+        def step(self):
+            print(f"[>] Running step {self.current_step}...")
+            self.agent_manager.run_step()
+            self.current_step += 1
+    """
+
     def step(self):
-        """
-        Execute a single simulation step by running the next eligible agent.
-        """
-        print(f"[>] Running step {self.current_step}...")
-        self.agent_manager.run_step()
+        if self.current_step % 11 < 10:
+            # להריץ רק את ה־Recon בכל 10 הצעדים הראשונים
+            self.agent_manager.run_recon_only_step()
+        elif self.current_step % 11 == 10:
+            # פעם אחת להריץ vuln + exploit
+            self.agent_manager.run_vuln_and_exploit_step()
+
         self.current_step += 1
 
     def end(self):

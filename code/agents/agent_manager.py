@@ -73,3 +73,17 @@ class AgentManager:
         print("Executed actions:")
         for action in self.actions_history:
             print(f"  → {action}")
+
+    def run_recon_only_step(self):
+        for agent in self.agents:
+            if agent.name.lower().startswith("recon") and agent.should_run():
+                agent.run()
+
+    def run_vuln_and_exploit_step(self):
+        for agent in self.agents:
+            if agent.name.lower().startswith("vuln") and agent.should_run():
+                agent.run()
+
+        for agent in self.agents:
+            if agent.name.lower().startswith("exploit") and agent.should_run():
+                agent.run()
