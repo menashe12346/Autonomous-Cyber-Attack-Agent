@@ -7,7 +7,7 @@ import sys
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Any, List
-
+from time import sleep
 from config import DEFAULT_STATE_STRUCTURE
 
 from blackboard.blackboard import initialize_blackboard
@@ -36,6 +36,14 @@ def remove_untrained_categories(state: dict, trained_categories: dict):
             inner_keys_to_remove = [inner_key for inner_key in state[key] if inner_key not in allowed_fields]
             for inner_key in inner_keys_to_remove:
                 state[key].pop(inner_key, None)
+
+def is_valid_json(s: str) -> bool:
+    try:
+        json.loads(s)
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
+
 
 class BaseAgent(ABC):
     """
@@ -127,17 +135,25 @@ class BaseAgent(ABC):
         """
 
         # Step 5: parse, validate and update blackboard
-        parsed_info = self.parse_output(result)
+        self.parse_output(result)
         #print(f"parsed_info - {parsed_info}")
 
-        self.blackboard_api.update_state(self.name, parsed_info)
+        #sleep(1)
+
+        new_info = self.llm_cache.get(action)
+        new_info = self.update_state_with_categories(self.last_state, new_info)
+        print(f"new_info - {new_info}")
+        self.check_state(new_info)
+        print(f"after - {new_info}")
+
+        self.blackboard_api.update_state(self.name, new_info)
 
         # Step 6: observe next state
         next_state = dict(self.get_state_raw())
         encoded_next_state = self.state_encoder.encode(next_state, self.actions_history)
 
         # Step 7: reward and update model
-        reward = self.get_reward(state, action, next_state, parsed_info)
+        reward = self.get_reward(state, action, next_state, new_info)
         self.episode_total_reward += reward
         #print(f"new state: {json.dumps(dict(self.state_encoder.decode(encoded_next_state)), indent=2)}")
 
@@ -238,7 +254,7 @@ class BaseAgent(ABC):
         self.command_cache[action] = output
         return output
         
-    def parse_output(self, command_output: str, context_num=1, retries: int = 1) -> dict:
+    def parse_output(self, command_output: str, context_num=1, retries: int = 1):
         """
         Parse command output using the LLM. Each trained category (including nested ones)
         gets its own prompt. Caching is done per action::category_path.
@@ -290,8 +306,6 @@ class BaseAgent(ABC):
 
             return paths
 
-
-
         def extract_model_response(raw: str) -> str:
             """
             מחלץ את הפלט האמיתי של המודל לפי תבנית escape קבועה,
@@ -331,6 +345,13 @@ class BaseAgent(ABC):
                 prompt = PROMPT(command_output, cat_path.replace("::", "."))
                 response = self.model.run(prompt, context_num)
                 response = extract_model_response(response)
+                if is_valid_json(response):
+                    response_list = json.loads(response)
+                    # ודא שזו באמת רשימה
+                    if isinstance(response_list, list):
+                        # שמור במטמון
+                        self.llm_cache.set(key, response_list)
+                        continue
 
                 response = response.strip()
                 self.llm_cache.set(key, response)
@@ -340,19 +361,46 @@ class BaseAgent(ABC):
         combined_response = "\n".join(full_responses.values())
         print(f"[✓] Combined model response length: {len(combined_response)} characters.")
         print(f"[DEBUG] full_response - {combined_response}")
+    
+    def update_state_with_categories(self, state: dict, categories: dict) -> dict:
+        """
+        Recursively updates the `state` dict using values from `categories`.
+        - Only fills in values that are currently empty in `state`.
+        - If a value in `categories` is 'NO', it is ignored.
+        - Lists are merged: new values are added if they don't already exist.
+        - Works in-place on a copy of `state` and returns the new state.
+        """
+        import copy
+        updated = copy.deepcopy(state)  # כדי לא לשנות את המקור
 
-        parsed, data_for_cache = fix_json(self.last_state, combined_response)
-        parsed = self.check_state(parsed)
-        remove_untrained_categories(parsed, trained_categories)
+        def recurse(state_node, category_node):
+            if isinstance(category_node, dict) and isinstance(state_node, dict):
+                for key, cat_val in category_node.items():
+                    if key not in state_node:
+                        continue  # התעלם ממפתחות שלא קיימים ב־state
 
-        data_for_cache = self.check_state(data_for_cache)
-        remove_untrained_categories(data_for_cache, trained_categories)
+                    state_val = state_node[key]
 
-        if parsed is None:
-            print("⚠️ parsed is None – skipping this round safely.")
-            return self.get_state_raw()
+                    if isinstance(cat_val, dict):
+                        recurse(state_val, cat_val)
 
-        return parsed
+                    elif isinstance(cat_val, list) and isinstance(state_val, list):
+                        if cat_val == "NO":
+                            continue
+                        # רק מוסיף פריטים חדשים לרשימה מבלי למחוק קיימים
+                        for item in cat_val:
+                            if item not in state_val:
+                                state_val.append(item)
+
+                    elif cat_val != "NO":
+                        # עדכן רק אם הערך הנוכחי ב־state ריק ("" או None)
+                        if state_val in ["", None]:
+                            state_node[key] = cat_val
+
+            return
+
+        recurse(updated, categories)
+        return updated
 
     def clean_output(self, command_output: str) -> dict:
         """
@@ -373,17 +421,17 @@ class BaseAgent(ABC):
 
     def check_state(self, current_state: str):
         # Validate and correct the state
-        new_state = validate_state(current_state)
-        print(f"[DEBUG] validate_state: {new_state}")
+        #new_state = validate_state(current_state)
+        #print(f"[DEBUG] validate_state: {new_state}")
         
-        new_state = merge_state(new_state)
-        print(f"[DEBUG] merge_state: {new_state}")
+        #new_state = merge_state(new_state)
+        #print(f"[DEBUG] merge_state: {new_state}")
         
         # Correct the state based on predefined rules
-        new_state = new_state = correct_state(state=new_state, os_linux_dataset=self.os_linux_dataset, os_linux_kernel_dataset=self.os_linux_kernel_dataset)
-        print(f"[DEBUG] correct_state: {new_state}")
+        #new_state = new_state = correct_state(state=new_state, os_linux_dataset=self.os_linux_dataset, os_linux_kernel_dataset=self.os_linux_kernel_dataset)
+        #print(f"[DEBUG] correct_state: {new_state}")
 
-        new_state = clean_state(new_state, initialize_blackboard())
+        new_state = clean_state(current_state, initialize_blackboard())
 
         # Ensure the state is a dictionary
         if not isinstance(new_state, dict):

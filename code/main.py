@@ -91,8 +91,8 @@ def main():
     download_os_linux_dataset()
 
     # Load cve dataset
-    #cve_items = load_dataset(DATASET_NVD_CVE_PATH) [DEBUG]
-    #print(f"✅ CVE dataset Loaded Successfully")
+    cve_items = load_dataset(DATASET_NVD_CVE_PATH)
+    print(f"✅ CVE dataset Loaded Successfully")
 
     # Load metasploit dataset
     metasploit_dataset = load_dataset(DATASET_METASPLOIT)
@@ -162,11 +162,14 @@ def main():
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
-        """
+        
         # --- Create vuln Agent ---
         vuln_agent = VulnAgent(
             blackboard_api=bb_api,
             cve_items=cve_items,
+            epsilon= epsilon,
+            os_linux_dataset=os_linux_dataset,
+            os_linux_kernel_dataset=os_linux_kernel_dataset
         )
 
         # --- Create exploit Agent ---
@@ -181,10 +184,13 @@ def main():
             metasploit_dataset=metasploit_dataset,
             exploitdb_dataset=exploitdb_dataset,
             full_exploit_dataset=full_exploit_dataset,
+            epsilon= epsilon,
+            os_linux_dataset=os_linux_dataset,
+            os_linux_kernel_dataset=os_linux_kernel_dataset
         )
-        """
+        
         # --- Register Agents ---
-        agents = [recon_agent] # [DEBUG]
+        agents = [recon_agent, vuln_agent, exploit_agent] # [DEBUG]
         #agents = [recon_agent, vuln_agent, exploit_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)

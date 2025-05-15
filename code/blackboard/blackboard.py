@@ -9,3 +9,7 @@ def initialize_blackboard(target_ip: str = ""):
         except KeyError:
             pass
     return blackboard
+
+def initialize_dict(Dict: dict):
+    Dict = copy.deepcopy(Dict)
+    return Dict

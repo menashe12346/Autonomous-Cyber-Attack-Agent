@@ -1,5 +1,479 @@
 [
   {
+    "action": "nmap -F 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "7.95",
+            "architecture": "x86"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "21",
+            "protocol": "tcp",
+            "service": "ftp",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "23",
+            "protocol": "tcp",
+            "service": "telnet",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "25",
+            "protocol": "tcp",
+            "service": "smtp",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "53",
+            "protocol": "tcp",
+            "service": "domain",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "111",
+            "protocol": "tcp",
+            "service": "rpcbind",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "139",
+            "protocol": "tcp",
+            "service": "netbios-ssn",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "445",
+            "protocol": "tcp",
+            "service": "microsoft-ds",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "513",
+            "protocol": "tcp",
+            "service": "login",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "514",
+            "protocol": "tcp",
+            "service": "shell",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "2121",
+            "protocol": "tcp",
+            "service": "ccproxy-ftp",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "3306",
+            "protocol": "tcp",
+            "service": "mysql",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "5432",
+            "protocol": "tcp",
+            "service": "postgresql",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "5900",
+            "protocol": "tcp",
+            "service": "vnc",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "6000",
+            "protocol": "tcp",
+            "service": "X11",
+            "server_type": "NO",
+            "server_version": "NO"
+          },
+          {
+            "port": "8009",
+            "protocol": "tcp",
+            "service": "ajp13",
+            "server_type": "NO",
+            "server_version": "NO"
+          }
+        ],
+        "rpc_services": [
+          {
+            "program_number": "111",
+            "version": "",
+            "protocol": "tcp",
+            "port": "111",
+            "service_name": "rpcbind"
+          }
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "Tel Aviv"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "httpx http://192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "linux",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "Apache/2.2.8 (Ubuntu)"
+          }
+        ],
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "NO"
+      }
+    }
+  },
+  {
+    "action": "nikto -h 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "2.2.8 (Ubuntu)"
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": "",
+            "server_type": "",
+            "server_version": "NO"
+          }
+        ],
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "NO"
+      }
+    }
+  },
+  {
+    "action": "nmap 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "WIN-101PC56",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "ubuntu",
+            "version": "7.95",
+            "architecture": "x86"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "21",
+            "protocol": "tcp",
+            "service": "ftp",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "23",
+            "protocol": "tcp",
+            "service": "telnet",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "25",
+            "protocol": "tcp",
+            "service": "smtp",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "53",
+            "protocol": "tcp",
+            "service": "domain",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "111",
+            "protocol": "tcp",
+            "service": "rpcbind",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "139",
+            "protocol": "tcp",
+            "service": "netbios-ssn",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "445",
+            "protocol": "tcp",
+            "service": "microsoft-ds",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "512",
+            "protocol": "tcp",
+            "service": "exec",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "513",
+            "protocol": "tcp",
+            "service": "login",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "514",
+            "protocol": "tcp",
+            "service": "shell",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "1099",
+            "protocol": "tcp",
+            "service": "rmiregistry",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "1524",
+            "protocol": "tcp",
+            "service": "ingreslock",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2121",
+            "protocol": "tcp",
+            "service": "ccproxy-ftp",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "3306",
+            "protocol": "tcp",
+            "service": "",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "5432",
+            "protocol": "tcp",
+            "service": "",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "5900",
+            "protocol": "tcp",
+            "service": "",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "6000",
+            "protocol": "tcp",
+            "service": "X11",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "6667",
+            "protocol": "tcp",
+            "service": "irc",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "8009",
+            "protocol": "tcp",
+            "service": "ajp13",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "8180",
+            "protocol": "tcp",
+            "service": "unknown",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": "[{\"program_number\": \"\", \"version\": \"\", \"protocol\": \"tcp\", \"port\": \"111\", \"service_name\": \"rpcbind\"}, {\"program_number\": \"\", \"version\": \"\", \"protocol\": \"tcp\", \"port\": \"1099\", \"service_name\": \"rmiregistry\"}, {\"program_number\": \"\", \"version\": \"\", \"protocol\": \"tcp\", \"port\": \"2049\", \"service_name\": \"nfs\"}],",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "Tel Aviv"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "The given text does not contain any information about discovered SMB shares. Therefore, the response would be: [\"\"]"
+      }
+    }
+  },
+  {
+    "action": "nbtscan 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "METASPLOITABLE",
+        "netbios_name": "METASPLOITABLE",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": "[\"\"],",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "METASPLOITABLE"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": []
+      }
+    }
+  },
+  {
     "action": "whois 192.168.56.101",
     "categories": {
       "target": {
@@ -9,27 +483,182 @@
           "name": "NO",
           "distribution": {
             "name": "NO",
-            "version": "NO"
-          }
-        }
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "US",
+          "region": "CA",
+          "city": "City of the target system: Los Angeles"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "NO"
       }
     }
   },
   {
-    "action": "sslscan 192.168.56.101",
+    "action": "ping -c 1 192.168.56.101",
     "categories": {
       "target": {
-        "hostname": "192.168.56.101",
+        "hostname": "NO",
         "netbios_name": "NO",
         "os": {
           "name": "NO",
           "distribution": {
             "name": "NO",
-            "version": "20.04",
+            "version": "NO",
             "architecture": "NO"
           },
           "kernel": "NO"
-        }
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "NO"
+      }
+    }
+  },
+  {
+    "action": "nmap -p 21 --script ftp-anon 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "21",
+            "protocol": "tcp",
+            "service": "ftp",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "NO"
+      }
+    }
+  },
+  {
+    "action": "smbmap -H 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": "NO",
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": "The given text contains error messages from Python. There is no information about SMB shares.\nSo, the correct response is:\n[NO]"
+      }
+    }
+  },
+  {
+    "action": "nmap -p 22 --script sshv1 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "7",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": [
+          {
+            "port": "22",
+            "protocol": "tcp",
+            "service": "ssh",
+            "server_type": "NO",
+            "server_version": "NO"
+          }
+        ],
+        "rpc_services": [],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "nmap -sS -A 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "NO",
+          "distribution": {
+            "name": "NO",
+            "version": "NO",
+            "architecture": "NO"
+          },
+          "kernel": "NO"
+        },
+        "services": []
       }
     }
   }

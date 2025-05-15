@@ -4,8 +4,11 @@ import fnmatch
 import sys
 import os
 import orjson
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from config import DATASET_NVD_CVE_PATH
+from config import DATASET_NVD_CVE_PATH, SERVICE_FAMILIES
 from agents.base_agent import BaseAgent
 
 def extract_all_cpe_matches(node):
@@ -96,9 +99,15 @@ class VulnAgent(BaseAgent):
         service_names = {
             s.get("service", "").strip().lower()
             for s in self.blackboard_api.get_state_for_agent(self.name)
-                         .get("target", {})
-                         .get("services", [])
+                        .get("target", {})
+                        .get("services", [])
         }
+
+        # הרחב את כל השירותים לפי משפחות – מראש
+        expanded_service_names = set()
+        for service in service_names:
+            family = SERVICE_FAMILIES.get(service, [service])
+            expanded_service_names.update(name.lower() for name in family)
 
         for item in self.cve_items:
             try:
@@ -117,17 +126,17 @@ class VulnAgent(BaseAgent):
                 for node in nodes:
                     for match in extract_all_cpe_matches(node):
                         uri_parts = match.get("cpe23Uri", "").lower().split(":")
-                        # cpe:2.3:<part>:<vendor>:<product>:...
                         if len(uri_parts) < 5:
                             continue
-                        product = uri_parts[4]
-                        if product in service_names:
+                        product = uri_parts[4].strip().lower()
+
+                        # השוואה מול רשימת שמות מורחבת
+                        if product in expanded_service_names:
                             vuln_dict.setdefault(cve_id, {
                                 "cve": cve_id,
                                 "matched_cpes": [],
                                 "cvss": cvss
                             })["matched_cpes"].append(match.get("cpe23Uri"))
-                            # once we’ve counted this CVE, move to next CVE
                             raise StopIteration
 
             except StopIteration:
@@ -137,10 +146,11 @@ class VulnAgent(BaseAgent):
                 continue
 
         return list(vuln_dict.values())
-            
+                
     def generate_possible_cpes(self, state_dict):
         target = state_dict.get("target", {})
         cpes = set()
+        known_services = set()
 
         # === OS to CPE ===
         os_info = target.get("os", {})
@@ -148,7 +158,6 @@ class VulnAgent(BaseAgent):
         if distro.get("name"):
             name = distro["name"].strip().lower().replace(" ", "_")
             cpes.add(f"cpe:2.3:o:{name}:{name}:*:*:*:*:*:*:*:*")
-
             if distro.get("version"):
                 ver = distro["version"].strip().lower().replace(" ", "_")
                 cpes.add(f"cpe:2.3:o:{name}:{name}:{ver}:*:*:*:*:*:*:*:*")
@@ -159,6 +168,7 @@ class VulnAgent(BaseAgent):
             version = s.get("server_version", "").strip().lower()
             if not name:
                 continue
+            known_services.add(name)
 
             for cpe in self._generate_service_cpes(name, name):
                 cpes.add(cpe)
@@ -168,17 +178,34 @@ class VulnAgent(BaseAgent):
 
         # === Web Directories Heuristics ===
         dirs = state_dict.get("web_directories_status", {})
-        cpes |= {
-            cpe
-            for code in ("200", "403")
-            for path in dirs.get(code, {})
-            if (dir_name := path.strip("/").lower()) and "/" not in dir_name
-            for cpe in self._generate_service_cpes(
-                dir_name.replace("-", "_"), dir_name.replace("-", "_")
-            )
-        }
+        for code in ("200", "403"):
+            for path in dirs.get(code, {}):
+                dir_name = path.strip("/").lower()
+                if dir_name and "/" not in dir_name:
+                    for cpe in self._generate_service_cpes(dir_name, dir_name):
+                        cpes.add(cpe)
 
-        print(f"[VulnAgent] Generated {len(cpes)} possible CPEs (OS + Services + Web Heuristics).")
+        # === Extract additional product names from CVEs that match current CPEs ===
+        extra_services = set()
+        for cpe_uri in list(cpes):
+            for item in self.cve_items:
+                nodes = item.get("configurations", {}).get("nodes", [])
+                for node in nodes:
+                    for match in extract_all_cpe_matches(node):
+                        uri = match.get("cpe23Uri", "").lower()
+                        if uri.startswith(cpe_uri[:20]):  # להשוות לפי vendor:product
+                            parts = uri.split(":")
+                            if len(parts) >= 5:
+                                product = parts[4]
+                                if product not in known_services:
+                                    extra_services.add(product)
+
+        # === Expand once based on new discovered product names ===
+        for new_svc in extra_services:
+            for cpe in self._generate_service_cpes(new_svc, new_svc):
+                cpes.add(cpe)
+
+        print(f"[VulnAgent] Generated {len(cpes)} CPEs (initial + level-1 expansion).")
         return list(cpes)
 
 
@@ -195,6 +222,11 @@ class VulnAgent(BaseAgent):
 # DEBUG
 if __name__ == "__main__":
 
+    def load_cve_database(path):
+        with open(path, "rb") as f:
+            data = orjson.loads(f.read())
+        return data
+
     print("[*] Loading CVE database...")
     cve_items = load_cve_database(DATASET_NVD_CVE_PATH)
     print(f"[+] Loaded {len(cve_items)} CVE entries")
@@ -203,10 +235,17 @@ if __name__ == "__main__":
     test_state = {
         "target": {
             "ip": "192.168.56.101",
-            "os": "Linux",
+            "os": {
+                "name": "linux",
+                "distribution": {
+                    "name": "ubuntu",
+                    "version": "20.04"
+                }
+            },
             "services": [
                 {"port": "80", "protocol": "tcp", "service": "apache"},
-                {"port": "3306", "protocol": "tcp", "service": "mysql"}
+                {"port": "3306", "protocol": "tcp", "service": "mysql"},
+                {"port": "21", "protocol": "tcp", "service": "ftp", "server_version": ""}
             ]
         },
         "web_directories_status": {
@@ -230,13 +269,19 @@ if __name__ == "__main__":
             return {}
 
     # צור את הסוכן והפעל את הפונקציות
-    agent = VulnAgent(blackboard_api=DummyBlackboardAPI(), cve_items=cve_items)
+    agent = VulnAgent(blackboard_api=DummyBlackboardAPI(), cve_items=cve_items,
+                      epsilon=0.0, os_linux_dataset=None, os_linux_kernel_dataset=None)
 
     possible_cpes = agent.generate_possible_cpes(test_state)
     matches = agent.match_cves_to_cpes(possible_cpes)
+    matches = agent.filter_top_vulnerabilities(matches, top_n=900)
 
-    print(f"\n[✓] Found {len(matches)} matching CVEs")
-    for match in matches[:10]:  # מדפיס את 10 הראשונים בלבד
-        print(f"  - {match['cve']}: {len(match['matched_cpes'])} matched CPEs")
-        for cpe in match["matched_cpes"]:
-            print(f"    • {cpe}")
+    print(f"\n[✓] Found top {len(matches)} CVEs matching the generated CPEs:\n")
+
+    for match in matches:
+        cve_id = match['cve']
+        cvss = match.get("cvss", "N/A")
+        print(f"  - CVE: {cve_id}  (CVSS: {cvss})")
+        for cpe in match['matched_cpes']:
+            print(f"      • {cpe}")
+        print()

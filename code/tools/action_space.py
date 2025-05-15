@@ -26,7 +26,24 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
             "nmap -sV {ip}",
             #"nmap -A {ip}",
             "nmap -p 80,443 --script=http-title,http-headers,http-methods {ip}",
+            "nmap -O {ip}",  # זיהוי מערכת הפעלה
+            "nmap -sS -A {ip}",  # includes OS, version, script scan, traceroute
+            "nmap --script=vuln {ip}",
+            "nmap -p 88 --script=krb5-enum-users  {ip}",
+            "nmap -sV --script=banner {ip}",
             #"sudo nmap -O -Pn --traceroute {ip}",
+        ],
+        "nmap_ssh": [
+            "nmap -p 22 --script ssh-hostkey {ip}",
+            "nmap -p 22 --script sshv1 {ip}"
+        ],
+        "nmap_ftp": [
+            "nmap -p 21 --script ftp-anon {ip}",
+            "nmap -p 21 --script ftp-bounce {ip}"
+        ],
+
+        "smbmap": [
+            "smbmap -H {ip}"
         ],
         "rpcinfo": [
             "rpcinfo -p {ip}"
@@ -36,7 +53,8 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
         ],
         "curl": [
             "curl -I http://{ip}",
-            "curl http://{ip}/"
+            "curl -k -v http://{ip}"
+            "curl http://{ip}/",
         ],
         "wget": [
             "wget http://{ip} -O -",
@@ -54,7 +72,7 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
             "whatweb http://{ip}"
         ],
         "gobuster": [
-            "gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
+            #"gobuster dir -u http://{ip} -w /mnt/linux-data/wordlists/SecLists/Discovery/Web-Content/common.txt"
         ],
         "whois": [
             "whois {ip}"
@@ -72,10 +90,14 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
 COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "nmap": [
-            #"nmap -sV {ip}",
+            "nmap -F {ip}",
+          #  "nmap {ip}",
+           # "nbtscan {ip}",
+           # "httpx http://192.168.56.101",
+           # "nikto -h {ip}"
         ],
         "sslscan": [
-            "sslscan {ip}"
+            #"sslscan {ip}"
         ],
     },
 }

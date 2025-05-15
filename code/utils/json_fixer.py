@@ -6,7 +6,7 @@ import ast
 import copy
 
 from config import EXPECTED_STATUS_CODES
-from blackboard.blackboard import initialize_blackboard
+from blackboard.blackboard import initialize_blackboard, initialize_dict
 
 def normalize_parts(data: any, schema: any):
     if isinstance(schema, dict) and isinstance(data, dict):
@@ -514,9 +514,9 @@ def print_json_parts(parts):
     print_dict(parts)
 
 
-def fix_json(state: dict, new_data: str) -> dict:
+def fix_json(state: dict, new_data: str, Dict) -> dict:
     # 1) Extract parts and report
-    extracted_parts, missing = extract_json_parts_recursive(new_data, initialize_blackboard())
+    extracted_parts, missing = extract_json_parts_recursive(new_data, initialize_dict(Dict))
 
     def _apply_normalization(parts, schema):
 
@@ -541,7 +541,7 @@ def fix_json(state: dict, new_data: str) -> dict:
     else:
         print("❌ Failed to extract valid JSON.")
 
-    extracted_parts = _apply_normalization(extracted_parts, initialize_blackboard())  
+    extracted_parts = _apply_normalization(extracted_parts, initialize_dict(Dict))  
 
     if missing:
         missing = {
@@ -551,15 +551,15 @@ def fix_json(state: dict, new_data: str) -> dict:
         print("❗ Missing categories/subfields detected:")
         print(json.dumps(missing, indent=2))
     
-    data_for_cache = build_state_from_parts(extracted_parts, initialize_blackboard())
+    data_for_cache = build_state_from_parts(extracted_parts, initialize_dict(Dict))
 
     state = copy.deepcopy(state)
 
     # 2) Merge into the original state using the expected schema
-    filled = fill_json_structure(state, extracted_parts, initialize_blackboard())
+    filled = fill_json_structure(state, extracted_parts, initialize_dict(Dict))
 
     # 3) Run our generic cleanup (services, status‐codes, etc.)
-    final_json = remove_empty_fields(filled, initialize_blackboard())
+    final_json = remove_empty_fields(filled, initialize_dict(Dict))
 
     # 4) Show and return
     print("🧹 Final cleaned JSON:")

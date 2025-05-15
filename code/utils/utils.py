@@ -14,12 +14,12 @@ def get_first_word(s: str) -> str:
     return s.strip().split()[0] if s.strip() else ""
 
 
-def does_not_contain_brackets_pattern(s: str) -> bool:
+def does_not_contain_brackets_or_exploit_warning(s: str) -> bool:
     """
-    Returns True if the string does NOT contain the exact pattern '[-]'
-    anywhere in it.
+    Returns True if the string does NOT contain '[-]' and also does NOT contain
+    'Exploit completed, but no session was created.'
     """
-    return '[-]' not in s
+    return '[-]' not in s and 'Exploit completed, but no session was created.' not in s
 
 def get_nested(d: dict, path: str):
     """

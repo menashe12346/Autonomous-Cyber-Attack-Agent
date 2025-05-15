@@ -2,9 +2,10 @@ import json
 import hashlib
 from collections import Counter
 
+
 from agents.base_agent import BaseAgent
 from tools.action_space import get_commands_for_agent
-from utils.utils import get_nested, does_not_contain_brackets_pattern, get_first_word
+from utils.utils import get_nested, get_first_word
 from config import STATE_SCHEMA
 
 def traverse_schema_key(data, key_parts):
@@ -152,7 +153,7 @@ class ReconAgent(BaseAgent):
         # 1) Action repeat penalty / first-time bonus
         if action in self.actions_history:
             cnt = self.actions_history.count(action)
-            pen = -0.5 * cnt
+            pen = -2.0 * cnt
             reward += pen
             reasons.append(f"Action repeated {cnt} times {pen:+.1f}")
         else:
@@ -219,4 +220,4 @@ class ReconAgent(BaseAgent):
         # 4) Update history
         self.prev_state = dict(next_dict)
 
-        return reward
+        return reward/4
