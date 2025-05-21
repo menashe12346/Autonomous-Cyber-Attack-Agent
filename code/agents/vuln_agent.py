@@ -144,23 +144,23 @@ class VulnAgent(BaseAgent):
                         "matched_cpes": matched,
                         "cvss": 0.0  # ניתן לעדכן בהמשך
                     }
-                    print(f"[✓] CVE {cve_id} matched {len(matched)} CPEs")
+                    #print(f"[✓] CVE {cve_id} matched {len(matched)} CPEs")
 
             except Exception as e:
                 print(f"[!] Failed parsing CVE record: {e}")
                 continue
 
-        print(f"[LOG] Total CVEs matched by product name: {len(vuln_dict)}")
+        #print(f"[LOG] Total CVEs matched by product name: {len(vuln_dict)}")
 
         # שלב 4: סינון לפי מאגר Metasploit
         metasploit_cves = {entry["cve"] for entry in self.metasploit_dataset if "cve" in entry}
-        print(f"[LOG] Total CVEs in Metasploit dataset: {len(metasploit_cves)}")
+        #print(f"[LOG] Total CVEs in Metasploit dataset: {len(metasploit_cves)}")
 
         filtered = []
         for v in vuln_dict.values():
             if v["cve"] in metasploit_cves:
                 filtered.append(v)
-                print(f"[FINAL] CVE {v['cve']} passed Metasploit filter ✅")
+                #print(f"[FINAL] CVE {v['cve']} passed Metasploit filter ✅")
 
         print(f"[LOG] Final matched CVEs after Metasploit filter: {len(filtered)}")
         return filtered

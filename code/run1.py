@@ -63,18 +63,24 @@ class CyberMonitorApp:
         self.text_area.see(tk.END)
 
     def start(self):
+        # Prevent multiple starts
         self.start_btn.config(state=tk.DISABLED)
         self.running = True
+        # Launch monitoring thread
         threading.Thread(target=self.watch_blackboard, daemon=True).start()
+        # Launch simulation thread
         threading.Thread(target=self.run_simulation, daemon=True).start()
 
     def watch_blackboard(self):
+        # Load initial state
         if os.path.exists(BLACKBOARD_PATH):
             try:
                 with open(BLACKBOARD_PATH, 'r') as f:
                     self.last_state = json.load(f)
             except:
                 self.last_state = {}
+
+        # Continuous watch loop
         while self.running:
             try:
                 with open(BLACKBOARD_PATH, 'r') as f:
@@ -88,6 +94,7 @@ class CyberMonitorApp:
     def detect_changes(self, old, new, prefix=""):
         if isinstance(new, dict):
             for key, val in new.items():
+                # Skip CPEs entirely
                 if key == "cpes":
                     continue
                 path = f"{prefix}.{key}" if prefix else key
@@ -95,59 +102,55 @@ class CyberMonitorApp:
                     self.describe_addition(path, val)
                 else:
                     self.detect_changes(old.get(key, {}), val, path)
+
         elif isinstance(new, list):
+            # Skip if this list is CPEs
             if prefix.endswith("cpes"):
                 return
             old_list = old if isinstance(old, list) else []
             for item in new:
                 if item not in old_list:
                     self.describe_addition(prefix, item)
+
         else:
             if old != new:
                 self.log(f"🔄 Updated '{prefix}' to {new}")
 
     def describe_addition(self, path, value):
+        # Skip printing any CPE entries
         if path.endswith("cpes") or ".cpes" in path:
             return
-        if value in (None, "", "NO"):
-            return
+
         # Open ports
         if path.startswith("target.services") and isinstance(value, dict):
             port = value.get("port", "?")
             proto = value.get("protocol", "?")
             svc = value.get("service", "unknown")
-            ver = value.get("server_version", None)
-            msg = f"📡 Open Port: {port}/{proto} running service '{svc}'"
-            if ver and ver not in ("", "NO"):
-                msg += f" version {ver}"
-            self.log(msg)
+            ver = value.get("server_version", "-")
+            self.log(f"📡 Open Port: {port}/{proto} running service '{svc}' version {ver}")
             return
+
         # OS distribution
         if "target.os.distribution.name" in path:
-            distro = value
-            if not distro or distro == "NO":
-                return
-            ver = self.last_state.get("target", {}).get("os", {}).get("distribution", {}).get("version", None)
-            msg = f"🖥️ OS: {distro}"
-            if ver and ver not in ("", "NO"):
-                msg += f" {ver}"
-            self.log(msg)
+            distro = value or "Unknown"
+            ver = self.last_state.get("target", {}).get("os", {}).get("distribution", {}).get("version", "-")
+            self.log(f"🖥️ OS: {distro} {ver}")
             return
+
         # Kernel
         if "target.os.kernel" in path:
-            if value and value not in ("", "NO"):
-                self.log(f"🧠 Kernel: {value}")
+            self.log(f"🧠 Kernel: {value}")
             return
+
         # Vulnerabilities
         if path.endswith("vulnerabilities_found") and isinstance(value, list):
-            if not value:
-                return
             self.log("\n❗ Vulnerabilities Detected:", tag="vuln")
             for entry in value:
                 cve = entry.get("cve", "N/A")
                 score = entry.get("cvss", "-")
                 self.log(f"   • {cve} (CVSS {score})", tag="vuln")
             return
+
         # Generic additions
         self.log(f"➕ {path}: {value}")
 
@@ -158,21 +161,28 @@ class CyberMonitorApp:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         except:
             device = None
+
+        # Load datasets
         cves = load_dataset(DATASET_NVD_CVE_PATH)
         msf = load_dataset(DATASET_METASPLOIT)
         edb = load_dataset(DATASET_EXPLOITDB_CVE_EXPLOIT_PATH)
         os_linux = load_dataset(DATASET_OS_LINUX)
         os_kernel = load_dataset(DATASET_OS_LINUX_KERNEL)
         full_exp = merge_exploit_datasets(msf, edb, DATASET_EXPLOIT)
+
         model = LlamaModel()
         bb = initialize_blackboard(TARGET_IP)
         api = BlackboardAPI(bb)
+
+        # Patch update_state to save file
         original_update = api.update_state
         def patched_update(agent, state):
             original_update(agent, state)
             with open(BLACKBOARD_PATH, 'w') as f:
                 json.dump(api.blackboard, f, indent=2)
         api.update_state = patched_update
+
+        # Create agents
         recon_cmds = get_commands_for_agent("recon")
         recon_agent = ReconAgent(
             api,
@@ -195,10 +205,13 @@ class CyberMonitorApp:
             metasploit_dataset=msf, exploitdb_dataset=edb, full_exploit_dataset=full_exp,
             os_linux_dataset=os_linux, os_linux_kernel_dataset=os_kernel
         )
+
+        # Register and run
         mgr = AgentManager(api)
         mgr.register_agents([recon_agent, vuln_agent, exploit_agent])
         orch = ScenarioOrchestrator(api, mgr, "EvaluationEpisode", TARGET_IP)
         orch.run_scenario_loop()
+
         self.log("\n✅ Simulation Completed!", tag="vuln")
 
 if __name__ == "__main__":
