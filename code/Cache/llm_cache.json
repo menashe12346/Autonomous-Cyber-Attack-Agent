@@ -1822,38 +1822,6 @@
     }
   },
   {
-    "action": "nmap --script=vuln 192.168.56.101",
-    "categories": {
-      "target": {
-        "hostname": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:35:27+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-        "netbios_name": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:36:19+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-        "os": {
-          "name": "Linux",
-          "distribution": {
-            "name": "Ubuntu",
-            "version": "8.04",
-            "architecture": "x86"
-          },
-          "kernel": "2.6.24"
-        },
-        "services": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:46:58+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-        "rpc_services": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:48:34+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-        "geo_location": {
-          "country": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:50:15+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-          "region": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:51:39+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-          "city": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:53:02+03:00 [COMMAND_EXIT_CODE=\"134\"]"
-        },
-        "ssl": {
-          "issuer": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:54:24+03:00 [COMMAND_EXIT_CODE=\"134\"]",
-          "protocols": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:55:49+03:00 [COMMAND_EXIT_CODE=\"134\"]"
-        },
-        "smb_shares": [
-          ""
-        ]
-      }
-    }
-  },
-  {
     "action": "nmap -p 21 --script ftp-bounce 192.168.56.101",
     "categories": {
       "target": {
@@ -1884,7 +1852,9 @@
             "server_version": ""
           }
         ],
-        "rpc_services": "[\"\"",
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",

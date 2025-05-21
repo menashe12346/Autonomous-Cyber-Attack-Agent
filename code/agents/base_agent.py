@@ -104,22 +104,21 @@ class BaseAgent(ABC):
         encoded_state = self.state_encoder.encode(state, self.actions_history)
         self.last_state = state
         self.encoded_last_state = encoded_state
-        print(f"encoded_state: {encoded_state}")
 
         # [DEBUG]
-        print(f"last state: {json.dumps(state, indent=2)}")
+        #print(f"last state: {json.dumps(state, indent=2)}")
 
         # Step 2: select action
         action = self.choose_action(encoded_state)
         self.last_action = action
 
-        print(f"\n[+] Agent: {self.name}")
-        print(f"    Current state: {str(state)[:8]}...")
+        #print(f"\n[+] Agent: {self.name}")
+        #print(f"    Current state: {str(state)[:8]}...")
         print(f"    Chosen action: {action}")
 
         # Step 3: execute action
         result = remove_comments_and_empty_lines(self.perform_action(action)) # TODO: Improving remove_comments_and_empty_lines
-        print("\033[1;32m" + str(result) + "\033[0m")
+        #print("\033[1;32m" + str(result) + "\033[0m")
 
         # Step 4: clean output (if long)
         """
@@ -142,9 +141,9 @@ class BaseAgent(ABC):
 
         new_info = self.llm_cache.get(action)
         new_info = self.update_state_with_categories(self.last_state, new_info)
-        print(f"new_info - {new_info}")
+        #print(f"new_info - {new_info}")
         self.check_state(new_info)
-        print(f"after - {new_info}")
+        #print(f"after - {new_info}")
 
         self.blackboard_api.update_state(self.name, new_info)
 
@@ -168,9 +167,9 @@ class BaseAgent(ABC):
 
         q_pred, loss = self.policy_model.update(experience)
 
-        print(f"    Predicted Q-value: {q_pred:.4f}")
-        print(f"    Actual reward:     {reward:.4f}")
-        print(f"    Loss:              {loss:.6f}")
+        #print(f"    Predicted Q-value: {q_pred:.4f}")
+        #print(f"    Actual reward:     {reward:.4f}")
+        #print(f"    Loss:              {loss:.6f}")
 
         # Step 8: save experience
         if self.replay_buffer is not None:
@@ -201,14 +200,14 @@ class BaseAgent(ABC):
             q_values = self.policy_model.forward(state_tensor).cpu().numpy().flatten()
 
         # הדפסה של כל הערכים
-        print("\n[✓] Q-value predictions:")
-        for action, q in zip(self.action_space, q_values):
-            print(f"  {action:70s} => Q = {q:.4f}")
+        #print("\n[✓] Q-value predictions:")
+        #for action, q in zip(self.action_space, q_values):
+            #print(f"  {action:70s} => Q = {q:.4f}")
 
         # בחירת פעולה
         rnd = random.random() 
         if rnd < self.epsilon:
-            print(f"\033[91m[! EXPLORATION] rnd={rnd:.4f} < ε={self.epsilon:.4f} → Choosing random action\033[0m")
+            #print(f"\033[91m[! EXPLORATION] rnd={rnd:.4f} < ε={self.epsilon:.4f} → Choosing random action\033[0m")
             action_index = random.randint(0, len(self.action_space) - 1)
         else:
             action_index = int(np.argmax(q_values))
@@ -241,7 +240,7 @@ class BaseAgent(ABC):
         command = action.format(ip=ip)
 
         if action in self.command_cache:
-            print(f"[Cache] Returning cached result for action: {action}")
+            #print(f"[Cache] Returning cached result for action: {action}")
             return self.command_cache[action]
         
         try:
@@ -318,7 +317,7 @@ class BaseAgent(ABC):
 
             start_index = raw.find(start_marker)
             if start_index == -1:
-                print("[!] Start marker not found.")
+               # print("[!] Start marker not found.")
                 return ""
 
             # המיקום שבו מתחילה התשובה
@@ -340,7 +339,7 @@ class BaseAgent(ABC):
             cached_response = self.llm_cache.get(key)
 
             if cached_response:
-                print(f"\033[93m[CACHE] Using cached response for {cat_path}\033[0m")
+                #print(f"\033[93m[CACHE] Using cached response for {cat_path}\033[0m")
                 response = cached_response if isinstance(cached_response, str) else json.dumps(cached_response)
             else:
                 prompt = PROMPT(command_output, cat_path.replace("::", "."))
@@ -360,8 +359,8 @@ class BaseAgent(ABC):
             full_responses[cat_path] = response
 
         combined_response = "\n".join(full_responses.values())
-        print(f"[✓] Combined model response length: {len(combined_response)} characters.")
-        print(f"[DEBUG] full_response - {combined_response}")
+        #print(f"[✓] Combined model response length: {len(combined_response)} characters.")
+        #print(f"[DEBUG] full_response - {combined_response}")
     
     def update_state_with_categories(self, state: dict, categories: dict) -> dict:
         """
@@ -436,10 +435,10 @@ class BaseAgent(ABC):
 
         # Ensure the state is a dictionary
         if not isinstance(new_state, dict):
-            print(f"[!] Warning: Invalid state type received. Converting to dictionary...")
+           # print(f"[!] Warning: Invalid state type received. Converting to dictionary...")
             new_state = dict(new_state)
         
         new_state = sort_state(new_state)
-        print(f"[DEBUG] sort_state: {new_state}")
+        #print(f"[DEBUG] sort_state: {new_state}")
 
         return new_state

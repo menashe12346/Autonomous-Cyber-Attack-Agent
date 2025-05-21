@@ -41,7 +41,7 @@ class ScenarioOrchestrator:
 
         # Initialize target structure
         self.blackboard.blackboard = initialize_blackboard(self.target)
-        print(f"self.blackboard.blackboard: {self.blackboard.blackboard}")
+        #print(f"self.blackboard.blackboard: {self.blackboard.blackboard}")
 
         print(f"[+] Starting scenario: {self.scenario_name}")
 
@@ -74,7 +74,7 @@ class ScenarioOrchestrator:
     """
 
     def step(self):
-        if self.current_step < 8:
+        if self.current_step < 10:
             # להריץ רק את ה־Recon בכל 10 הצעדים הראשונים
             self.agent_manager.run_recon_only_step()
         else:

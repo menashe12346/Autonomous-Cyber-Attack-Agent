@@ -121,7 +121,7 @@ class StateEncoder:
         if vk not in self.encoded_to_state:
             self.encoded_to_state[vk] = state
 
-        print(f"[Encoder] Encoded vector of length {len(encoded)}")
+        #print(f"[Encoder] Encoded vector of length {len(encoded)}")
         return vec
 
     def decode(self, vector: torch.Tensor) -> dict:

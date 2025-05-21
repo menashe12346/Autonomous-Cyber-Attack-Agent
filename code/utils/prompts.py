@@ -6,7 +6,6 @@ from utils.utils import clean_command_output, clean_prompt, get_nested
 from config import EXPECTED_STATUS_CODES, DEFAULT_STATE_STRUCTURE, STATE_SCHEMA
 
 def PROMPT(command_output: str, category: str) -> str:
-    {print(category)}
     result = f"""
 Extract the following field: {STATE_SCHEMA.get(category)["llm_prompt"]}
 

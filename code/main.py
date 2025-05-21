@@ -206,8 +206,8 @@ def main():
         )
 
         # --- Register Agents ---
-        agents = [recon_agent, vuln_agent, exploit_agent] # [DEBUG]
-        #agents = [recon_agent, vuln_agent, exploit_agent]
+        #agents = [recon_agent, vuln_agent, exploit_agent] 
+        agents = [recon_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
@@ -258,7 +258,7 @@ def main():
     #    print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
 
     recon_trainer.save_model("models/saved_models/recon_model.pth")
-    exploit_trainer.save_model("models/saved_models/exploit_model.pth")
+    #exploit_trainer.save_model("models/saved_models/exploit_model.pth")
     print("✅ Final trained model saved.")
 
     # --- Plot Training Curves ---

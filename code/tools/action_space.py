@@ -3,7 +3,7 @@ from typing import List, Dict
 from config import WORDLISTS, TARGET_IP
 
 # Mapping of tool categories to their command templates
-COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
+COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "ping": [
             "ping -c 1 {ip}"
@@ -28,7 +28,7 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
             "nmap -p 80,443 --script=http-title,http-headers,http-methods {ip}",
             #"nmap -O {ip}",  # זיהוי מערכת הפעלה
             "nmap -sS -A {ip}",  # includes OS, version, script scan, traceroute
-            "nmap --script=vuln {ip}",
+            #"nmap --script=vuln {ip}",
             "nmap -p 88 --script=krb5-enum-users  {ip}",
             #"nmap -sV --script=banner {ip}",
             #"sudo nmap -O -Pn --traceroute {ip}",
@@ -87,7 +87,7 @@ COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
 }
 
 # [DEBUG] For Debugging
-COMMAND_TEMPLATES: Dict[str, Dict[str, List[str]]] = {
+COMMAND_TEMPLATES1: Dict[str, Dict[str, List[str]]] = {
     "recon": {
         "nmap": [
             "nmap -F {ip}",

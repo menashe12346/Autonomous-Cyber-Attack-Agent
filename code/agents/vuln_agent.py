@@ -58,19 +58,19 @@ class VulnAgent(BaseAgent):
         return 0.0  # This agent does not learn
 
     def run(self):
-        print("[+] VulnAgent running...")
+        #print("[+] VulnAgent running...")
         state = self.blackboard_api.get_state_for_agent(self.name)
         possible_cpes = self.generate_possible_cpes(state)
-        print(possible_cpes)
+        #print(possible_cpes)
         found_vulns = self.match_cves_to_cpes(possible_cpes)
-        print(found_vulns)
+        #print(found_vulns)
 
-        print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
+        #print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
         self.blackboard_api.blackboard["cpes"] = possible_cpes
 
         found_vulns = self.filter_top_vulnerabilities(found_vulns)
         self.blackboard_api.blackboard["vulnerabilities_found"] = found_vulns
-        print(f"[VulnAgent] Final selected top {len(found_vulns)} vulnerabilities:")
+        #print(f"[VulnAgent] Final selected top {len(found_vulns)} vulnerabilities:")
         self.blackboard_api._save_to_file()
     
     def filter_top_vulnerabilities(self, matches, top_n=900):
@@ -108,8 +108,8 @@ class VulnAgent(BaseAgent):
             if s.get("service")
         }
 
-        for s in sorted(service_names):
-            print(f"  - {s}")
+        #for s in sorted(service_names):
+            #print(f"  - {s}")
 
         # שלב 2: הרחבת שירותים לפי משפחות
         expanded_service_names = set()
@@ -120,7 +120,7 @@ class VulnAgent(BaseAgent):
 
 
         # שלב 3: חיפוש התאמות בין CVE→CPE למוצרים
-        print(f"[LOG] Checking {len(self.cve_items)} CVEs for product name matches...")
+        #print(f"[LOG] Checking {len(self.cve_items)} CVEs for product name matches...")
         self.cve_items = load_cve_database(DATASET_NVD_CVE_CPE_PATH)
         for item in self.cve_items:
             try:
@@ -131,7 +131,6 @@ class VulnAgent(BaseAgent):
                 for cpe_uri in cpes:
                     parts = cpe_uri.split(":")
                     if len(parts) < 5:
-                        print("hi")
                         continue
                     product = parts[4].strip().lower()
 
@@ -204,7 +203,7 @@ class VulnAgent(BaseAgent):
                     for cpe in self._generate_service_cpes(dir_name, dir_name):
                         cpes.add(cpe)
 
-        print(f"[VulnAgent] Generated {len(cpes)} CPEs (initial + level-1 expansion).")
+        #print(f"[VulnAgent] Generated {len(cpes)} CPEs (initial + level-1 expansion).")
         return list(cpes)
 
 

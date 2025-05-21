@@ -15,7 +15,7 @@ def run_clean_output(cmd, timeout=600):
 
     try:
         for line in process.stdout:
-            print(line, end="")  # print in real time
+            #print(line, end="")  # print in real time
             full_output.append(line.rstrip())
 
         process.wait(timeout=timeout)

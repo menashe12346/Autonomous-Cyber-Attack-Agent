@@ -211,11 +211,11 @@ class ReconAgent(BaseAgent):
             reasons.append("No new fields discovered -1.0")
 
         # Debug output
-        print("\n[Reward Debug]")
-        print(f"Action: {action}")
-        for r in reasons:
-            print("  ", r)
-        print(f"Total raw reward: {reward:.2f}\n")
+        #print("\n[Reward Debug]")
+        #print(f"Action: {action}")
+        #for r in reasons:
+            #print("  ", r)
+        #print(f"Total raw reward: {reward:.2f}\n")
 
         # 4) Update history
         self.prev_state = dict(next_dict)

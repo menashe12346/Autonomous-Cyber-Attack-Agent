@@ -20,11 +20,11 @@
         "server_version": ""
       },
       {
-        "port": "21",
+        "port": "80",
         "protocol": "tcp",
-        "service": "ftp",
-        "server_type": "NO",
-        "server_version": "NO"
+        "service": "http",
+        "server_type": "apache",
+        "server_version": "HTTP/1.1"
       },
       {
         "port": "22",
@@ -34,116 +34,11 @@
         "server_version": "NO"
       },
       {
-        "port": "23",
-        "protocol": "tcp",
-        "service": "telnet",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "25",
-        "protocol": "tcp",
-        "service": "smtp",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "53",
-        "protocol": "tcp",
-        "service": "domain",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
         "port": "80",
         "protocol": "tcp",
         "service": "http",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "111",
-        "protocol": "tcp",
-        "service": "rpcbind",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "139",
-        "protocol": "tcp",
-        "service": "netbios-ssn",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "445",
-        "protocol": "tcp",
-        "service": "microsoft-ds",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "513",
-        "protocol": "tcp",
-        "service": "login",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "514",
-        "protocol": "tcp",
-        "service": "shell",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "2049",
-        "protocol": "tcp",
-        "service": "nfs",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "2121",
-        "protocol": "tcp",
-        "service": "ccproxy-ftp",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "3306",
-        "protocol": "tcp",
-        "service": "mysql",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "5432",
-        "protocol": "tcp",
-        "service": "postgresql",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "5900",
-        "protocol": "tcp",
-        "service": "vnc",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "6000",
-        "protocol": "tcp",
-        "service": "X11",
-        "server_type": "NO",
-        "server_version": "NO"
-      },
-      {
-        "port": "8009",
-        "protocol": "tcp",
-        "service": "ajp13",
-        "server_type": "NO",
-        "server_version": "NO"
+        "server_type": "Apache",
+        "server_version": "Apache/2.2.8 (Ubuntu)"
       }
     ],
     "rpc_services": [
@@ -154,18 +49,12 @@
         "port": "",
         "service_name": ""
       },
-      {
-        "program_number": "111",
-        "version": "",
-        "protocol": "tcp",
-        "port": "111",
-        "service_name": "rpcbind"
-      }
+      ""
     ],
     "geo_location": {
       "country": "",
       "region": "",
-      "city": "Tel Aviv"
+      "city": ""
     },
     "ssl": {
       "issuer": "",
@@ -173,101 +62,33 @@
         ""
       ]
     },
-    "ip": "EvaluationEpisode"
+    "ip": "192.168.56.101"
   },
   "actions_history": [
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101",
-    "nmap -F 192.168.56.101"
+    "curl -I http://192.168.56.101",
+    "curl -I http://192.168.56.101",
+    "curl -I http://192.168.56.101",
+    "wget http://192.168.56.101 -O -",
+    "wget http://192.168.56.101 -O -",
+    "wget http://192.168.56.101 -O -",
+    "nmap -p 22 --script sshv1 192.168.56.101",
+    "nmap -p 22 --script sshv1 192.168.56.101",
+    "nmap -p 22 --script sshv1 192.168.56.101"
   ],
   "cpes": [
-    "cpe:2.3:a:*:smtp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:nfs:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:domain:domain:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:nfs:nfs:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:rpcbind:rpcbind:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:smtp:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:smtp:smtp:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:telnet:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ajp13:ajp13:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ccproxy-ftp:ccproxy-ftp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ftp:ftp:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ccproxy-ftp:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:postgresql:postgresql:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:x11:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:microsoft-ds:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:netbios-ssn:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:microsoft-ds:microsoft-ds:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:mysql:mysql:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:mysql:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:rpcbind:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:ajp13:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ftp:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:http:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:nfs:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ftp:ftp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:domain:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:postgresql:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:netbios-ssn:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ajp13:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:rpcbind:*:*:*:*:*:*:*:*",
-    "cpe:2.3:o:ubuntu:ubuntu:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:login:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:x11:x11:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:login:login:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:smtp:smtp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:nfs:nfs:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:telnet:telnet:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ccproxy-ftp:ccproxy-ftp:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:login:login:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:mysql:mysql:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:rpcbind:rpcbind:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:vnc:vnc:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:netbios-ssn:netbios-ssn:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:shell:shell:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:mysql:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:login:*:*:*:*:*:*:*:*",
-    "cpe:2.3:o:ubuntu:ubuntu:8.04:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:ftp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:ccproxy-ftp:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:telnet:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:microsoft-ds:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:microsoft-ds:microsoft-ds:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:vnc:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:postgresql:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:domain:domain:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:netbios-ssn:netbios-ssn:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:vnc:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:vnc:vnc:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ajp13:ajp13:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:domain:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:shell:shell:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:x11:x11:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:telnet:telnet:no:*:*:*:*:*:*:*:*",
     "cpe:2.3:a:ssh:ssh:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:ubuntu:ubuntu:8.04:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:apache/2.2.8 (ubuntu):*:*:*:*:*:*:*:*",
     "cpe:2.3:a:*:http:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:x11:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:shell:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:shell:*:*:*:*:*:*:*:*:*"
+    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:ubuntu:ubuntu:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:http/1.1:*:*:*:*:*:*:*:*"
   ],
   "vulnerabilities_found": [
-    {
-      "cve": "CVE-2011-2523",
-      "matched_cpes": [
-        "cpe:2.3:a:vsftpd_project:vsftpd:2.3.4:*:*:*:*:*:*:*"
-      ],
-      "cvss": 0.0
-    },
     {
       "cve": "CVE-2019-0232",
       "matched_cpes": [
@@ -300,27 +121,13 @@
         "cpe:2.3:a:apache:tomcat:9.0.0:milestone9:*:*:*:*:*:*"
       ],
       "cvss": 0.0
-    },
-    {
-      "cve": "CVE-2019-10149",
-      "matched_cpes": [
-        "cpe:2.3:a:exim:exim:*:*:*:*:*:*:*:*"
-      ],
-      "cvss": 0.0
-    },
-    {
-      "cve": "CVE-2019-9193",
-      "matched_cpes": [
-        "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*"
-      ],
-      "cvss": 0.0
     }
   ],
   "attack_impact": {
-    "shell_opened": {
-      "shell_type": "bash",
-      "shell_access_level": "root"
-    }
+    "shell_opened": {}
   },
-  "failed_CVEs": []
+  "failed_CVEs": [
+    "CVE-2019-0232",
+    "CVE-2019-0232"
+  ]
 }
