@@ -6,13 +6,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "7.95",
+            "name": "Ubuntu",
+            "version": "8.04",
             "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -173,13 +173,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "linux",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -213,13 +213,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -258,13 +258,13 @@
         "hostname": "NO",
         "netbios_name": "WIN-101PC56",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "7.95",
+            "name": "Ubuntu",
+            "version": "8.04",
             "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -450,13 +450,13 @@
         "hostname": "METASPLOITABLE",
         "netbios_name": "METASPLOITABLE",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": "[\"\"],",
@@ -469,7 +469,9 @@
           "issuer": "NO",
           "protocols": "NO"
         },
-        "smb_shares": []
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -480,13 +482,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": "NO",
@@ -510,16 +512,16 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": "NO",
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -540,13 +542,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -580,13 +582,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": "Since the given text does not contain any information about RPC services, the response should be:\n[\"\"]",
@@ -610,13 +612,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "7",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -627,7 +629,9 @@
             "server_version": "NO"
           }
         ],
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -650,16 +654,16 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": "NO",
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -668,7 +672,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -679,13 +686,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "7",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -696,7 +703,9 @@
             "server_version": ""
           }
         ],
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -705,7 +714,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -714,7 +726,45 @@
     "categories": {
       "target": {
         "hostname": "NO",
-        "netbios_name": "NO"
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "Apache",
+            "server_version": "2.2.8"
+          },
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "ZZ",
+          "region": "NO",
+          "city": "192.168.56.101"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "TLS/SSL protocols supported by the target: NO"
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -725,13 +775,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "{}",
         "rpc_services": "NO",
@@ -743,7 +793,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -754,13 +807,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": [
@@ -776,7 +829,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -787,13 +843,13 @@
         "hostname": "NO",
         "netbios_name": "WIN-7PC123",
         "os": {
-          "name": "linux",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "20.04",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -987,7 +1043,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "TLS/SSL protocols are not included in the provided text. Therefore, the answer is: NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -998,13 +1057,13 @@
         "hostname": "unknown",
         "netbios_name": "NO",
         "os": {
-          "name": "linux",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -1015,7 +1074,7 @@
             "server_version": "Apache/2.2.8 (Ubuntu) DAV/2 PHP/5.2.4-2ubuntu5.10"
           }
         ],
-        "rpc_services": [],
+        "rpc_services": "\"\"",
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -1024,7 +1083,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1035,13 +1097,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "linux",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "7",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -1070,7 +1132,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1081,13 +1146,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": [
@@ -1101,7 +1166,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1112,21 +1180,28 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": "[\"\"],",
         "geo_location": {
           "country": "NO",
           "region": "NO",
           "city": "NO"
-        }
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1137,13 +1212,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "7",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -1168,7 +1243,9 @@
             "server_version": ""
           }
         ],
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -1177,7 +1254,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "[SSL/TLS, HTTP, SSH]"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1188,13 +1268,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "20.04",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": [
           {
@@ -1225,7 +1305,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1236,13 +1319,13 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "ubuntu",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "[{\"port\": \"\", \"protocol\": \"tcp\", \"service\": \"http\", \"server_type\": \"nginx\", \"server_version\": \"1.18.0 (Ubuntu)\"}, {\"port\": \"\", \"protocol\": \"tcp\", \"service\": \"\", \"server_type\": \"\", \"server_version\": \"\"}],",
         "rpc_services": [
@@ -1256,7 +1339,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1267,16 +1353,18 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -1285,7 +1373,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1296,16 +1387,18 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -1314,7 +1407,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1325,16 +1421,18 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
-        "rpc_services": [],
+        "rpc_services": [
+          ""
+        ],
         "geo_location": {
           "country": "NO",
           "region": "NO",
@@ -1343,7 +1441,10 @@
         "ssl": {
           "issuer": "NO",
           "protocols": "NO"
-        }
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   },
@@ -1354,20 +1455,482 @@
         "hostname": "NO",
         "netbios_name": "NO",
         "os": {
-          "name": "NO",
+          "name": "Linux",
           "distribution": {
-            "name": "NO",
-            "version": "NO",
-            "architecture": "NO"
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
           },
-          "kernel": "NO"
+          "kernel": "2.6.24"
         },
         "services": "NO",
         "rpc_services": "NO",
         "geo_location": {
           "country": "Country: US",
           "region": "CO"
-        }
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "nmap -p 88 --script=krb5-enum-users  192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": [
+          {
+            "port": "88",
+            "protocol": "tcp",
+            "service": "kerberos-sec",
+            "server_type": "NO",
+            "server_version": "NO"
+          }
+        ],
+        "rpc_services": "[\"\"",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "nmap -sV --script=banner 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "metasploitable",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "rpc_services": [
+          {
+            "program_number": "100000",
+            "version": "2",
+            "protocol": "tcp",
+            "port": "111",
+            "service_name": "rpcbind"
+          },
+          {
+            "program_number": "100000",
+            "version": "2",
+            "protocol": "udp",
+            "port": "111",
+            "service_name": "rpcbind"
+          },
+          {
+            "program_number": "100003",
+            "version": "2,3,4",
+            "protocol": "tcp",
+            "port": "2049",
+            "service_name": "nfs"
+          },
+          {
+            "program_number": "100003",
+            "version": "2,3,4",
+            "protocol": "udp",
+            "port": "2049",
+            "service_name": "nfs"
+          },
+          {
+            "program_number": "100005",
+            "version": "1,2,3",
+            "protocol": "tcp",
+            "port": "42379",
+            "service_name": "mountd"
+          },
+          {
+            "program_number": "100005",
+            "version": "1,2,3",
+            "protocol": "udp",
+            "port": "56769",
+            "service_name": "mountd"
+          },
+          {
+            "program_number": "100021",
+            "version": "1,2,3",
+            "protocol": "tcp",
+            "port": "33818",
+            "service_name": "nlockmgr"
+          },
+          {
+            "program_number": "100021",
+            "version": "1,2,3",
+            "protocol": "udp",
+            "port": "46694",
+            "service_name": "nlockmgr"
+          },
+          {
+            "program_number": "100024",
+            "version": "1",
+            "protocol": "tcp",
+            "port": "36145",
+            "service_name": "status"
+          },
+          {
+            "program_number": "100024",
+            "version": "1",
+            "protocol": "udp",
+            "port": "38038",
+            "service_name": "status"
+          }
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "services": "{}",
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "wget http://192.168.56.101 -O -",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": [
+          {
+            "port": "80",
+            "protocol": "tcp",
+            "service": "http",
+            "server_type": "apache",
+            "server_version": "HTTP/1.1"
+          }
+        ],
+        "rpc_services": "NO",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "rpcinfo -p 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": [
+          {
+            "port": "111",
+            "protocol": "tcp",
+            "service": "portmapper",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "111",
+            "protocol": "udp",
+            "service": "portmapper",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "38038",
+            "protocol": "udp",
+            "service": "status",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "36145",
+            "protocol": "tcp",
+            "service": "status",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "udp",
+            "service": "nfs",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "udp",
+            "service": "nfs",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "46694",
+            "protocol": "udp",
+            "service": "nlockmgr",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "46694",
+            "protocol": "tcp",
+            "service": "nlockmgr",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "46694",
+            "protocol": "udp",
+            "service": "nlockmgr",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "2049",
+            "protocol": "tcp",
+            "service": "nfs",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "33818",
+            "protocol": "tcp",
+            "service": "nlockmgr",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "56769",
+            "protocol": "udp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "56769",
+            "protocol": "tcp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "42379",
+            "protocol": "tcp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "42379",
+            "protocol": "udp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "42379",
+            "protocol": "tcp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "42379",
+            "protocol": "udp",
+            "service": "mountd",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": "[{\"program_number\": \"100000\", \"version\": \"2\", \"protocol\": \"tcp\", \"port\": \"111\", \"service_name\": \"portmapper\"},\n{\"program_number\": \"100000\", \"version\": \"2\", \"protocol\": \"udp\", \"port\": \"111\", \"service_name\": \"portmapper\"},\n{\"program_number\": \"100024\", \"version\": \"1\", \"protocol\": \"udp\", \"port\": \"38038\", \"service_name\": \"status\"},\n{\"program_number\": \"100024\", \"version\": \"1\", \"protocol\": \"tcp\", \"port\": \"36145\", \"service_name\": \"status\"},\n{\"program_number\": \"100003\", \"version\": \"2\", \"protocol\": \"udp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100003\", \"version\": \"3\", \"protocol\": \"udp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100003\", \"version\": \"4\", \"protocol\": \"udp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100021\", \"version\": \"1\", \"protocol\": \"udp\", \"port\": \"46694\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100021\", \"version\": \"3\", \"protocol\": \"udp\", \"port\": \"46694\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100021\", \"version\": \"4\", \"protocol\": \"udp\", \"port\": \"46694\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100003\", \"version\": \"2\", \"protocol\": \"tcp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100003\", \"version\": \"3\", \"protocol\": \"tcp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100003\", \"version\": \"4\", \"protocol\": \"tcp\", \"port\": \"2049\", \"service_name\": \"nfs\"},\n{\"program_number\": \"100021\", \"version\": \"1\", \"protocol\": \"tcp\", \"port\": \"33818\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100021\", \"version\": \"3\", \"\nprotocol\": \"tcp\", \"port\": \"33818\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100021\", \"version\": \"4\", \"protocol\": \"tcp\", \"port\": \"33818\", \"service_name\": \"nlockmgr\"},\n{\"program_number\": \"100005\", \"version\": \"1\", \"protocol\": \"udp\", \"port\": \"56769\", \"service_name\": \"mountd\"},\n{\"program_number\": \"100005\", \"version\": \"1\", \"protocol\": \"tcp\", \"port\": \"42379\", \"service_name\": \"mountd\"},\n{\"program_number\": \"100005\", \"version\": \"2\", \"protocol\": \"udp\", \"port\": \"56769\", \"service_name\": \"mountd\"},\n{\"program_number\": \"100005\", \"version\": \"2\", \"protocol\": \"tcp\", \"port\": \"42379\", \"service_name\": \"mountd\"},\n{\"program_number\": \"100005\", \"version\": \"3\", \"protocol\": \"udp\", \"port\": \"56769\", \"service_name\": \"mountd\"},\n{\"program_number\": \"100005\", \"version\": \"3\", \"protocol\": \"tcp\", \"port\": \"42379\", \"service_name\": \"mountd\"}]",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "nmap --script=vuln 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:35:27+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+        "netbios_name": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:36:19+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:46:58+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+        "rpc_services": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:48:34+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+        "geo_location": {
+          "country": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:50:15+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+          "region": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:51:39+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+          "city": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:53:02+03:00 [COMMAND_EXIT_CODE=\"134\"]"
+        },
+        "ssl": {
+          "issuer": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:54:24+03:00 [COMMAND_EXIT_CODE=\"134\"]",
+          "protocols": "\u001b[0m\ncontext size exceeded\n/mnt/linux-data/project/code/models/llama.cpp/src/llama-context.cpp:1218: GGML_ASSERT(n_tokens_all <= cparams.n_batch) failed\nptrace: Operation not permitted.\nNo stack.\nThe program is not being run.\nScript done on 2025-05-16 02:55:49+03:00 [COMMAND_EXIT_CODE=\"134\"]"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "nmap -p 21 --script ftp-bounce 192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": [
+          {
+            "port": "",
+            "protocol": "",
+            "service": "",
+            "server_type": "",
+            "server_version": ""
+          },
+          {
+            "port": "",
+            "protocol": "",
+            "service": "",
+            "server_type": "",
+            "server_version": ""
+          }
+        ],
+        "rpc_services": "[\"\"",
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
+      }
+    }
+  },
+  {
+    "action": "curl -I http://192.168.56.101",
+    "categories": {
+      "target": {
+        "hostname": "NO",
+        "netbios_name": "NO",
+        "os": {
+          "name": "Linux",
+          "distribution": {
+            "name": "Ubuntu",
+            "version": "8.04",
+            "architecture": "x86"
+          },
+          "kernel": "2.6.24"
+        },
+        "services": "{\"port\": \"80\", \"protocol\": \"tcp\", \"service\": \"NO\", \"server_type\": \"NO\", \"server_version\": \"NO\"}",
+        "rpc_services": [
+          ""
+        ],
+        "geo_location": {
+          "country": "NO",
+          "region": "NO",
+          "city": "NO"
+        },
+        "ssl": {
+          "issuer": "NO",
+          "protocols": "NO"
+        },
+        "smb_shares": [
+          ""
+        ]
       }
     }
   }

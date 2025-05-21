@@ -8,8 +8,8 @@ DATABASES_PATH = f"{PROJECT_PATH}/code/databases"
 OS_DATASETS = f"{DATASETS_PATH}/os_datasets"
 
 # Simulation parameters
-NUM_EPISODES = 200
-MAX_STEPS_PER_EPISODE = 4
+NUM_EPISODES = 5
+MAX_STEPS_PER_EPISODE = 10
 EPSILON = 0.6
 MAX_ENCODING_FEATURES = 1024
 
@@ -572,7 +572,7 @@ For example: {{\"port\": \"\", \"protocol\": \"\", \"service\": \"\", \"server_t
 
 And most important: return it as a valid JSON.
 Very important: the JSON should be exactly like this in the order — do not change it. At the end, go over it again and check.
-Always return with [] even if there is even one item inside"""
+Always return with [""] even if there is even one item inside and alweys put "" even if they empty"""
 
 
 STATE_SCHEMA["target.rpc_services"]["llm_prompt"] = f"""List of detected RPC services running on the target:
@@ -612,7 +612,7 @@ If no SMB shares are found, return an empty list: [""].
 And most important: return it as a valid JSON.
 Very important: the JSON should be exactly like this in the order — do not change it. At the end, go over it again and check.
 Must be RPC services only and not the regular ones
-Always return with [""] even if there is even one item inside"""
+Always return with [""] even if there is even one item inside and alweys put "" even if they empty"""
 
 
 

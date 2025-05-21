@@ -173,7 +173,8 @@ class BaseAgent(ABC):
         print(f"    Loss:              {loss:.6f}")
 
         # Step 8: save experience
-        self.replay_buffer.add_experience(encoded_state, self.action_space.index(action), reward, encoded_next_state, False)
+        if self.replay_buffer is not None:
+            self.replay_buffer.add_experience(encoded_state, self.action_space.index(action), reward, encoded_next_state, False)
 
         # Step 9: log action
         self.blackboard_api.append_action_log({

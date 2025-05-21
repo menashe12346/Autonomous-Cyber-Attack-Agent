@@ -7,6 +7,7 @@ import orjson
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from config import DATASET_NVD_CVE_CPE_PATH  # ודא שאתה מייבא את זה
 
 from config import DATASET_NVD_CVE_PATH, SERVICE_FAMILIES
 from agents.base_agent import BaseAgent
@@ -60,8 +61,9 @@ class VulnAgent(BaseAgent):
         print("[+] VulnAgent running...")
         state = self.blackboard_api.get_state_for_agent(self.name)
         possible_cpes = self.generate_possible_cpes(state)
-
+        print(possible_cpes)
         found_vulns = self.match_cves_to_cpes(possible_cpes)
+        print(found_vulns)
 
         print(f"[VulnAgent] Found {len(found_vulns)} matching CVEs")
         self.blackboard_api.blackboard["cpes"] = possible_cpes
@@ -97,21 +99,29 @@ class VulnAgent(BaseAgent):
         """
         vuln_dict = {}
 
-        # שלב 1: הפק רשימת שמות שירותים מהמצב
+        # שלב 1: הפק שמות שירותים
+        state = self.blackboard_api.get_state_for_agent(self.name)
+        services = state.get("target", {}).get("services", [])
         service_names = {
             s.get("service", "").strip().lower()
-            for s in self.blackboard_api.get_state_for_agent(self.name)
-                .get("target", {})
-                .get("services", [])
+            for s in services
+            if s.get("service")
         }
+
+        for s in sorted(service_names):
+            print(f"  - {s}")
 
         # שלב 2: הרחבת שירותים לפי משפחות
         expanded_service_names = set()
         for service in service_names:
             family = SERVICE_FAMILIES.get(service, [service])
-            expanded_service_names.update(name.lower() for name in family)
+            expanded = [name.lower() for name in family]
+            expanded_service_names.update(expanded)
 
-        # שלב 3: בדוק כל CVE אם הוא תואם לאחד מהמוצרים לפי product name
+
+        # שלב 3: חיפוש התאמות בין CVE→CPE למוצרים
+        print(f"[LOG] Checking {len(self.cve_items)} CVEs for product name matches...")
+        self.cve_items = load_cve_database(DATASET_NVD_CVE_CPE_PATH)
         for item in self.cve_items:
             try:
                 cve_id = item["cve"]
@@ -121,8 +131,10 @@ class VulnAgent(BaseAgent):
                 for cpe_uri in cpes:
                     parts = cpe_uri.split(":")
                     if len(parts) < 5:
+                        print("hi")
                         continue
                     product = parts[4].strip().lower()
+
                     if product in expanded_service_names:
                         matched.append(cpe_uri)
 
@@ -130,18 +142,29 @@ class VulnAgent(BaseAgent):
                     vuln_dict[cve_id] = {
                         "cve": cve_id,
                         "matched_cpes": matched,
-                        "cvss": 0.0  # ניתן להוסיף ציונים בנפרד אם תרצה
+                        "cvss": 0.0  # ניתן לעדכן בהמשך
                     }
+                    print(f"[✓] CVE {cve_id} matched {len(matched)} CPEs")
 
             except Exception as e:
                 print(f"[!] Failed parsing CVE record: {e}")
                 continue
 
-        # שלב 4: סינון לפי CVEs שבאמת קיימים במאגר Metasploit
-        metasploit_cves = {entry["cve"] for entry in self.metasploit_dataset if "cve" in entry}
-        filtered = [v for v in vuln_dict.values() if v["cve"] in metasploit_cves]
+        print(f"[LOG] Total CVEs matched by product name: {len(vuln_dict)}")
 
+        # שלב 4: סינון לפי מאגר Metasploit
+        metasploit_cves = {entry["cve"] for entry in self.metasploit_dataset if "cve" in entry}
+        print(f"[LOG] Total CVEs in Metasploit dataset: {len(metasploit_cves)}")
+
+        filtered = []
+        for v in vuln_dict.values():
+            if v["cve"] in metasploit_cves:
+                filtered.append(v)
+                print(f"[FINAL] CVE {v['cve']} passed Metasploit filter ✅")
+
+        print(f"[LOG] Final matched CVEs after Metasploit filter: {len(filtered)}")
         return filtered
+
 
     def generate_possible_cpes(self, state_dict):
         target = state_dict.get("target", {})
@@ -207,14 +230,280 @@ def load_cve_database(path):
         return data
 
 if __name__ == "__main__":
-    from config import DATASET_NVD_CVE_CPE_PATH  # ודא שאתה מייבא את זה
 
     print("[*] Loading CVE→CPE pre-parsed dataset...")
     cve_items = load_cve_database(DATASET_NVD_CVE_CPE_PATH)
     print(f"[+] Loaded {len(cve_items)} CVE→CPE entries")
 
     # מצב בדיקה ידני
-    test_state = {'target': {'geo_location': {'city': 'Tel Aviv', 'country': '', 'region': ''}, 'hostname': 'METASPLOITABLE', 'ip': '192.168.56.101', 'netbios_name': 'WIN-101PC56', 'os': {'distribution': {'architecture': 'x86', 'name': 'ubuntu', 'version': '7.95'}, 'kernel': '', 'name': 'linux'}, 'rpc_services': [{'program_number': '111', 'version': '', 'protocol': 'tcp', 'port': '111', 'service_name': 'rpcbind'}], 'services': [{'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': '', 'server_version': ''}, {'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': '', 'server_version': ''}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': '', 'server_version': ''}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': '', 'server_version': ''}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': '', 'server_version': ''}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': '', 'server_version': ''}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': '2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': 'Apache/2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': '', 'server_version': ''}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': '', 'server_version': ''}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': '', 'server_version': ''}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '512', 'protocol': 'tcp', 'service': 'exec', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': '', 'server_version': ''}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '1099', 'protocol': 'tcp', 'service': 'rmiregistry', 'server_type': '', 'server_version': ''}, {'port': '1524', 'protocol': 'tcp', 'service': 'ingreslock', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': '', 'server_version': ''}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '3306', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '3306', 'protocol': 'tcp', 'service': 'mysql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5432', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5432', 'protocol': 'tcp', 'service': 'postgresql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5900', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5900', 'protocol': 'tcp', 'service': 'vnc', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': '', 'server_version': ''}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6667', 'protocol': 'tcp', 'service': 'irc', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '8180', 'protocol': 'tcp', 'service': 'unknown', 'server_type': '', 'server_version': ''}, {'port': '', 'protocol': '', 'service': '', 'server_type': '', 'server_version': 'NO'}], 'ssl': {'issuer': '', 'protocols': []}}, 'actions_history': ['nmap -F 192.168.56.101', 'nmap 192.168.56.101', 'httpx http://192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101'], 'cpes': [], 'vulnerabilities_found': [], 'attack_impact': {}, 'failed_CVEs': []}
+    #test_state = {'target': {'geo_location': {'city': 'Tel Aviv', 'country': '', 'region': ''}, 'hostname': 'METASPLOITABLE', 'ip': '192.168.56.101', 'netbios_name': 'WIN-101PC56', 'os': {'distribution': {'architecture': 'x86', 'name': 'ubuntu', 'version': '7.95'}, 'kernel': '', 'name': 'linux'}, 'rpc_services': [{'program_number': '111', 'version': '', 'protocol': 'tcp', 'port': '111', 'service_name': 'rpcbind'}], 'services': [{'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': '', 'server_version': ''}, {'port': '21', 'protocol': 'tcp', 'service': 'ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': '', 'server_version': ''}, {'port': '22', 'protocol': 'tcp', 'service': 'ssh', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': '', 'server_version': ''}, {'port': '23', 'protocol': 'tcp', 'service': 'telnet', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': '', 'server_version': ''}, {'port': '25', 'protocol': 'tcp', 'service': 'smtp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': '', 'server_version': ''}, {'port': '53', 'protocol': 'tcp', 'service': 'domain', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': '', 'server_version': ''}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': '2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'Apache', 'server_version': 'Apache/2.2.8 (Ubuntu)'}, {'port': '80', 'protocol': 'tcp', 'service': 'http', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': '', 'server_version': ''}, {'port': '111', 'protocol': 'tcp', 'service': 'rpcbind', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': '', 'server_version': ''}, {'port': '139', 'protocol': 'tcp', 'service': 'netbios-ssn', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': '', 'server_version': ''}, {'port': '445', 'protocol': 'tcp', 'service': 'microsoft-ds', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '512', 'protocol': 'tcp', 'service': 'exec', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': '', 'server_version': ''}, {'port': '513', 'protocol': 'tcp', 'service': 'login', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': '', 'server_version': ''}, {'port': '514', 'protocol': 'tcp', 'service': 'shell', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '1099', 'protocol': 'tcp', 'service': 'rmiregistry', 'server_type': '', 'server_version': ''}, {'port': '1524', 'protocol': 'tcp', 'service': 'ingreslock', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': '', 'server_version': ''}, {'port': '2049', 'protocol': 'tcp', 'service': 'nfs', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': '', 'server_version': ''}, {'port': '2121', 'protocol': 'tcp', 'service': 'ccproxy-ftp', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '3306', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '3306', 'protocol': 'tcp', 'service': 'mysql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5432', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5432', 'protocol': 'tcp', 'service': 'postgresql', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '5900', 'protocol': 'tcp', 'service': '', 'server_type': '', 'server_version': ''}, {'port': '5900', 'protocol': 'tcp', 'service': 'vnc', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': '', 'server_version': ''}, {'port': '6000', 'protocol': 'tcp', 'service': 'X11', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '6667', 'protocol': 'tcp', 'service': 'irc', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': '', 'server_version': ''}, {'port': '8009', 'protocol': 'tcp', 'service': 'ajp13', 'server_type': 'NO', 'server_version': 'NO'}, {'port': '8180', 'protocol': 'tcp', 'service': 'unknown', 'server_type': '', 'server_version': ''}, {'port': '', 'protocol': '', 'service': '', 'server_type': '', 'server_version': 'NO'}], 'ssl': {'issuer': '', 'protocols': []}}, 'actions_history': ['nmap -F 192.168.56.101', 'nmap 192.168.56.101', 'httpx http://192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101', 'nbtscan 192.168.56.101'], 'cpes': [], 'vulnerabilities_found': [], 'attack_impact': {}, 'failed_CVEs': []}
+
+    test_state = {
+  "target": {
+    "hostname": "",
+    "netbios_name": "",
+    "os": {
+      "name": "Linux",
+      "distribution": {
+        "name": "Ubuntu",
+        "version": "8.04",
+        "architecture": "x86"
+      },
+      "kernel": "2.6.24"
+    },
+    "services": [
+      {
+        "port": "",
+        "protocol": "",
+        "service": "",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "21",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "22",
+        "protocol": "tcp",
+        "service": "ssh",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "telnet",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "smtp",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "domain",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "rpcbind",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "139",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "microsoft-ds",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "514",
+        "protocol": "tcp",
+        "service": "shell",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "nfs",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ccproxy-ftp",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "mysql",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "postgresql",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "vnc",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "X11",
+        "server_type": "NO",
+        "server_version": "NO"
+      },
+      {
+        "port": "8009",
+        "protocol": "tcp",
+        "service": "ajp13",
+        "server_type": "NO",
+        "server_version": "NO"
+      }
+    ],
+    "rpc_services": [
+      {
+        "program_number": "",
+        "version": "",
+        "protocol": "",
+        "port": "",
+        "service_name": ""
+      },
+      {
+        "program_number": "111",
+        "version": "",
+        "protocol": "tcp",
+        "port": "111",
+        "service_name": "rpcbind"
+      }
+    ],
+    "geo_location": {
+      "country": "",
+      "region": "",
+      "city": "Tel Aviv"
+    },
+    "ssl": {
+      "issuer": "",
+      "protocols": [
+        ""
+      ]
+    },
+    "ip": "192.168.56.101"
+  },
+  "actions_history": [
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101",
+    "nmap -F 192.168.56.101"
+  ],
+  "cpes": [
+    "cpe:2.3:a:*:x11:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ccproxy-ftp:ccproxy-ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:postgresql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ccproxy-ftp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:rpcbind:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:telnet:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:x11:x11:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ccproxy-ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:domain:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:netbios-ssn:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:vnc:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ccproxy-ftp:ccproxy-ftp:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:login:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:ubuntu:ubuntu:8.04:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:microsoft-ds:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:netbios-ssn:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ajp13:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:microsoft-ds:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:x11:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:ajp13:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:x11:x11:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:microsoft-ds:microsoft-ds:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:smtp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:microsoft-ds:microsoft-ds:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:shell:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:ajp13:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:postgresql:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:mysql:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:nfs:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:ubuntu:ubuntu:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:smtp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:smtp:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:netbios-ssn:*:*:*:*:*:*:*:*"
+  ],
+  "vulnerabilities_found": [],
+  "attack_impact": {},
+  "failed_CVEs": []
+}
 
     class DummyBlackboardAPI:
         def get_state_for_agent(self, name):

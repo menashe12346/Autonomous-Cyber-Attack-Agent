@@ -13,7 +13,7 @@ class LlamaModel(BaseLLM):
     Supports single or multiple prompts with contextual memory.
     """
 
-    def __init__(self, context_size=3000):
+    def __init__(self, context_size=8000):
         self.context_size= context_size
         
         print("✅ Llama Model initialized successfully.")

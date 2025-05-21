@@ -74,10 +74,10 @@ class ScenarioOrchestrator:
     """
 
     def step(self):
-        if self.current_step % 11 < 10:
+        if self.current_step < 8:
             # להריץ רק את ה־Recon בכל 10 הצעדים הראשונים
             self.agent_manager.run_recon_only_step()
-        elif self.current_step % 11 == 10:
+        else:
             # פעם אחת להריץ vuln + exploit
             self.agent_manager.run_vuln_and_exploit_step()
 

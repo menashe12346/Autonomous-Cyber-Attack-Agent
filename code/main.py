@@ -233,6 +233,13 @@ def main():
             recon_agent.decay_epsilon()
             recon_trainer.record_episode_epsilon(recon_agent.epsilon)
             epsilon = recon_agent.epsilon
+        
+        # --- Track Reward for Exploit Agent ---
+        if hasattr(exploit_agent, "episode_total_reward"):
+            exploit_trainer.record_episode_reward(exploit_agent.episode_total_reward)
+            exploit_agent.decay_epsilon()
+            exploit_trainer.record_episode_epsilon(exploit_agent.epsilon)
+
 
         # --- Train Policy Model ---
         # אימון של שניהם

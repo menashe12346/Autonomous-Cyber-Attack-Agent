@@ -11,6 +11,7 @@ def PROMPT(command_output: str, category: str) -> str:
 Extract the following field: {STATE_SCHEMA.get(category)["llm_prompt"]}
 
 Rules:
+- Must Rerurn your answeer on one line!!!
 - You will be given raw output from a scan or system command.
 - Your task is to extract ONLY the specific information you were asked to extract — no more, no less.
 - Base your answer strictly on the requested field.

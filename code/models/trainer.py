@@ -151,35 +151,64 @@ class RLModelTrainer:
     def plot_training_progress(self):
         """
         Plot the training loss curve, episode reward curve, and epsilon decay curve.
+        Includes debug logs for understanding what's missing.
         """
+        print("\n[Plotting] Starting training progress visualization...")
+
         if not self.training_history and not self.episode_rewards:
-            print("No training history or rewards to plot.")
+            print("[⚠️] No training history AND no episode rewards recorded.")
             return
 
+        if not self.training_history:
+            print("[⚠️] No training history (loss values).")
+        else:
+            print(f"[✅] Loaded {len(self.training_history)} training steps with loss values.")
+            print(f"      First 5 loss values: {self.training_history[:5]}")
+
+        if not self.episode_rewards:
+            print("[⚠️] No episode rewards.")
+        else:
+            print(f"[✅] Loaded {len(self.episode_rewards)} episodes with rewards.")
+            print(f"      First 5 rewards: {self.episode_rewards[:5]}")
+
+        if not self.episode_epsilons:
+            print("[ℹ️] No epsilon tracking detected.")
+        else:
+            print(f"[✅] Loaded {len(self.episode_epsilons)} epsilon values.")
+            print(f"      First 5 epsilons: {self.episode_epsilons[:5]}")
+
+        # Prepare x-axes
         episodes = list(range(1, len(self.episode_rewards) + 1))
         train_steps = list(range(1, len(self.training_history) + 1))
 
+        import matplotlib.pyplot as plt
         plt.figure(figsize=(18, 5))
 
         # Plot loss
-        plt.subplot(1, 3, 1)
-        plt.plot(train_steps, self.training_history, label="Loss", color="red")
-        plt.xlabel("Training Steps")
-        plt.ylabel("Loss")
-        plt.title("Training Loss Curve")
-        plt.grid(True)
-        plt.legend()
+        if self.training_history:
+            plt.subplot(1, 3, 1)
+            plt.plot(train_steps, self.training_history, label="Loss", color="red")
+            plt.xlabel("Training Steps")
+            plt.ylabel("Loss")
+            plt.title("Training Loss Curve")
+            plt.grid(True)
+            plt.legend()
+        else:
+            print("[SKIP] Skipping loss plot — no training history.")
 
-        # Plot reward
-        plt.subplot(1, 3, 2)
-        plt.plot(episodes, self.episode_rewards, label="Reward", color="green")
-        plt.xlabel("Episode")
-        plt.ylabel("Total Reward")
-        plt.title("Episode Rewards Curve")
-        plt.grid(True)
-        plt.legend()
+        # Plot rewards
+        if self.episode_rewards:
+            plt.subplot(1, 3, 2)
+            plt.plot(episodes, self.episode_rewards, label="Reward", color="green")
+            plt.xlabel("Episode")
+            plt.ylabel("Total Reward")
+            plt.title("Episode Rewards Curve")
+            plt.grid(True)
+            plt.legend()
+        else:
+            print("[SKIP] Skipping reward plot — no episode rewards.")
 
-        # Plot epsilon
+        # Plot epsilon decay
         if self.episode_epsilons:
             plt.subplot(1, 3, 3)
             plt.plot(episodes, self.episode_epsilons, label="Epsilon", color="blue")
@@ -188,6 +217,9 @@ class RLModelTrainer:
             plt.title("Epsilon Decay Curve")
             plt.grid(True)
             plt.legend()
+        else:
+            print("[SKIP] Skipping epsilon plot — no epsilon data.")
 
         plt.tight_layout()
         plt.show()
+        print("[✅] Training plots rendered.\n")
