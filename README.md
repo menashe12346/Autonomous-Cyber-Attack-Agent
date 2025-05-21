@@ -88,43 +88,79 @@ project/
 └── main.py                   # Entry point
 ```
 
-# ─────────────────────────────────────────────
+---
 
-TO DO:
+## 🧠 What Does This Framework Do?
 
- 1. vectorized learning
- 2. llama-simple-chat
- 3. Tokenizer that fits my agents
- 4. Meta-Reinforcement Learning
- 5. Communication-Based RL
- 6. Hierarchical Parallel Multi-Agent RL
- 7. ייצוג actions כגרף וביצוע GNN כלמידה
- 8. שילוב של Hierarchical Multi-Agent RL עם Meta-Reinforcement Learning ו־Self-Reflective Systems)
+This is a **fully autonomous offensive AI system** that performs reconnaissance, vulnerability analysis, and exploitation — all without human input.
 
- שלב 1: שימוש ב־state ריק למילוי
+The system operates in discrete decision steps using **Reinforcement Learning (DQN)**, **LLMs** for reasoning, and a shared state representation for coordination.
 
-    מאפשר ניצול מלא של ההקשר החדש מבלי להכביד על prompt tokens.
+---
 
-    אתה משאיר את הזיכרון אצלך (ב-blackboard) ומאפשר למודל רק להשלים חלקים חדשים – מצוין!
+## 🧩 Key Components
 
-🔹 שלב 2: Fine-Tuning על הקידוד שלך
+### 🕵️ Reconnaissance Agent (`agents/recon_agent.py`)
+- Selects the next command using DQN policy based on the current state
+- Executes network and system-level recon commands (e.g., `nmap`, `whois`, `curl`, `gobuster`)
+- Uses an LLM to interpret and extract structured information from unstructured command output
+- Updates the shared JSON state
 
-    אתה נותן למודל ללמוד איך לפענח בעצמו את השפה הסימבולית שלך (הוקטור), וזה יאפשר ביצועים מהירים בעתיד.
+---
 
-    שימוש ב־PCA / AutoEncoder / Sliding Window בשלב מאוחר יותר – מראה שאתה מתכנן לקנה מידה מראש 🧠
+### 💣 Exploit Agent (`agents/exploit_agent.py`)
+- Generates CPEs and maps them to top CVEs (via NVD)
+- Uses DQN to choose from 2,500+ Metasploit exploits
+- Executes exploits and parses results
+- Calculates reward based on exploit success/failure and feeds it back to the model
 
-# ─────────────────────────────────────────────
+---
 
-שילוב בין:
+### 📚 Shared Knowledge (Blackboard Pattern) (`blackboard/`)
+- Maintains a global, continuously updated JSON state
+- Used by all agents to synchronize and reason
+- Encodes: discovered services, ports, OS, vulnerabilities, and actions history
 
-    תכנון דינמי "מתוחכם" עם התפלגות תוצאות
+---
 
-    DQN שממשיך ללמוד מכל פרק מחדש
+### 📦 Encoders (`encoders/`)
+- Transforms raw system/agent outputs into structured state vectors for RL
+- Converts chosen actions into executable system commands
 
-זה בעצם DYNA-Q משודרג, או מה שמכונה לפעמים:
+---
 
-    "Model-Based RL with Uncertainty-aware Planning"
+### 🧠 LLM Wrapper (`models/llm_wrapper.py`)
+- Runs an instruction-following LLM (e.g., Nous-Hermes) using `llama.cpp`
+- Parses recon output (HTML, terminal, JSON) and extracts entities like services, versions, CVEs, etc.
 
+---
 
-  
-   
+### 🧪 Orchestrator (`orchestrator/`)
+- Coordinates training episodes or attack scenarios
+- Resets environment state, switches targets, logs metrics
+
+---
+
+### 🧰 Utils (`utils/`)
+- Logging, metrics, graphing tools
+- Parsing helpers and formatters
+
+---
+
+## 🔁 Reinforcement Learning Loop
+
+At each step:
+
+1. Recon Agent observes state and chooses recon command  
+2. LLM parses output → shared state is updated  
+3. Exploit Agent evaluates updated state and chooses exploit  
+4. Reward is computed → both agents' policies are updated  
+5. Loop continues until goal is achieved or time expires
+
+---
+
+## 🎯 Project Goals
+
+- Demonstrate an autonomous AI agent capable of offensive cyber operations
+- Combine symbolic reasoning (LLMs) with decision-making (RL)
+- Enable interpretable, adaptive, and scalable attack workflows
