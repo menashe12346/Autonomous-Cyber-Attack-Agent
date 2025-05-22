@@ -200,14 +200,14 @@ def main():
             metasploit_dataset=metasploit_dataset,
             exploitdb_dataset=exploitdb_dataset,
             full_exploit_dataset=full_exploit_dataset,
-            epsilon=epsilon,
+            epsilon=0.1,
             os_linux_dataset=os_linux_dataset,
             os_linux_kernel_dataset=os_linux_kernel_dataset
         )
 
         # --- Register Agents ---
-        #agents = [recon_agent, vuln_agent, exploit_agent] 
-        agents = [recon_agent]
+        agents = [recon_agent, vuln_agent, exploit_agent] 
+        #agents = [recon_agent]
         agent_manager = AgentManager(bb_api)
         agent_manager.register_agents(agents)
 
@@ -257,8 +257,8 @@ def main():
     #for episode_info in all_actions:
     #    print(f"Episode {episode_info['episode']}: {episode_info['actions']}")
 
-    recon_trainer.save_model("models/saved_models/recon_model.pth")
-    #exploit_trainer.save_model("models/saved_models/exploit_model.pth")
+    #recon_trainer.save_model("models/saved_models/recon_model.pth")
+    exploit_trainer.save_model("models/saved_models/exploit_model.pth")
     print("✅ Final trained model saved.")
 
     # --- Plot Training Curves ---

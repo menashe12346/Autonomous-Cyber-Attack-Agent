@@ -1903,5 +1903,13 @@
         ]
       }
     }
+  },
+  {
+    "action": "nmap -sV 146.190.62.39",
+    "categories": {
+      "target": {
+        "hostname": "ubuntu"
+      }
+    }
   }
 ]

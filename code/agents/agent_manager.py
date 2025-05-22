@@ -86,5 +86,5 @@ class AgentManager:
 
         for agent in self.agents:
             if agent.name.lower().startswith("exploit") and agent.should_run():
-                for i in range(2):
+                for i in range(1):
                     agent.run()

@@ -1,7 +1,7 @@
 {
   "target": {
-    "hostname": "",
-    "netbios_name": "",
+    "hostname": "unknown",
+    "netbios_name": "WIN-7PC123",
     "os": {
       "name": "Linux",
       "distribution": {
@@ -20,16 +20,427 @@
         "server_version": ""
       },
       {
-        "port": "80",
+        "port": "21",
         "protocol": "tcp",
-        "service": "http",
-        "server_type": "apache",
-        "server_version": "HTTP/1.1"
+        "service": "ftp",
+        "server_type": "vsftpd",
+        "server_version": "2.3.4"
       },
       {
         "port": "22",
         "protocol": "tcp",
         "service": "ssh",
+        "server_type": "OpenSSH",
+        "server_version": "4.7p1 Debian 8ubuntu1 (protocol 2.0)"
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "telnet",
+        "server_type": "Linux",
+        "server_version": "telnetd"
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "smtp",
+        "server_type": "Postfix",
+        "server_version": "smtpd"
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "domain",
+        "server_type": "ISC BIND",
+        "server_version": "9.4.2"
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "2.2.8 (Ubuntu) DAV/2"
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "rpcbind",
+        "server_type": "2 (RPC #100000)"
+      },
+      {
+        "port": "139",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "Samba",
+        "server_version": "3.X - 4.X (workgroup: WORKGROUP)"
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "Samba",
+        "server_version": "3.X - 4.X (workgroup: WORKGROUP)"
+      },
+      {
+        "port": "512",
+        "protocol": "tcp",
+        "service": "exec",
+        "server_type": "netkit-rsh",
+        "server_version": "rexecd"
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login",
+        "server_type": "OpenBSD or Solaris",
+        "server_version": "rlogind"
+      },
+      {
+        "port": "514",
+        "protocol": "tcp",
+        "service": "shell",
+        "server_type": "Netkit",
+        "server_version": "rshd"
+      },
+      {
+        "port": "1099",
+        "protocol": "tcp",
+        "service": "java-rmi",
+        "server_type": "GNU Classpath",
+        "server_version": "grmiregistry"
+      },
+      {
+        "port": "1524",
+        "protocol": "tcp",
+        "service": "bindshell",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "nfs",
+        "server_type": "2-4 (RPC #100003)"
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "ProFTPD",
+        "server_version": "1.3.1"
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "mysql",
+        "server_type": "MySQL",
+        "server_version": "5.0.51a-3ubuntu5"
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "postgresql",
+        "server_type": "PostgreSQL",
+        "server_version": "DB 8.3.0 - 8.3.7"
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "vnc",
+        "server_type": "VNC",
+        "server_version": "Protocol 3.3"
+      },
+      {
+        "port": "6000",
+        "protocol": "tcp",
+        "service": "X11",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "6667",
+        "protocol": "tcp",
+        "service": "irc",
+        "server_type": "UnrealIRCd",
+        "server_version": ""
+      },
+      {
+        "port": "8009",
+        "protocol": "tcp",
+        "service": "ajp13",
+        "server_type": "Apache Jserv",
+        "server_version": "(Protocol v1.3)"
+      },
+      {
+        "port": "8180",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache Tomcat/Coyote JSP engine",
+        "server_version": "1.1"
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "portmapper",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "111",
+        "protocol": "udp",
+        "service": "portmapper",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "38038",
+        "protocol": "udp",
+        "service": "status",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "36145",
+        "protocol": "tcp",
+        "service": "status",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "2049",
+        "protocol": "udp",
+        "service": "nfs",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "2049",
+        "protocol": "tcp",
+        "service": "nfs",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "46694",
+        "protocol": "udp",
+        "service": "nlockmgr",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "46694",
+        "protocol": "tcp",
+        "service": "nlockmgr",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "33818",
+        "protocol": "tcp",
+        "service": "nlockmgr",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "56769",
+        "protocol": "udp",
+        "service": "mountd",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "56769",
+        "protocol": "tcp",
+        "service": "mountd",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "42379",
+        "protocol": "tcp",
+        "service": "mountd",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "42379",
+        "protocol": "udp",
+        "service": "mountd",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "Apache/2.2.8 (Ubuntu) DAV/2 PHP/5.2.4-2ubuntu5.10"
+      },
+      {
+        "port": "21",
+        "protocol": "tcp",
+        "service": "ftp",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "22",
+        "protocol": "tcp",
+        "service": "ssh",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "23",
+        "protocol": "tcp",
+        "service": "telnet",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "25",
+        "protocol": "tcp",
+        "service": "smtp",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "53",
+        "protocol": "tcp",
+        "service": "domain",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "111",
+        "protocol": "tcp",
+        "service": "rpcbind",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "139",
+        "protocol": "tcp",
+        "service": "netbios-ssn",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "445",
+        "protocol": "tcp",
+        "service": "microsoft-ds",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "512",
+        "protocol": "tcp",
+        "service": "exec",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "513",
+        "protocol": "tcp",
+        "service": "login",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "514",
+        "protocol": "tcp",
+        "service": "shell",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "1099",
+        "protocol": "tcp",
+        "service": "rmiregistry",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "1524",
+        "protocol": "tcp",
+        "service": "ingreslock",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "2121",
+        "protocol": "tcp",
+        "service": "ccproxy-ftp",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "3306",
+        "protocol": "tcp",
+        "service": "",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "5432",
+        "protocol": "tcp",
+        "service": "",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "5900",
+        "protocol": "tcp",
+        "service": "",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "6667",
+        "protocol": "tcp",
+        "service": "irc",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "8009",
+        "protocol": "tcp",
+        "service": "ajp13",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "8180",
+        "protocol": "tcp",
+        "service": "unknown",
+        "server_type": "",
+        "server_version": ""
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "Apache/2.2.8 (Ubuntu) DAV/2"
+      },
+      {
+        "port": "443",
+        "protocol": "tcp",
+        "service": "https",
+        "server_type": "",
+        "server_version": "NO"
+      },
+      {
+        "port": "88",
+        "protocol": "tcp",
+        "service": "kerberos-sec",
         "server_type": "NO",
         "server_version": "NO"
       },
@@ -38,7 +449,28 @@
         "protocol": "tcp",
         "service": "http",
         "server_type": "Apache",
+        "server_version": "2.2.8 (Ubuntu)"
+      },
+      {
+        "port": "",
+        "protocol": "",
+        "service": "",
+        "server_type": "",
+        "server_version": "NO"
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
         "server_version": "Apache/2.2.8 (Ubuntu)"
+      },
+      {
+        "port": "80",
+        "protocol": "tcp",
+        "service": "http",
+        "server_type": "Apache",
+        "server_version": "2.2.8"
       }
     ],
     "rpc_services": [
@@ -49,12 +481,33 @@
         "port": "",
         "service_name": ""
       },
+      {
+        "program_number": "2",
+        "version": "",
+        "protocol": "tcp",
+        "port": "139",
+        "service_name": "netbios-ssn"
+      },
+      {
+        "program_number": "100000",
+        "version": "",
+        "protocol": "tcp",
+        "port": "111",
+        "service_name": "rpcbind"
+      },
+      {
+        "program_number": "100003",
+        "version": "",
+        "protocol": "tcp",
+        "port": "2049",
+        "service_name": "nfs"
+      },
       ""
     ],
     "geo_location": {
-      "country": "",
-      "region": "",
-      "city": ""
+      "country": "Israel",
+      "region": "CA",
+      "city": "Tel Aviv"
     },
     "ssl": {
       "issuer": "",
@@ -62,33 +515,148 @@
         ""
       ]
     },
-    "ip": "192.168.56.101"
+    "ip": "146.190.62.39"
   },
   "actions_history": [
-    "curl -I http://192.168.56.101",
-    "curl -I http://192.168.56.101",
-    "curl -I http://192.168.56.101",
-    "wget http://192.168.56.101 -O -",
-    "wget http://192.168.56.101 -O -",
-    "wget http://192.168.56.101 -O -",
-    "nmap -p 22 --script sshv1 192.168.56.101",
-    "nmap -p 22 --script sshv1 192.168.56.101",
-    "nmap -p 22 --script sshv1 192.168.56.101"
+    "nmap -sV 192.168.56.101",
+    "rpcinfo -p 192.168.56.101",
+    "curl -k -v http://192.168.56.101curl http://192.168.56.101/",
+    "nmap 192.168.56.101",
+    "nmap -p 80,443 --script=http-title,http-headers,http-methods 192.168.56.101",
+    "nmap -p 88 --script=krb5-enum-users  192.168.56.101",
+    "nikto -h 192.168.56.101",
+    "httpx http://192.168.56.101",
+    "whatweb http://192.168.56.101"
   ],
   "cpes": [
-    "cpe:2.3:a:ssh:ssh:no:*:*:*:*:*:*:*:*",
-    "cpe:2.3:o:ubuntu:ubuntu:8.04:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:http:apache/2.2.8 (ubuntu):*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:*:http:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:mountd:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:smtp:smtpd:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rmiregistry:rmiregistry:*:*:*:*:*:*:*:*",
     "cpe:2.3:o:ubuntu:ubuntu:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:mysql:5.0.51a-3ubuntu5:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:kerberos-sec:kerberos-sec:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:domain:9.4.2:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:x11:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:postgresql:db 8.3.0 - 8.3.7:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:netbios-ssn:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:postgresql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:rmiregistry:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:2.2.8 (ubuntu) dav/2:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:bindshell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:2.3.4:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:nlockmgr:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:kerberos-sec:kerberos-sec:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:vnc:protocol 3.3:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:exec:exec:rexecd:*:*:*:*:*:*:*:*",
     "cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:https:https:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:shell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:https:https:no:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:2.2.8:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:kerberos-sec:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mountd:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:telnet:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:telnet:telnet:telnetd:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:status:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:exec:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:portmapper:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:bindshell:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:x11:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ccproxy-ftp:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:https:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:1.3.1:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ingreslock:ingreslock:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:1.1:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:microsoft-ds:*:*:*:*:*:*:*:*",
+    "cpe:2.3:o:ubuntu:ubuntu:8.04:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:microsoft-ds:microsoft-ds:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:status:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:java-rmi:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nlockmgr:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nlockmgr:nlockmgr:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:unknown:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mountd:mountd:*:*:*:*:*:*:*:*",
     "cpe:2.3:a:http:*:*:*:*:*:*:*:*:*",
-    "cpe:2.3:a:http:http:http/1.1:*:*:*:*:*:*:*:*"
+    "cpe:2.3:a:http:http:apache/2.2.8 (ubuntu) dav/2 php/5.2.4-2ubuntu5.10:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:kerberos-sec:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:domain:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:x11:x11:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rpcbind:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ftp:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:shell:rshd:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ccproxy-ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ingreslock:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:2.2.8 (ubuntu):*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:domain:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:login:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:java-rmi:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:java-rmi:java-rmi:grmiregistry:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:apache/2.2.8 (ubuntu):*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:smtp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:irc:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:ajp13:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:exec:exec:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:https:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:status:status:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:rmiregistry:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:portmapper:portmapper:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:http:http:apache/2.2.8 (ubuntu) dav/2:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:login:login:rlogind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:netbios-ssn:netbios-ssn:3.x - 4.x (workgroup: workgroup):*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:nfs:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:irc:irc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ajp13:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:unknown:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:netbios-ssn:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:portmapper:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:mysql:mysql:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:microsoft-ds:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:exec:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ccproxy-ftp:ccproxy-ftp:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ingreslock:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ajp13:ajp13:(protocol v1.3):*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:bindshell:bindshell:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:ssh:ssh:4.7p1 debian 8ubuntu1 (protocol 2.0):*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:rpcbind:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:unknown:unknown:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:nfs:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:java-rmi:java-rmi:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:shell:*:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:vnc:vnc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:*:irc:*:*:*:*:*:*:*:*",
+    "cpe:2.3:a:smtp:smtp:*:*:*:*:*:*:*:*"
   ],
   "vulnerabilities_found": [
+    {
+      "cve": "CVE-2011-2523",
+      "matched_cpes": [
+        "cpe:2.3:a:vsftpd_project:vsftpd:2.3.4:*:*:*:*:*:*:*"
+      ],
+      "cvss": 0.0
+    },
     {
       "cve": "CVE-2019-0232",
       "matched_cpes": [
@@ -121,13 +689,22 @@
         "cpe:2.3:a:apache:tomcat:9.0.0:milestone9:*:*:*:*:*:*"
       ],
       "cvss": 0.0
+    },
+    {
+      "cve": "CVE-2019-10149",
+      "matched_cpes": [
+        "cpe:2.3:a:exim:exim:*:*:*:*:*:*:*:*"
+      ],
+      "cvss": 0.0
+    },
+    {
+      "cve": "CVE-2019-9193",
+      "matched_cpes": [
+        "cpe:2.3:a:postgresql:postgresql:*:*:*:*:*:*:*:*"
+      ],
+      "cvss": 0.0
     }
   ],
-  "attack_impact": {
-    "shell_opened": {}
-  },
-  "failed_CVEs": [
-    "CVE-2019-0232",
-    "CVE-2019-0232"
-  ]
+  "attack_impact": {},
+  "failed_CVEs": []
 }

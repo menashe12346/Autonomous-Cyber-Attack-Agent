@@ -42,6 +42,7 @@ class GuiStdout:
         self.tag = tag
         self.target_prefix = target_prefix
         self.capturing = False
+        self.success_detected = False
         # keep a handle on the real stdout/stderr so we can still write to the console
         self._orig_stdout = sys.__stdout__
         self._orig_stderr = sys.__stderr__
@@ -52,6 +53,11 @@ class GuiStdout:
             self._orig_stdout.write(msg)
         except Exception:
             pass
+        
+        if "Attack Executed Successfully" in msg:
+            self.log("\033[38;5;208mAttack Executed Successfully\033[0m", self.tag)
+            self.success_detected = True
+            return
 
         # Now filter for GUI logging
         for line in msg.splitlines():
@@ -239,7 +245,12 @@ class CyberMonitorApp:
 
         recon_cmds = get_commands_for_agent("recon")
         recon_model = PolicyModel(1024, len(recon_cmds)).to(device)
+       # טען כאן את המשקלים ששמרת ב-train
+        recon_model.load_state_dict(
+           torch.load("models/saved_models/recon_model.pth", map_location=device)
+        )
         recon_model.eval()
+
         recon_agent = ReconAgent(
             api,
             recon_model,
@@ -250,9 +261,15 @@ class CyberMonitorApp:
         vuln_agent = VulnAgent(api, cves, 0.0, os_linux, os_kernel, msf)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        exploit_cmds = [e['cve'] for e in msf if 'cve' in e]
+        exploit_cmds = list({v["cve"] for v in msf if "cve" in v})
+
 
         exploit_model = PolicyModel(1024, len(exploit_cmds)).to(device)
+        # ופה טען גם את משקלי ה-exploit agent
+        exploit_model.load_state_dict(
+            torch.load("models/saved_models/exploit_model.pth", map_location=device)
+        )
+        exploit_model.eval()
 
         exploit_agent = ExploitAgent(
             blackboard_api=api,
@@ -270,7 +287,6 @@ class CyberMonitorApp:
             os_linux_kernel_dataset=os_kernel
         )
 
-
         mgr = AgentManager(api)
         mgr.register_agents([recon_agent, vuln_agent, exploit_agent])
         orch = ScenarioOrchestrator(api, mgr, "EvaluationEpisode", self.target_ip)
@@ -279,19 +295,43 @@ class CyberMonitorApp:
 
         while True:
             orch.step()
+            """
+            # 🔍 DEBUG: show ReconAgent’s top-5 action probabilities
+            with torch.no_grad():
+                # 1. קבל את היסטוריית הפעולות (או [] אם אין)
+                actions_hist = getattr(recon_agent, "actions_history", [])
+                # 2. קודד את ה-state + היסטוריה והוסף ממד batch
+                state_tensor = recon_agent.state_encoder.encode(api.blackboard, actions_hist)
+                state_tensor = state_tensor.unsqueeze(0)        # shape: [1, feature_dim]
+                # 3. הפעל קדימה בחלק ה-policy
+                logits = recon_model(state_tensor)               # shape: [1, num_actions]
+                probs  = torch.softmax(logits, dim=-1)[0]       # shape: [num_actions]
+                # 4. בחר את 5 הפעולות המובילות
+                top_vals, top_idxs = probs.topk(5)              # שני טנסורים בגודל [5]
+                flat_idxs = top_idxs.tolist()                   # רשימת int
+                flat_vals = top_vals.tolist()                   # רשימת float
+                # 5. הדפס ל-GUI
+                self.log("🔍 Recon top5:", None)
+                for idx, p in zip(flat_idxs, flat_vals):
+                    cmd = recon_cmds[idx]
+                    self.log(f"   • {cmd} — p={p:.3f}")
+            """
 
             # בדיקה אם יש הצלחה במצב ה־blackboard
             current_state = api.blackboard
             attack_impact = current_state.get("ExploitAgent", {}).get("attack_impact", {})
 
-            if isinstance(attack_impact, dict) and "shell_opened" in attack_impact and attack_impact["shell_opened"]:
-                self.log("\n✅ Exploitation Successful! Shell Access Gained!", tag="vuln")
+            # ככה תעצור ברגע שמצאת את ההודעה
+            if captured_out.success_detected:
                 break
 
             time.sleep(REFRESH_INTERVAL)
 
 
         self.log("\n✅ Simulation Completed!", tag="vuln")
+        # שיחזור של ערוצי הפלט המקוריים
+        sys.stdout = captured_out._orig_stdout
+        sys.stderr = captured_out._orig_stderr
 
 if __name__ == "__main__":
     root = tk.Tk()
