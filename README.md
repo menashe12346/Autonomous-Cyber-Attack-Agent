@@ -164,11 +164,11 @@ At each step:
 Below are two screenshots demonstrating real-time execution of the AI offensive agent:
 
 <p align="center">
-  <img src="screenshots/screenshot_1750067604.png" alt="Recon Agent in Action" width="600"/>
+  <img src="code/screenshots/screenshot_1750067604.png" alt="Recon Agent in Action" width="600"/>
 </p>
 
 <p align="center">
-  <img src="screenshots/screenshot_1750067640.png" alt="Exploit Agent Success Example" width="600"/>
+  <img src="code/screenshots/screenshot_1750067640.png" alt="Exploit Agent Success Example" width="600"/>
 </p>
 
 Each frame captures a different phase:
