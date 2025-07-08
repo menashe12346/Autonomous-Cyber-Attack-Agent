@@ -158,21 +158,17 @@ At each step:
 5. Loop continues until goal is achieved or time expires
 
 ---
-
 ## 📸 Live Execution Snapshots
 
 Below are two screenshots demonstrating real-time execution of the AI offensive agent:
 
 <p align="center">
-  <img src="code/screenshots/screenshot_1750067604.png" alt="Recon Agent in Action" width="600"/>
-</p>
-
-<p align="center">
-  <img src="code/screenshots/screenshot_1750067640.png" alt="Exploit Agent Success Example" width="600"/>
+  <img src="code/screenshots/screenshot_1750067604.png" alt="Recon Agent in Action" width="45%" style="margin-right: 2%;">
+  <img src="code/screenshots/screenshot_1750067640.png" alt="Exploit Agent Success Example" width="45%">
 </p>
 
 Each frame captures a different phase:
-- 🕵️‍♂️ Recon Agent performing service enumeration and parsing output with the LLM
+- 🕵️‍♂️ Recon Agent performing service enumeration and parsing output with the LLM  
 - 💥 Exploit Agent launching a Metasploit module and receiving shell access
 
 ---
