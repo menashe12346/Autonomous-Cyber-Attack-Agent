@@ -1,4 +1,4 @@
-# ⚔️ Cyber-AI Offensive Framework  
+# ⚔️ Offensive Framework: Autonomous Cyber-Attack Agent 
 
 Welcome to a fully autonomous offensive AI system for cyber attacks, driven by reinforcement learning and language models.  
 
