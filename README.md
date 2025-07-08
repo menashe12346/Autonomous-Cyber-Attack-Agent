@@ -159,6 +159,24 @@ At each step:
 
 ---
 
+## 📸 Live Execution Snapshots
+
+Below are two screenshots demonstrating real-time execution of the AI offensive agent:
+
+<p align="center">
+  <img src="screenshots/screenshot_1750067604.png" alt="Recon Agent in Action" width="600"/>
+</p>
+
+<p align="center">
+  <img src="screenshots/screenshot_1750067640.png" alt="Exploit Agent Success Example" width="600"/>
+</p>
+
+Each frame captures a different phase:
+- 🕵️‍♂️ Recon Agent performing service enumeration and parsing output with the LLM
+- 💥 Exploit Agent launching a Metasploit module and receiving shell access
+
+---
+
 ## 🎯 Project Goals
 
 - Demonstrate an autonomous AI agent capable of offensive cyber operations
