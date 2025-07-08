@@ -177,4 +177,4 @@ Each frame captures a different phase:
 
 - Demonstrate an autonomous AI agent capable of offensive cyber operations
 - Combine symbolic reasoning (LLMs) with decision-making (RL)
-- Enable interpretable, adaptive, and scalable attack workflows
+- Build an attack system that's easy to follow, adjusts to new targets, and works well on any scale.
